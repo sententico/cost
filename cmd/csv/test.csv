@@ -1,0 +1,16 @@
+##
+# CSV animal file
+
+animal|count|value
+
+dog|10|100
+cat|8|0
+
+##
+# weird animals section
+  
+wombat|5|20
+wabbit|2|15
+weasel|10|40
+sloth||5
+anteater|5|12

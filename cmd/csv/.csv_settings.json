@@ -1,0 +1,16 @@
+{
+    "ab41c1eab7ab7d06e9ac0a17d5f948ab": {
+        "Cols": "animal,value",
+        "Type": "test",
+        "Ver": "v0",
+        "Date": "2020-04-30T11:29:47.1935697-04:00",
+        "Lock": true
+    },
+    "sample CSV file type entry": {
+        "Cols": "name,age",
+        "Type": "sample",
+        "Ver": "1.0",
+        "Date": "2020-04-30T09:08:07-04:00",
+        "Lock": true
+    }
+}
