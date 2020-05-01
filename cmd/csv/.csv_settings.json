@@ -4,7 +4,7 @@
         "Type": "test",
         "Ver": "v0",
         "Date": "2020-04-30T11:29:47.1935697-04:00",
-        "Lock": false
+        "Lock": true
     },
     "21dfde3ee0b586af1f25418151289233": {
         "Cols": "callingnumber after prerouting,callednumber after prerouting,callednumber after lnp,call connect time,call end time,term revenue,term revenue duration",
