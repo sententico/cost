@@ -4,13 +4,62 @@
         "Type": "test",
         "Ver": "v0",
         "Date": "2020-04-30T11:29:47.1935697-04:00",
+        "Lock": false
+    },
+    "21dfde3ee0b586af1f25418151289233": {
+        "Cols": "callingnumber after prerouting,callednumber after prerouting,callednumber after lnp,call connect time,call end time,term revenue,term revenue duration",
+        "Type": "Brightlink CDR",
+        "Ver": "Apr20",
+        "Date": "2020-04-30T14:04:11.213751102-04:00",
         "Lock": true
     },
-    "sample CSV file type entry": {
-        "Cols": "name,age",
-        "Type": "sample",
-        "Ver": "1.0",
-        "Date": "2020-04-30T09:08:07-04:00",
+    "42901c8912b380796c22245e2d1c4d1b": {
+        "Cols": "Connect time (orig.),Customer's bill time,Customer's payables (domestic currency),Disconnect time (orig.),DST Number In,LRN,SRC Number In",
+        "Type": "Brightlink CDR",
+        "Ver": "Jun18",
+        "Date": "2020-04-30T14:11:43.164540361-04:00",
+        "Lock": true
+    },
+    "559a360493ec00f29648c21a17d77064": {
+        "Cols": "Billed_TN,Other_TN,Orig_IP_Address,Term_IP_Address,Other_Country,Rated OCN,Rated LATA,Call_Date,Charge,Description,Direction,Duration",
+        "Type": "NuWave CDR",
+        "Ver": "",
+        "Date": "2020-04-30T15:08:34.138488104-04:00",
+        "Lock": true
+    },
+    "55cc8bd07b58e215ba935231534cdff6": {
+        "Cols": "Call Date,Call Time,Originating Phone Number,Originating Lata,Originating OCN,To Country Code,Dialed Number,Terminating Phone Number,Terminating Lata,Terminating OCN,Route,Call Duration,Billable Time,Billable Amount,Call Type",
+        "Type": "Intelepeer CDR",
+        "Ver": "Sep12/13/14 family",
+        "Date": "2020-04-30T14:38:05.475374797-04:00",
+        "Lock": true
+    },
+    "c2d12419585802dda9e3ba46f95f37db": {
+        "Cols": "Traffic direction,Voice / data,Called number,Date of call,Time of call,Duration in second,Amount,True conversation duration,Circuit",
+        "Type": "Tata CDR",
+        "Ver": "",
+        "Date": "2020-04-30T15:33:37.741663872-04:00",
+        "Lock": true
+    },
+    "c72628c4ebb7a293f97c5bfb8afcb78b": {
+        "Cols": "SERVTYPE,GMT_ORIGDATE,GMT_ORIGTIME,BILLINGNUM,CPN,ORIGNUM_USED,ORIG_OCN,OLATA,TERMNUM_USED,TERM_OCN,TLATA,DESTYPEUSED,CALLDUR,BILLDUR,CHARGE,FINTKGRP",
+        "Type": "Level 3 CDR",
+        "Ver": "GTO v7",
+        "Date": "2020-04-30T14:58:26.500575187-04:00",
+        "Lock": true
+    },
+    "cdd52a7b331321596dc88f6ca18d1e38": {
+        "Cols": "CallStartDateTime,CallEndDateTime,CallType,CallSource,CallDestination,Duration,Amount,SourceLATA,DestinationLATA,SourceIP,DestinationIP,LRN",
+        "Type": "Bandwidth BDR",
+        "Ver": "May15",
+        "Date": "2020-04-30T14:24:52.379622647-04:00",
+        "Lock": true
+    },
+    "f50ff06fcc7f4f701283249ba6732681": {
+        "Cols": "Start,Duration,From,To,Dial Status,Call Status,Cost,Record Type,Zone",
+        "Type": "Voxbone CDR",
+        "Ver": "Nov18",
+        "Date": "2020-04-30T17:21:36.577480348-04:00",
         "Lock": true
     }
 }

@@ -26,16 +26,17 @@ type Digest struct {
 	Cache   CacheEntry // matching file type config in settings file (if CSV with heading)
 }
 
-// CacheEntry structure ...
+// CacheEntry contains the information for a CSV file type cached in the settings file under its
+// heading's MD5 hash
 type CacheEntry struct {
-	Cols string    // column map
+	Cols string    // CSV column map
 	Type string    // file type
 	Ver  string    // file version identifier
 	Date time.Time // entry update timestamp
 	Lock bool      // entry locked to automatic updates
 }
 
-// Settings structure (external) ...
+// Settings cache from settings file mapping CSV file type info by their MD5 heading hashes
 type Settings map[string]CacheEntry
 
 var (
@@ -65,8 +66,9 @@ func SetConfig() error {
 
 // Peek returns a digest to identify the CSV (or TXT file) at "path". This digest consists of a
 // preview slice of raw data rows (without blank or comment lines), a total file row estimate, the
-// comment prefix used (if any), and if a CSV, the field separator, trimmed fields of the first
-// data row split by it, a hint whether to treat this row as a heading, and a hash if a heading.
+// comment prefix used (if any), and if a CSV, the field separator, trimmed fields of the preview
+// data rows split by it, a hint whether to treat this row as a heading, a hash if a heading, and
+// any cached info for the file type identified by the hash.
 func Peek(path string) (dig Digest, err error) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -150,11 +152,11 @@ getSep:
 	return
 }
 
-// ReadFixed returns a channel into which a goroutine writes maps of fixed-field TXT rows from file
-// at "path" keyed by "cols" (channels also provided for errors and for the caller to signal a
-// halt).  Fields selected by byte ranges in the "cols" map are trimmed of blanks; empty fields
+// ReadFixed returns a channel into which a goroutine writes maps of fixed-field TXT rows from
+// file at "path" keyed by "fcols" (channels also provided for errors and for the caller to signal
+// a halt).  Fields selected by byte ranges in "fcols" map are trimmed of blanks; empty fields
 // are suppressed; blank lines and those prefixed by "comment" are skipped.
-func ReadFixed(path, fcmap, comment string) (<-chan map[string]string, <-chan error, chan<- int) {
+func ReadFixed(path, fcols, comment string) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
 	go func() {
 		defer func() {
@@ -176,7 +178,7 @@ func ReadFixed(path, fcmap, comment string) (<-chan map[string]string, <-chan er
 				case comment != "" && strings.HasPrefix(ln, comment):
 				case wid == 0:
 					wid = len(ln)
-					if cols = parseFCMap(fcmap, wid); len(cols) == 0 {
+					if cols = parseFCMap(fcols, wid); len(cols) == 0 {
 						panic(fmt.Errorf("bad column map provided for fixed-field file %q", path))
 					}
 					continue
@@ -210,13 +212,12 @@ func ReadFixed(path, fcmap, comment string) (<-chan map[string]string, <-chan er
 	return out, err, sig
 }
 
-// Read returns a channel into which a goroutine writes field maps of CSV rows from file at
-// "path" keyed by "cols" map which also identifies select columns for extraction, or if nil, by
-// the heading in the first data row (channels also provided for errors and for the caller to
-// signal a halt).  CSV separator is "sep", or if \x00, will be inferred.  Fields are trimmed of
-// blanks and double-quotes (which may enclose separators); empty fields are suppressed; blank
-// lines and those prefixed by "comment" are skipped.
-func Read(path, cmap, comment string, sep rune) (<-chan map[string]string, <-chan error, chan<- int) {
+// Read returns a channel into which a goroutine writes field maps of CSV rows from file at "path"
+// keyed by "cols" column selector map, or if "", by the heading in the first data row (channels
+// also provided for errors and for the caller to signal a halt).  CSV separator is "sep", or if
+// \x00, will be inferred.  Fields are trimmed of blanks and double-quotes (which may enclose sep-
+// arators); empty fields are suppressed; blank lines and those prefixed by "comment" are skipped.
+func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
 	go func() {
 		defer func() {
@@ -245,7 +246,7 @@ func Read(path, cmap, comment string, sep rune) (<-chan map[string]string, <-cha
 					continue
 				case len(vcols) == 0:
 					sl, uc, sc, mc, qc := splitCSV(ln, sep), make(map[int]int), make(map[string]int), 0, make(map[string]int)
-					for c, i := range parseCMap(cmap) {
+					for c, i := range parseCMap(cols) {
 						if c = strings.Trim(c, " "); c != "" && i > 0 {
 							sc[c] = i
 							if uc[i]++; i > mc {

@@ -10,7 +10,7 @@ import (
 	"github.com/sententico/cost/internal/csv"
 )
 
-// settings structure (internal) ...
+// settings (internal) structure for caching settings file
 type settings struct {
 	read  bool
 	path  string
@@ -30,7 +30,7 @@ const (
 
 var commentSet = [...]string{"#", "//", "'"}
 
-// parseCMap ...
+// parseCMap parses a column-map string, returning the resulting map
 func parseCMap(cmap string) (m map[string]int) {
 	if cmap != "" {
 		m = make(map[string]int, 32)
@@ -48,7 +48,7 @@ func parseCMap(cmap string) (m map[string]int) {
 	return
 }
 
-// parseFCMap ...
+// parseFCMap parses a fixed-column-map string, returning the resulting map
 func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 	if fcmap == "" {
 		return map[string][2]int{"~raw": {1, wid}}
