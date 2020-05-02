@@ -38,6 +38,13 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 
 	case dig.Sep == '\x00':
 		// return open fixed-field TXT reader channels
+		switch {
+		case fcolsFlag == "":
+			fcolsFlag = dig.Cache.Cols
+		case dig.Sig != "" && !dig.Cache.Lock:
+			dig.Cache.Cols = fcolsFlag
+			dig.Cache.Date = time.Now()
+		}
 		return csv.ReadFixed(path, fcolsFlag, dig.Comment)
 	default:
 		// update column map cache & return open CSV reader channels
@@ -46,11 +53,10 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 			colsFlag = dig.Cache.Cols
 		case colsFlag == "*":
 			colsFlag = ""
-		case dig.MD5 != "" && !dig.Cache.Lock:
-			c := dig.Cache
-			c.Cols = colsFlag
-			c.Date = time.Now()
-			config[dig.MD5] = c
+		case dig.Sig != "" && !dig.Cache.Lock:
+			dig.Cache.Cols = colsFlag
+			dig.Cache.Date = time.Now()
+			config[dig.Sig] = dig.Cache
 		}
 		return csv.Read(path, colsFlag, dig.Comment, dig.Sep)
 	}

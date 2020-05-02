@@ -22,21 +22,22 @@ type Digest struct {
 	Sep     rune       // inferred field separator rune (if CSV)
 	Split   [][]string // trimmed fields of preview rows split by "sep" (if CSV)
 	Heading bool       // first row probable heading (if CSV)
-	MD5     string     // hash of heading (if CSV with heading)
-	Cache   CacheEntry // matching file type config in settings file (if CSV with heading)
+	Sig     string     // file type signature (specifier or heading MD5 hash, if determined)
+	Cache   CacheEntry // file type config in settings file matching signature (if found)
 }
 
 // CacheEntry contains the information for a CSV file type cached in the settings file under its
-// heading's MD5 hash
+// signature (specifier or heading MD5 hash)
 type CacheEntry struct {
-	Cols string    // CSV column map
+	Cols string    // column map
 	Type string    // file type
 	Ver  string    // file version identifier
 	Date time.Time // entry update timestamp
 	Lock bool      // entry locked to automatic updates
 }
 
-// Settings cache from settings file mapping CSV file type info by their MD5 heading hashes
+// Settings cache from settings file mapping file type info by signature (specifier or heading
+// MD5 hash)
 type Settings map[string]CacheEntry
 
 var (
@@ -64,11 +65,12 @@ func SetConfig() error {
 	return ioutil.WriteFile(config.path, b, 0644)
 }
 
-// Peek returns a digest to identify the CSV (or TXT file) at "path". This digest consists of a
-// preview slice of raw data rows (without blank or comment lines), a total file row estimate, the
-// comment prefix used (if any), and if a CSV, the field separator, trimmed fields of the preview
-// data rows split by it, a hint whether to treat this row as a heading, a hash if a heading, and
-// any cached info for the file type identified by the hash.
+// Peek returns a digest to identify the CSV (or fixed-field TXT file) at "path". This digest
+// consists of a preview slice of raw data rows (without blank or comment lines), a total file row
+// estimate, the comment prefix used (if any), and if a CSV, the field separator, trimmed fields
+// of the preview data rows split by it, and a hint whether to treat this row as a heading. If
+// determined, a file type signature (specifier or heading MD5 hash) with any cached info mapped
+// to it are provided.
 func Peek(path string) (dig Digest, err error) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -85,7 +87,7 @@ func Peek(path string) (dig Digest, err error) {
 		panic(fmt.Errorf("can't access %q metadata (%v)", path, e))
 	}
 	bf, row, tlen, max := bufio.NewScanner(file), -1, 0, 1
-getLine:
+nextLine:
 	for row < previewRows && bf.Scan() {
 		switch ln := bf.Text(); {
 		case len(strings.TrimLeft(ln, " ")) == 0:
@@ -95,7 +97,7 @@ getLine:
 			for _, p := range commentSet {
 				if strings.HasPrefix(ln, p) {
 					dig.Comment = p
-					continue getLine
+					continue nextLine
 				}
 			}
 			fallthrough
@@ -115,16 +117,16 @@ getLine:
 	default:
 		dig.Rows = int(float64(info.Size())/float64(tlen-len(dig.Preview[0])+row-1)*0.995+0.5) * (row - 1)
 	}
-getSep:
+nextSep:
 	for _, r := range sepSet {
 		c, sl := 0, []string{}
 		for _, ln := range dig.Preview {
 			if sl = splitCSV(ln, r); len(sl) <= max || len(sl) != c && c > 0 {
-				continue getSep
+				continue nextSep
 			}
 			for _, f := range sl {
 				if len(f) > maxFieldLen {
-					continue getSep
+					continue nextSep
 				}
 			}
 			c = len(sl)
@@ -144,11 +146,17 @@ getSep:
 				qh[h]++
 			}
 		}
-		if dig.Heading = len(qh) == max; dig.Heading {
-			dig.MD5 = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
-			dig.Cache = config.cache[dig.MD5]
-		}
+		dig.Heading = len(qh) == max
 	}
+	switch {
+	case dig.Heading:
+		dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
+	case dig.Sep == '\x00':
+		dig.Sig = searchFSig(dig)
+	default:
+		dig.Sig = searchSig(dig)
+	}
+	dig.Cache = config.cache[dig.Sig]
 	return
 }
 
@@ -214,8 +222,8 @@ func ReadFixed(path, fcols, comment string) (<-chan map[string]string, <-chan er
 
 // Read returns a channel into which a goroutine writes field maps of CSV rows from file at "path"
 // keyed by "cols" column selector map, or if "", by the heading in the first data row (channels
-// also provided for errors and for the caller to signal a halt).  CSV separator is "sep", or if
-// \x00, will be inferred.  Fields are trimmed of blanks and double-quotes (which may enclose sep-
+// also provided for errors and for the caller to signal a halt). CSV separator is "sep", or if
+// \x00, will be inferred. Fields are trimmed of blanks and double-quotes (which may enclose sep-
 // arators); empty fields are suppressed; blank lines and those prefixed by "comment" are skipped.
 func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0

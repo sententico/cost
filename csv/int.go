@@ -30,7 +30,84 @@ const (
 
 var commentSet = [...]string{"#", "//", "'"}
 
+// searchSig finds file specifier signature matching CSV digest in file type cache
+// syntax summary...
+func searchSig(dig Digest) (sig string) {
+nextEntry:
+	for sig = range config.cache {
+		if !strings.HasPrefix(sig, "="+string(dig.Sep)) {
+			continue nextEntry
+		}
+		for _, s := range dig.Split {
+		nextTerm:
+			for i, t := range strings.Split(sig[2:], ",") {
+				v, c1, c2 := strings.Split(t, ":"), 0, -1
+				switch cv := strings.Split(v[0], "$"); len(cv) {
+				default: // BUG: on error should be c2=-1
+					c2, _ = strconv.Atoi(strings.Trim(cv[1], " "))
+					fallthrough
+				case 1:
+					c1, _ = strconv.Atoi(strings.Trim(cv[0], " "))
+				}
+				switch {
+				case i == 0 && c1 != len(s):
+					continue nextEntry
+				case i == 0 || c1 <= 0:
+					continue nextTerm
+				case c1 > len(s) || c2 >= 0 && c2 != len(s[c1-1]):
+					continue nextEntry
+				case len(v) == 1:
+					continue nextTerm
+				}
+				for _, pfx := range v[1:] {
+					if strings.HasPrefix(s[c1-1], strings.TrimLeft(pfx, " ")) {
+						continue nextTerm
+					}
+				}
+				continue nextEntry
+			}
+		}
+		return
+	}
+	return ""
+}
+
+// searchFSig finds file specifier signature matching fixed-field digest in file type cache
+// syntax summary...
+func searchFSig(dig Digest) (sig string) {
+nextEntry:
+	for sig = range config.cache {
+		if !strings.HasPrefix(sig, "=h") && !strings.HasPrefix(sig, "=f") {
+			continue nextEntry
+		}
+		for i, p := range dig.Preview {
+		nextTerm:
+			for _, t := range strings.Split(sig[1:], ",") {
+				v := strings.Split(strings.TrimLeft(t, " "), ":")
+				c, _ := strconv.Atoi(strings.TrimLeft(strings.TrimRight(v[0], " "), "hf"))
+				switch {
+				case v[0] == "" || c <= 0 || !strings.ContainsAny(v[0][0:1], "hf"):
+					continue nextTerm
+				case (v[0][0] == 'h' && i == 0 || v[0][0] == 'f' && i > 0) && len(v) == 1 && c != len(p):
+					continue nextEntry
+				case len(v) == 1 || v[0][0] == 'h' && i > 0 || v[0][0] == 'f' && i == 0:
+					continue nextTerm
+				}
+				for _, pfx := range v[1:] {
+					if strings.HasPrefix(p[c-1:], pfx) {
+						continue nextTerm
+					}
+				}
+				continue nextEntry
+			}
+		}
+		return
+	}
+	return ""
+}
+
 // parseCMap parses a column-map string, returning the resulting map
+// syntax summary...
 func parseCMap(cmap string) (m map[string]int) {
 	if cmap != "" {
 		m = make(map[string]int, 32)
@@ -49,6 +126,7 @@ func parseCMap(cmap string) (m map[string]int) {
 }
 
 // parseFCMap parses a fixed-column-map string, returning the resulting map
+// syntax summar...
 func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 	if fcmap == "" {
 		return map[string][2]int{"~raw": {1, wid}}

@@ -7,6 +7,9 @@
 dog            20            100
 cat            15              0
 horse          500            50
+bird           1              10
+mouse          0.5             5
+squirrel       0.5            10
   
 // weird animal section
 //
