@@ -1,4 +1,46 @@
 {
+    "=h300,h1:0CARRIER20,f300,f1:120": {
+        "Cols": "",
+        "Type": "ATT CDR",
+        "Ver": "",
+        "Date": "2020-05-03T15:11:49.8202887-04:00",
+        "Lock": true
+    },
+    "=h250,h1:H0120,h68:CDRCUR,f250,f1:08": {
+        "Cols": "",
+        "Type": "Global Crossing CDR",
+        "Ver": "250",
+        "Date": "2020-05-01T13:30:00-04:00",
+        "Lock": true
+    },
+    "=,26,1$3:2.8,8:NTS:LTS,3$8:20,26$8:20": {
+        "Cols": "date:3,time:4,dip:5,dur:7,type:8,orig:9,olrn:11,olata:12,term:15,tlrn:16,tlata:17,ccost:20,dcost:21",
+        "Type": "Inteliquent CDR",
+        "Ver": "2.8b",
+        "Date": "2020-05-01T13:30:00-04:00",
+        "Lock": true
+    },
+    "=f902,f11:20,f18:-01,f414:GBR:EMI:MCR,f559:S:I": {
+        "Cols": "",
+        "Type": "Verizon CDR",
+        "Ver": "SIP",
+        "Date": "2020-05-01T13:30:00-04:00",
+        "Lock": true
+    },
+    "=f32,f16:0:1:2:3:4:5:6:7:8:9,f24:  ": {
+        "Cols": "animal:15,~:25,value",
+        "Type": "test fixed-field",
+        "Ver": "v0",
+        "Date": "2020-04-30T13:30:00-04:00",
+        "Lock": true
+    },
+    "ab41c1eab7ab7d06e9ac0a17d5f948ab": {
+        "Cols": "animal,value",
+        "Type": "test CSV",
+        "Ver": "v0",
+        "Date": "2020-05-03T13:45:40.9814211-04:00",
+        "Lock": true
+    },
     "21dfde3ee0b586af1f25418151289233": {
         "Cols": "callingnumber after prerouting,callednumber after prerouting,callednumber after lnp,call connect time,call end time,term revenue,term revenue duration",
         "Type": "Brightlink CDR",
@@ -25,48 +67,6 @@
         "Type": "Intelepeer CDR",
         "Ver": "Sep12/13/14 family",
         "Date": "2020-04-30T14:38:05.475374797-04:00",
-        "Lock": true
-    },
-    "=,26,1$3:2.8,8:NTS:LTS,3$8:20,26$8:20": {
-        "Cols": "date:3,time:4,dip:5,dur:7,type:8,orig:9,olrn:11,olata:12,term:15,tlrn:16,tlata:17,ccost:20,dcost:21",
-        "Type": "Inteliquent CDR",
-        "Ver": "2.8b",
-        "Date": "2020-05-01T13:30:00-04:00",
-        "Lock": true
-    },
-    "=f32,f16:0:1:2:3:4:5:6:7:8:9,f24:  ": {
-        "Cols": "animal:1:15,value:26:32",
-        "Type": "test fixed-field",
-        "Ver": "v0",
-        "Date": "2020-04-30T13:30:00-04:00",
-        "Lock": true
-    },
-    "=f902,f11:20,f18:-01,f414:GBR:EMI:MCR,f559:S:I": {
-        "Cols": "",
-        "Type": "Verizon CDR",
-        "Ver": "SIP",
-        "Date": "2020-05-01T13:30:00-04:00",
-        "Lock": false
-    },
-    "=h250,h1:H0120,h68:CDRCUR,f250,f1:08": {
-        "Cols": "",
-        "Type": "Global Crossing CDR",
-        "Ver": "250",
-        "Date": "2020-05-01T13:30:00-04:00",
-        "Lock": false
-    },
-    "=h300,h1:0CARRIER20,f300,f1:120": {
-        "Cols": "",
-        "Type": "ATT CDR",
-        "Ver": "",
-        "Date": "2020-05-01T13:30:00-04:00",
-        "Lock": false
-    },
-    "ab41c1eab7ab7d06e9ac0a17d5f948ab": {
-        "Cols": "animal,value",
-        "Type": "test CSV",
-        "Ver": "v0",
-        "Date": "2020-04-30T11:29:47.1935697-04:00",
         "Lock": true
     },
     "c2d12419585802dda9e3ba46f95f37db": {

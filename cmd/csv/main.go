@@ -14,7 +14,6 @@ var (
 	detailFlag   bool
 	colsFlag     string
 	fcolsFlag    string
-	config       csv.Settings
 	wg           sync.WaitGroup
 )
 
@@ -40,26 +39,27 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 		panic(fmt.Errorf("%v", e))
 
 	case dig.Sep == '\x00':
-		// return open fixed-field TXT reader channels
+		// update cached column map (if specified) & return fixed-field TXT reader channels
 		switch {
 		case fcolsFlag == "":
-			fcolsFlag = dig.Cache.Cols
-		case dig.Sig != "" && !dig.Cache.Lock:
-			dig.Cache.Cols = fcolsFlag
-			dig.Cache.Date = time.Now()
+			fcolsFlag = dig.Settings.Cols
+		case dig.Sig != "" && !dig.Settings.Lock:
+			dig.Settings.Cols = fcolsFlag
+			dig.Settings.Date = time.Now()
+			csv.Settings.Set(dig.Sig, dig.Settings)
 		}
 		return csv.ReadFixed(path, fcolsFlag, dig.Comment)
 	default:
-		// update column map cache & return open CSV reader channels
+		// update cached column map (if specified) & return CSV reader channels
 		switch {
 		case colsFlag == "":
-			colsFlag = dig.Cache.Cols
+			colsFlag = dig.Settings.Cols
 		case colsFlag == "*":
 			colsFlag = ""
-		case dig.Sig != "" && !dig.Cache.Lock:
-			dig.Cache.Cols = colsFlag
-			dig.Cache.Date = time.Now()
-			config[dig.Sig] = dig.Cache // BUG: operation is not thread-safe
+		case dig.Sig != "" && !dig.Settings.Lock:
+			dig.Settings.Cols = colsFlag
+			dig.Settings.Date = time.Now()
+			csv.Settings.Set(dig.Sig, dig.Settings)
 		}
 		return csv.Read(path, colsFlag, dig.Comment, dig.Sep)
 	}
@@ -67,8 +67,8 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 
 func main() {
 	flag.Parse()
-	config = csv.GetConfig(settingsFlag)
-	defer csv.SetConfig()
+	csv.Settings.Cache(settingsFlag)
+	defer csv.Settings.Write()
 	for _, file := range flag.Args() {
 		wg.Add(1)
 
@@ -92,7 +92,7 @@ func main() {
 			if e := <-err; e != nil {
 				panic(fmt.Errorf("%v", e))
 			}
-			fmt.Printf("read %d rows from [%s] file %q\n", rows, dig.Cache.Type, f)
+			fmt.Printf("read %d rows from [%s] file %q\n", rows, dig.Settings.Type, f)
 		}(file)
 	}
 	wg.Wait()

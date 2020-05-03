@@ -1,25 +1,8 @@
 package csv
 
 import (
-	"bufio"
-	"fmt"
-	"os"
 	"strconv"
 	"strings"
-
-	"github.com/sententico/cost/internal/csv"
-)
-
-// settings (internal) structure for caching settings file
-type settings struct {
-	read  bool
-	path  string
-	cache Settings
-}
-
-var (
-	config settings
-	_int   csv.Placeholder
 )
 
 const (
@@ -39,21 +22,21 @@ func atoi(s string, d int) int {
 	return i
 }
 
-// searchSig scans file type cache for CSV file specifier signature matching digest
+// searchSpec scans file type cache for CSV file specifier signature matching digest
 //   CSV file type specifier syntax:
 // 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>...]]]..."
 //   examples:
 // 		"=|35,7:INTL:DOM,12$13:20,21$3"
 //		"=,120,102$16,17$3:Mon:Tue:Wed:Thu:Fri:Sat:Sun,62$5:S :M :L :XL"
-func searchSig(dig Digest) (sig string) {
-nextEntry:
-	for sig = range config.cache {
-		if !strings.HasPrefix(sig, "="+string(dig.Sep)) {
-			continue nextEntry
+func searchSpec(dig Digest) (spec string) {
+nextSpec:
+	for _, spec = range Settings.GetSpecs() {
+		if !strings.HasPrefix(spec, "="+string(dig.Sep)) {
+			continue nextSpec
 		}
 		for _, s := range dig.Split {
 		nextTerm:
-			for i, t := range strings.Split(sig[2:], ",") {
+			for i, t := range strings.Split(spec[2:], ",") {
 				v, c1, c2 := strings.Split(t, ":"), -1, -1
 				switch cv := strings.Split(v[0], "$"); len(cv) {
 				default:
@@ -64,11 +47,11 @@ nextEntry:
 				}
 				switch {
 				case i == 0 && c1 != len(s):
-					continue nextEntry
+					continue nextSpec
 				case i == 0 || c1 <= 0:
 					continue nextTerm
 				case c1 > len(s) || c2 >= 0 && c2 != len(s[c1-1]):
-					continue nextEntry
+					continue nextSpec
 				case len(v) == 1:
 					continue nextTerm
 				}
@@ -77,7 +60,7 @@ nextEntry:
 						continue nextTerm
 					}
 				}
-				continue nextEntry
+				continue nextSpec
 			}
 		}
 		return
@@ -85,28 +68,28 @@ nextEntry:
 	return ""
 }
 
-// searchFSig scans file type cache for fixed-field file specifier signature matching digest
+// searchFSpec scans file type cache for fixed-field file specifier signature matching digest
 //   fixed-field TXT file type specifier syntax:
 // 		"=({f|h}{<cols> | <col>:<pfx>[:<pfx>]...})..."
 //   examples:
 //		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL"
 //		"=f72,f72:T:F,f20:SKU"
-func searchFSig(dig Digest) (sig string) {
-nextEntry:
-	for sig = range config.cache {
-		if !strings.HasPrefix(sig, "=h") && !strings.HasPrefix(sig, "=f") {
-			continue nextEntry
+func searchFSpec(dig Digest) (spec string) {
+nextSpec:
+	for _, spec = range Settings.GetSpecs() {
+		if !strings.HasPrefix(spec, "=h") && !strings.HasPrefix(spec, "=f") {
+			continue nextSpec
 		}
 		for i, p := range dig.Preview {
 		nextTerm:
-			for _, t := range strings.Split(sig[1:], ",") {
+			for _, t := range strings.Split(spec[1:], ",") {
 				v := strings.Split(strings.TrimLeft(t, " "), ":")
 				c := atoi(strings.TrimLeft(strings.TrimRight(v[0], " "), "hf"), -1)
 				switch {
 				case v[0] == "" || c <= 0 || !strings.ContainsAny(v[0][0:1], "hf"):
 					continue nextTerm
 				case (v[0][0] == 'h' && i == 0 || v[0][0] == 'f' && i > 0) && len(v) == 1 && c != len(p):
-					continue nextEntry
+					continue nextSpec
 				case len(v) == 1 || v[0][0] == 'h' && i > 0 || v[0][0] == 'f' && i == 0:
 					continue nextTerm
 				}
@@ -115,7 +98,7 @@ nextEntry:
 						continue nextTerm
 					}
 				}
-				continue nextEntry
+				continue nextSpec
 			}
 		}
 		return
@@ -180,62 +163,4 @@ func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 		p = b
 	}
 	return
-}
-
-// handleSig is a goroutine helper that monitors the "sig" channel; when closed, "sigv" is
-// modified
-func handleSig(sig <-chan int, sigv *int) {
-	go func() {
-		for *sigv = range sig {
-		}
-		*sigv = -1
-	}()
-}
-
-// readLn returns a channel into which a goroutine writes lines from file at "path" (channels
-// also provided for errors and for the caller to signal a halt)
-func readLn(path string) (<-chan string, <-chan error, chan<- int) {
-	out, err, sig, sigv := make(chan string, 64), make(chan error, 1), make(chan int), 0
-	go func() {
-		defer func() {
-			if e := recover(); e != nil {
-				err <- e.(error)
-			}
-			close(err)
-			close(out)
-		}()
-		file, e := os.Open(path)
-		if e != nil {
-			panic(fmt.Errorf("can't access %q (%v)", path, e))
-		}
-		defer file.Close()
-		handleSig(sig, &sigv)
-
-		ln := bufio.NewScanner(file)
-		for ; sigv == 0 && ln.Scan(); out <- ln.Text() {
-		}
-		if e := ln.Err(); e != nil {
-			panic(fmt.Errorf("problem reading %q (%v)", path, e))
-		}
-	}()
-	return out, err, sig
-}
-
-// splitCSV returns a slice of fields in "csv" split by "sep", approximately following RFC 4180
-func splitCSV(csv string, sep rune) (fields []string) {
-	field, encl := "", false
-	for _, r := range csv {
-		switch {
-		case r > '\x7e' || r != '\x09' && r < '\x20':
-			// alternatively replace non-printables with a blank: field += " "
-		case r == '"':
-			encl = !encl
-		case !encl && r == sep:
-			fields = append(fields, field)
-			field = ""
-		default:
-			field += string(r)
-		}
-	}
-	return append(fields, field)
 }

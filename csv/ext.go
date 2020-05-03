@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sententico/cost/internal/csv"
@@ -16,60 +17,104 @@ import (
 
 // Digest structure summarizing a CSV/TXT file for identification
 type Digest struct {
-	Preview []string   // preview rows (excluding non-blank non-comment lines)
-	Rows    int        // estimated total file rows
-	Comment string     // inferred comment line prefix
-	Sep     rune       // inferred field separator rune (if CSV)
-	Split   [][]string // trimmed fields of preview rows split by "sep" (if CSV)
-	Heading bool       // first row probable heading (if CSV)
-	Sig     string     // file type signature (specifier or heading MD5 hash, if determined)
-	Cache   CacheEntry // file type config in settings file matching signature (if found)
+	Preview  []string      // preview rows (excluding non-blank non-comment lines)
+	Rows     int           // estimated total file rows
+	Comment  string        // inferred comment line prefix
+	Sep      rune          // inferred field separator rune (if CSV)
+	Split    [][]string    // trimmed fields of preview rows split by "sep" (if CSV)
+	Heading  bool          // first row probable heading (if CSV)
+	Sig      string        // file-type signature (specifier or heading MD5 hash, if determined)
+	Settings SettingsEntry // file-type settings from settings file under signature (if found)
 }
 
-// CacheEntry contains the information for a CSV file type cached in the settings file under its
-// signature (specifier or heading MD5 hash)
-type CacheEntry struct {
+// SettingsEntry contains information for a CSV file-type cached from the settings file under
+// its signature (specifier or heading MD5 hash)
+type SettingsEntry struct {
 	Cols string    // column map
-	Type string    // file type
+	Type string    // file-type ID
 	Ver  string    // file version identifier
 	Date time.Time // entry update timestamp
 	Lock bool      // entry locked to automatic updates
 }
 
-// Settings cache from settings file mapping file type info by signature (specifier or heading
+// SettingsCache for settings file mapping file-type info by signature (specifier or heading
 // MD5 hash)
-type Settings map[string]CacheEntry
-
-var (
-	_ext csv.Placeholder
-)
-
-// GetConfig returns a reference to the config read from settings file at "path"
-func GetConfig(path string) Settings {
-	config.path = path
-	if b, err := ioutil.ReadFile(path); err == nil {
-		config.read = json.Unmarshal(b, &config.cache) == nil
-	}
-	if config.cache == nil {
-		config.cache = make(Settings)
-	}
-	return config.cache
+type SettingsCache struct {
+	read  bool
+	path  string
+	mutex *sync.Mutex
+	cache map[string]SettingsEntry
 }
 
-// SetConfig writes config back to settings file
-func SetConfig() error {
-	b, err := json.MarshalIndent(config.cache, "", "    ")
+// Settings global holds setting cache from settings file
+var Settings SettingsCache
+
+// init performs initialization for the package
+func init() {
+	Settings.mutex = &sync.Mutex{}
+}
+
+// Cache method on SettingsCache reads JSON file-type settings file into cache
+func (settings *SettingsCache) Cache(path string) (err error) {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	var b []byte
+	settings.path, settings.read = path, false
+	if b, err = ioutil.ReadFile(path); err == nil {
+		err = json.Unmarshal(b, &settings.cache)
+		settings.read = err == nil
+	}
+	if !settings.read {
+		settings.cache = make(map[string]SettingsEntry)
+	}
+	return
+}
+
+// Write method on SettingsCache writes (potentially modified) cached file-type settings back to
+// the JSON settings file
+func (settings *SettingsCache) Write() error {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+
+	b, err := json.MarshalIndent(settings.cache, "", "    ")
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(config.path, b, 0644)
+	return ioutil.WriteFile(settings.path, b, 0644)
+}
+
+// Get method on SettingsCache returns cache entry under file-type signature
+func (settings *SettingsCache) Get(sig string) SettingsEntry {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	return settings.cache[sig]
+}
+
+// GetSpecs method on SettingsCache returns list of file-type specifications in the settings cache
+func (settings *SettingsCache) GetSpecs() (specs []string) {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	for sig := range settings.cache {
+		if strings.HasPrefix(sig, "=") && len(sig) > 2 {
+			specs = append(specs, sig)
+		}
+	}
+	return
+}
+
+// Set method on SettingsCache returns entry set in settings cache under file-type signature
+func (settings *SettingsCache) Set(sig string, entry SettingsEntry) SettingsEntry {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	settings.cache[sig] = entry
+	return entry
 }
 
 // Peek returns a digest to identify the CSV (or fixed-field TXT file) at "path". This digest
 // consists of a preview slice of raw data rows (without blank or comment lines), a total file row
 // estimate, the comment prefix used (if any), and if a CSV, the field separator, trimmed fields
 // of the preview data rows split by it, and a hint whether to treat this row as a heading. If
-// determined, a file type signature (specifier or heading MD5 hash) with any cached info mapped
+// determined, a file-type signature (specifier or heading MD5 hash) with any cached info mapped
 // to it are provided.
 func Peek(path string) (dig Digest, err error) {
 	defer func() {
@@ -121,7 +166,7 @@ nextSep:
 	for _, r := range sepSet {
 		c, sl := 0, []string{}
 		for _, ln := range dig.Preview {
-			if sl = splitCSV(ln, r); len(sl) <= max || len(sl) != c && c > 0 {
+			if sl = csv.SplitCSV(ln, r); len(sl) <= max || len(sl) != c && c > 0 {
 				continue nextSep
 			}
 			for _, f := range sl {
@@ -136,7 +181,7 @@ nextSep:
 	if dig.Sep != '\x00' {
 		for rc, r := range dig.Preview {
 			dig.Split = append(dig.Split, []string{})
-			for _, f := range splitCSV(r, dig.Sep) {
+			for _, f := range csv.SplitCSV(r, dig.Sep) {
 				dig.Split[rc] = append(dig.Split[rc], strings.Trim(f, " "))
 			}
 		}
@@ -152,17 +197,17 @@ nextSep:
 	case dig.Heading:
 		dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
 	case dig.Sep == '\x00':
-		dig.Sig = searchFSig(dig)
+		dig.Sig = searchFSpec(dig)
 	default:
-		dig.Sig = searchSig(dig)
+		dig.Sig = searchSpec(dig)
 	}
-	dig.Cache = config.cache[dig.Sig]
+	dig.Settings = Settings.Get(dig.Sig)
 	return
 }
 
 // ReadFixed returns a channel into which a goroutine writes maps of fixed-field TXT rows from
 // file at "path" keyed by "fcols" (channels also provided for errors and for the caller to signal
-// a halt).  Fields selected by byte ranges in "fcols" map are trimmed of blanks; empty fields
+// a halt).  Fields selected by column ranges in "fcols" map are trimmed of blanks; empty fields
 // are suppressed; blank lines and those prefixed by "comment" are skipped.
 func ReadFixed(path, fcols, comment string) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
@@ -174,9 +219,9 @@ func ReadFixed(path, fcols, comment string) (<-chan map[string]string, <-chan er
 			close(err)
 			close(out)
 		}()
-		in, ierr, isig := readLn(path)
+		in, ierr, isig := csv.ReadLn(path)
 		defer close(isig)
-		handleSig(sig, &sigv)
+		csv.HandleSig(sig, &sigv)
 
 		cols, wid, line, algn := map[string][2]int{}, 0, 0, 0
 		for ln := range in {
@@ -235,9 +280,9 @@ func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-cha
 			close(err)
 			close(out)
 		}()
-		in, ierr, isig := readLn(path)
+		in, ierr, isig := csv.ReadLn(path)
 		defer close(isig)
-		handleSig(sig, &sigv)
+		csv.HandleSig(sig, &sigv)
 
 		vcols, wid, line, algn := make(map[string]int, 32), 0, 0, 0
 		for ln := range in {
@@ -247,13 +292,13 @@ func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-cha
 				case comment != "" && strings.HasPrefix(ln, comment):
 				case sep == '\x00':
 					for _, r := range sepSet {
-						if c := len(splitCSV(ln, r)); c > wid {
+						if c := len(csv.SplitCSV(ln, r)); c > wid {
 							wid, sep = c, r
 						}
 					}
 					continue
 				case len(vcols) == 0:
-					sl, uc, sc, mc, qc := splitCSV(ln, sep), make(map[int]int), make(map[string]int), 0, make(map[string]int)
+					sl, uc, sc, mc, qc := csv.SplitCSV(ln, sep), make(map[int]int), make(map[string]int), 0, make(map[string]int)
 					for c, i := range parseCMap(cols) {
 						if c = strings.Trim(c, " "); c != "" && i > 0 {
 							sc[c] = i
@@ -289,7 +334,7 @@ func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-cha
 					}
 
 				default:
-					if sl := splitCSV(ln, sep); len(sl) == wid {
+					if sl := csv.SplitCSV(ln, sep); len(sl) == wid {
 						m, heading := make(map[string]string, len(vcols)), true
 						for c, i := range vcols {
 							f := strings.Trim(sl[i-1], " ")
