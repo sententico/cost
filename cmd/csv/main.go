@@ -19,13 +19,16 @@ var (
 )
 
 func init() { // set up command-line flags
-	flag.StringVar(&settingsFlag, "s", ".csv_settings.json", fmt.Sprintf("specify settings `file`"))
+	flag.StringVar(&settingsFlag, "s", ".csv_settings.json", fmt.Sprintf("file-type settings `file`"))
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
-	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("specify CSV column `map`, like \"name:2,age:5\""))
-	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("specify fixed-column `map`, like \"name:10:35,age:40:42\""))
-
+	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column `map`, like...   "+
+		"\"name:2,age:5\",\t\t"+
+		"(\"(<cnam>[:<col>])...\")"))
+	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column `map`, like... "+
+		"\"name:20,~:39,age:42\",\t"+
+		"(\"{{<cnam>|~}:<ecol> | <cnam>:<bcol>:<ecol>}...[<cnam>]\")"))
 	flag.Usage = func() {
-		fmt.Printf("command usage: gt <flags>\n")
+		fmt.Printf("command usage: csv [-<flags>]... <csvfile>...\n")
 		flag.PrintDefaults()
 	}
 }
@@ -56,7 +59,7 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 		case dig.Sig != "" && !dig.Cache.Lock:
 			dig.Cache.Cols = colsFlag
 			dig.Cache.Date = time.Now()
-			config[dig.Sig] = dig.Cache
+			config[dig.Sig] = dig.Cache // BUG: operation is not thread-safe
 		}
 		return csv.Read(path, colsFlag, dig.Comment, dig.Sep)
 	}

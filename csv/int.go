@@ -24,14 +24,27 @@ var (
 
 const (
 	previewRows = 6        // number of preview rows returned by Peek
-	sepSet      = ",\t|;:" // order of separator runes automatically checked if none specified
+	sepSet      = ",\t|;:" // priority of separator runes automatically checked if none specified
 	maxFieldLen = 256      // maximum field size allowed for Peek to qualify a separator
 )
 
 var commentSet = [...]string{"#", "//", "'"}
 
-// searchSig finds file specifier signature matching CSV digest in file type cache
-// syntax summary...
+// atoi is a helper string-to-int function with selectable default value on error
+func atoi(s string, d int) int {
+	i, e := strconv.Atoi(s)
+	if e != nil {
+		return d
+	}
+	return i
+}
+
+// searchSig scans file type cache for CSV file specifier signature matching digest
+//   CSV file type specifier syntax:
+// 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>...]]]..."
+//   examples:
+// 		"=|35,7:INTL:DOM,12$13:20,21$3"
+//		"=,120,102$16,17$3:Mon:Tue:Wed:Thu:Fri:Sat:Sun,62$5:S :M :L :XL"
 func searchSig(dig Digest) (sig string) {
 nextEntry:
 	for sig = range config.cache {
@@ -41,13 +54,13 @@ nextEntry:
 		for _, s := range dig.Split {
 		nextTerm:
 			for i, t := range strings.Split(sig[2:], ",") {
-				v, c1, c2 := strings.Split(t, ":"), 0, -1
+				v, c1, c2 := strings.Split(t, ":"), -1, -1
 				switch cv := strings.Split(v[0], "$"); len(cv) {
-				default: // BUG: on error should be c2=-1
-					c2, _ = strconv.Atoi(strings.Trim(cv[1], " "))
+				default:
+					c2 = atoi(strings.Trim(cv[1], " "), -1)
 					fallthrough
 				case 1:
-					c1, _ = strconv.Atoi(strings.Trim(cv[0], " "))
+					c1 = atoi(strings.Trim(cv[0], " "), -1)
 				}
 				switch {
 				case i == 0 && c1 != len(s):
@@ -72,8 +85,12 @@ nextEntry:
 	return ""
 }
 
-// searchFSig finds file specifier signature matching fixed-field digest in file type cache
-// syntax summary...
+// searchFSig scans file type cache for fixed-field file specifier signature matching digest
+//   fixed-field TXT file type specifier syntax:
+// 		"=({f|h}{<cols> | <col>:<pfx>[:<pfx>]...})..."
+//   examples:
+//		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL"
+//		"=f72,f72:T:F,f20:SKU"
 func searchFSig(dig Digest) (sig string) {
 nextEntry:
 	for sig = range config.cache {
@@ -84,7 +101,7 @@ nextEntry:
 		nextTerm:
 			for _, t := range strings.Split(sig[1:], ",") {
 				v := strings.Split(strings.TrimLeft(t, " "), ":")
-				c, _ := strconv.Atoi(strings.TrimLeft(strings.TrimRight(v[0], " "), "hf"))
+				c := atoi(strings.TrimLeft(strings.TrimRight(v[0], " "), "hf"), -1)
 				switch {
 				case v[0] == "" || c <= 0 || !strings.ContainsAny(v[0][0:1], "hf"):
 					continue nextTerm
@@ -107,17 +124,23 @@ nextEntry:
 }
 
 // parseCMap parses a column-map string, returning the resulting map
-// syntax summary...
+//   CSV file type column-map syntax:
+//		"(<cnam>[:<col>])..."
+//   examples:
+//		"name,age,income"
+//		"name:1,age:4,income:13"
 func parseCMap(cmap string) (m map[string]int) {
 	if cmap != "" {
 		m = make(map[string]int, 32)
 		for i, t := range strings.Split(cmap, ",") {
 			switch v := strings.Split(t, ":"); len(v) {
 			case 1:
-				m[strings.Trim(v[0], " ")] = i + 1
+				if n := strings.Trim(v[0], " "); n != "" {
+					m[n] = i + 1
+				}
 			default:
-				if c, _ := strconv.Atoi(v[1]); c > 0 {
-					m[strings.Trim(v[0], " ")] = c
+				if n, c := strings.Trim(v[0], " "), atoi(v[1], -1); n != "" && c > 0 {
+					m[n] = c
 				}
 			}
 		}
@@ -126,29 +149,32 @@ func parseCMap(cmap string) (m map[string]int) {
 }
 
 // parseFCMap parses a fixed-column-map string, returning the resulting map
-// syntax summar...
+//   fixed-field TXT file type column-map syntax:
+//		"{{<cnam>|~}:<ecol> | <cnam>:<bcol>:<ecol>}...[<cnam>]"
+//   examples:
+//		"name:20,~:62,age:65,~:122,income"
+//		"name:1:20,age:63:65,income:123:132"
 func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 	if fcmap == "" {
 		return map[string][2]int{"~raw": {1, wid}}
 	}
 	m = make(map[string][2]int, 32)
-	a, b, p := 0, 0, 0
+	a, b, p, n := 0, 0, 0, ""
 	for _, t := range strings.Split(fcmap, ",") {
 		switch v := strings.Split(t, ":"); len(v) {
 		case 1:
-			if p < wid {
-				m[strings.Trim(v[0], " ")] = [2]int{p + 1, wid}
+			if n, b = strings.Trim(v[0], " "), wid; n != "" && n != "~" && p < wid {
+				m[n] = [2]int{p + 1, wid}
 			}
-			continue
 		case 2:
-			if b, _ = strconv.Atoi(v[1]); b > p && b <= wid {
-				m[strings.Trim(v[0], " ")] = [2]int{p + 1, b}
+			if n, b = strings.Trim(v[0], " "), atoi(v[1], -1); n != "" && n != "~" &&
+				b > p && b <= wid {
+				m[n] = [2]int{p + 1, b}
 			}
 		default:
-			a, _ = strconv.Atoi(v[1])
-			b, _ = strconv.Atoi(v[2])
-			if a > 0 && b >= a && b <= wid {
-				m[strings.Trim(v[0], " ")] = [2]int{a, b}
+			if n, a, b = strings.Trim(v[0], " "), atoi(v[1], -1), atoi(v[2], -1); n != "" && n != "~" &&
+				a > 0 && b >= a && b <= wid {
+				m[n] = [2]int{a, b}
 			}
 		}
 		p = b
@@ -156,7 +182,8 @@ func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 	return
 }
 
-// handleSig is a goroutine that monitors the "sig" channel; when closed, "sigv" is modified
+// handleSig is a goroutine helper that monitors the "sig" channel; when closed, "sigv" is
+// modified
 func handleSig(sig <-chan int, sigv *int) {
 	go func() {
 		for *sigv = range sig {
@@ -166,7 +193,7 @@ func handleSig(sig <-chan int, sigv *int) {
 }
 
 // readLn returns a channel into which a goroutine writes lines from file at "path" (channels
-// also provided for errors and for the caller to signal a halt).
+// also provided for errors and for the caller to signal a halt)
 func readLn(path string) (<-chan string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan string, 64), make(chan error, 1), make(chan int), 0
 	go func() {
