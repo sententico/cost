@@ -42,17 +42,12 @@ type SettingsEntry struct {
 type SettingsCache struct {
 	read  bool
 	path  string
-	mutex *sync.Mutex
+	mutex sync.Mutex
 	cache map[string]SettingsEntry
 }
 
 // Settings global holds setting cache from settings file
 var Settings SettingsCache
-
-// init performs initialization for the package
-func init() {
-	Settings.mutex = &sync.Mutex{}
-}
 
 // Cache method on SettingsCache reads JSON file-type settings file into cache
 func (settings *SettingsCache) Cache(path string) (err error) {
