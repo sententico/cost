@@ -37,9 +37,9 @@ type SettingsEntry struct {
 	Lock bool      // entry locked to automatic updates
 }
 
-// SettingsCache for settings file mapping file-type info by signature (specifier or heading
+// settingsCache for settings file mapping file-type info by signature (specifier or heading
 // MD5 hash)
-type SettingsCache struct {
+type settingsCache struct {
 	read  bool
 	path  string
 	mutex sync.Mutex
@@ -47,10 +47,10 @@ type SettingsCache struct {
 }
 
 // Settings global holds setting cache from settings file
-var Settings SettingsCache
+var Settings *settingsCache = &settingsCache{}
 
 // Cache method on SettingsCache reads JSON file-type settings file into cache
-func (settings *SettingsCache) Cache(path string) (err error) {
+func (settings *settingsCache) Cache(path string) (err error) {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
 	var b []byte
@@ -67,7 +67,7 @@ func (settings *SettingsCache) Cache(path string) (err error) {
 
 // Write method on SettingsCache writes (potentially modified) cached file-type settings back to
 // the JSON settings file
-func (settings *SettingsCache) Write() error {
+func (settings *settingsCache) Write() error {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
 
@@ -79,14 +79,14 @@ func (settings *SettingsCache) Write() error {
 }
 
 // Get method on SettingsCache returns cache entry under file-type signature
-func (settings *SettingsCache) Get(sig string) SettingsEntry {
+func (settings *settingsCache) Get(sig string) SettingsEntry {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
 	return settings.cache[sig]
 }
 
 // GetSpecs method on SettingsCache returns list of file-type specifications in the settings cache
-func (settings *SettingsCache) GetSpecs() (specs []string) {
+func (settings *settingsCache) GetSpecs() (specs []string) {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
 	for sig := range settings.cache {
@@ -98,7 +98,7 @@ func (settings *SettingsCache) GetSpecs() (specs []string) {
 }
 
 // Set method on SettingsCache returns entry set in settings cache under file-type signature
-func (settings *SettingsCache) Set(sig string, entry SettingsEntry) SettingsEntry {
+func (settings *settingsCache) Set(sig string, entry SettingsEntry) SettingsEntry {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
 	settings.cache[sig] = entry

@@ -3,7 +3,7 @@ This is an (expanding) collection of Go packages supporting cloud services cost 
 To use the packages in this module, add an import in your Go code and call it:
 
 ```
-import "github.com/sententico/cost/csv
+import "github.com/sententico/cost/csv"
 
 //...later
 digest, err := csv.Peek(path)

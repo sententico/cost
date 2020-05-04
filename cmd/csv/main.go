@@ -39,6 +39,7 @@ func init() {
 
 func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan error, chan<- int) {
 	var e error
+	var cols string
 	switch *dig, e = csv.Peek(path); {
 	case e != nil:
 		panic(fmt.Errorf("%v", e))
@@ -47,26 +48,25 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 		// update cached column map (if specified) & return fixed-field TXT reader channels
 		switch {
 		case fcolsFlag == "":
-			fcolsFlag = dig.Settings.Cols
+			cols = dig.Settings.Cols
 		case dig.Sig != "" && !dig.Settings.Lock:
-			dig.Settings.Cols = fcolsFlag
+			cols, dig.Settings.Cols = fcolsFlag, fcolsFlag
 			dig.Settings.Date = time.Now()
 			csv.Settings.Set(dig.Sig, dig.Settings)
 		}
-		return csv.ReadFixed(path, fcolsFlag, dig.Comment)
+		return csv.ReadFixed(path, cols, dig.Comment)
 	default:
 		// update cached column map (if specified) & return CSV reader channels
 		switch {
 		case colsFlag == "":
-			colsFlag = dig.Settings.Cols
+			cols = dig.Settings.Cols
 		case colsFlag == "*":
-			colsFlag = ""
 		case dig.Sig != "" && !dig.Settings.Lock:
-			dig.Settings.Cols = colsFlag
+			cols, dig.Settings.Cols = colsFlag, colsFlag
 			dig.Settings.Date = time.Now()
 			csv.Settings.Set(dig.Sig, dig.Settings)
 		}
-		return csv.Read(path, colsFlag, dig.Comment, dig.Sep)
+		return csv.Read(path, cols, dig.Comment, dig.Sep)
 	}
 }
 
