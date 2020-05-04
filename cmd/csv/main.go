@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -69,31 +70,37 @@ func main() {
 	flag.Parse()
 	csv.Settings.Cache(settingsFlag)
 	defer csv.Settings.Write()
-	for _, file := range flag.Args() {
-		wg.Add(1)
+	for _, arg := range flag.Args() {
+		files, _ := filepath.Glob(arg)
+		if len(files) == 0 {
+			files = []string{arg}
+		}
+		for _, file := range files {
+			wg.Add(1)
 
-		go func(f string) { // one go routine started per file
-			defer func() {
-				if e := recover(); e != nil {
-					fmt.Printf("%v\n", e)
-				}
-				defer wg.Done()
-			}()
-			var dig csv.Digest
-			in, err, sig := peekOpen(f, &dig)
-			defer close(sig)
+			go func(f string) { // one go routine started per file
+				defer func() {
+					if e := recover(); e != nil {
+						fmt.Printf("%v\n", e)
+					}
+					defer wg.Done()
+				}()
+				var dig csv.Digest
+				in, err, sig := peekOpen(f, &dig)
+				defer close(sig)
 
-			rows := 0
-			for row := range in {
-				if rows++; detailFlag {
-					fmt.Println(row)
+				rows := 0
+				for row := range in {
+					if rows++; detailFlag {
+						fmt.Println(row)
+					}
 				}
-			}
-			if e := <-err; e != nil {
-				panic(fmt.Errorf("%v", e))
-			}
-			fmt.Printf("read %d rows from [%s] file %q\n", rows, dig.Settings.Type, f)
-		}(file)
+				if e := <-err; e != nil {
+					panic(fmt.Errorf("%v", e))
+				}
+				fmt.Printf("read %d rows from [%s] file %q\n", rows, dig.Settings.Type, f)
+			}(file)
+		}
 	}
 	wg.Wait()
 }
