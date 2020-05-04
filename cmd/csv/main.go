@@ -18,8 +18,9 @@ var (
 	wg           sync.WaitGroup
 )
 
-func init() { // set up command-line flags
-	flag.StringVar(&settingsFlag, "s", ".csv_settings.json", fmt.Sprintf("file-type settings `file`"))
+func init() {
+	// set up command-line flags
+	flag.StringVar(&settingsFlag, "s", ".csv_settings.json", fmt.Sprintf("file-type settings `file` with column maps"))
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column `map`, like...   "+
 		"\"name:2,age:5\",\t\t"+
@@ -27,8 +28,11 @@ func init() { // set up command-line flags
 	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column `map`, like... "+
 		"\"name:20,~:39,age:42\",\t"+
 		"(\"{{<cnam>|~}:<ecol> | <cnam>:<bcol>:<ecol>}...[<cnam>]\")"))
+
+	// call on ErrHelp
 	flag.Usage = func() {
-		fmt.Printf("command usage: csv [-<flags>]... <csvfile>...\n")
+		fmt.Printf("command usage: csv [-d] [-cols \"<map>\"] [-fcols \"<map>\"] [-s <file>] <csvfile> [<csvfile> ...]" +
+			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column selection maps\n\n")
 		flag.PrintDefaults()
 	}
 }
@@ -85,11 +89,10 @@ func main() {
 					}
 					defer wg.Done()
 				}()
-				var dig csv.Digest
+				dig, rows := csv.Digest{}, 0
 				in, err, sig := peekOpen(f, &dig)
 				defer close(sig)
 
-				rows := 0
 				for row := range in {
 					if rows++; detailFlag {
 						fmt.Println(row)
