@@ -2,6 +2,7 @@ package csv
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -329,14 +330,17 @@ func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-cha
 					}
 
 				default:
-					if sl := csv.SplitCSV(ln, sep); len(sl) == wid {
-						m, heading := make(map[string]string, len(vcols)), true
+					if b, sl := csv.SliceCSV(ln, sep); len(sl)-1 == wid {
+						m, f, heading := make(map[string]string, len(vcols)), "", true
 						for c, i := range vcols {
-							f := strings.Trim(sl[i-1], " ")
-							if len(f) > 0 {
-								m[c] = f
+							if sl[i-1] == sl[i] {
+								heading = false
+							} else if bs := bytes.Trim(b[sl[i-1]:sl[i]], " "); len(bs) > 0 {
+								f = string(bs)
+								m[c], heading = f, heading && f == c
+							} else {
+								heading = false
 							}
-							heading = heading && f == c
 						}
 						if !heading && len(m) > 0 {
 							m["~line"] = strconv.Itoa(line)

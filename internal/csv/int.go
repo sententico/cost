@@ -45,21 +45,30 @@ func ReadLn(path string) (<-chan string, <-chan error, chan<- int) {
 	return out, err, sig
 }
 
-// SplitCSV returns a slice of fields in "csv" split by "sep", approximately following RFC 4180
-func SplitCSV(csv string, sep rune) (fields []string) {
-	field, encl := "", false
+// SliceCSV returns buffer with field slices for "csv" split by "sep", approximating RFC 4180
+func SliceCSV(csv string, sep rune) ([]byte, []int) {
+	buf, sl, encl := make([]byte, 0, len(csv)), make([]int, 1, len(csv)+2), false
 	for _, r := range csv {
 		switch {
 		case r > '\x7e' || r != '\x09' && r < '\x20':
-			// alternatively replace non-printables with a blank: field += " "
+			// alternatively replace non-printable ASCII runes with a blank: buf = append(buf, ' ')
 		case r == '"':
 			encl = !encl
 		case !encl && r == sep:
-			fields = append(fields, field)
-			field = ""
+			sl = append(sl, len(buf))
 		default:
-			field += string(r)
+			buf = append(buf, byte(r))
 		}
 	}
-	return append(fields, field)
+	return buf, append(sl, len(buf))
+}
+
+// SplitCSV returns fields in "csv" split by "sep", approximating RFC 4180
+func SplitCSV(csv string, sep rune) []string {
+	buf, sl := SliceCSV(csv, sep)
+	fields := make([]string, 0, len(sl))
+	for i := 1; i < len(sl); i++ {
+		fields = append(fields, string(buf[sl[i-1]:sl[i]]))
+	}
+	return fields
 }
