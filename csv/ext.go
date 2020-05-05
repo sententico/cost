@@ -193,9 +193,9 @@ nextSep:
 	case dig.Heading:
 		dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
 	case dig.Sep == '\x00':
-		dig.Sig = searchFSpec(dig)
+		getFSpec(&dig)
 	default:
-		dig.Sig = searchSpec(dig)
+		getSpec(&dig)
 	}
 	dig.Settings = Settings.Get(dig.Sig)
 	return
@@ -204,8 +204,8 @@ nextSep:
 // ReadFixed returns a channel into which a goroutine writes maps of fixed-field TXT rows from
 // file at "path" keyed by "fcols" (channels also provided for errors and for the caller to signal
 // a halt).  Fields selected by column ranges in "fcols" map are trimmed of blanks; empty fields
-// are suppressed; blank lines and those prefixed by "comment" are skipped.
-func ReadFixed(path, fcols, comment string) (<-chan map[string]string, <-chan error, chan<- int) {
+// are suppressed; "head" lines, blank lines and those prefixed by "comment" are skipped.
+func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
 	go func() {
 		defer func() {
@@ -225,6 +225,8 @@ func ReadFixed(path, fcols, comment string) (<-chan map[string]string, <-chan er
 				switch {
 				case len(strings.TrimLeft(ln, " ")) == 0:
 				case comment != "" && strings.HasPrefix(ln, comment):
+				case head:
+					head = false
 				case wid == 0:
 					wid = len(ln)
 					if cols = parseFCMap(fcols, wid); len(cols) == 0 {
@@ -262,11 +264,12 @@ func ReadFixed(path, fcols, comment string) (<-chan map[string]string, <-chan er
 }
 
 // Read returns a channel into which a goroutine writes field maps of CSV rows from file at "path"
-// keyed by "cols" column selector map, or if "", by the heading in the first data row (channels
-// also provided for errors and for the caller to signal a halt). CSV separator is "sep", or if
-// \x00, will be inferred. Fields are trimmed of blanks and double-quotes (which may enclose sep-
-// arators); empty fields are suppressed; blank lines and those prefixed by "comment" are skipped.
-func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-chan error, chan<- int) {
+// keyed by "cols" column selector map, or if "" and "head" present, by the heading in the first
+// data row (channels also provided for errors and for the caller to signal a halt). CSV separator
+// is "sep", or if \x00, will be inferred. Fields are trimmed of blanks and double-quotes (which
+// may enclose separators); empty fields are suppressed; blank lines and those prefixed by
+// "comment" are skipped.
+func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
 	go func() {
 		defer func() {
@@ -294,7 +297,7 @@ func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-cha
 					}
 					continue
 				case len(vcols) == 0:
-					sl, uc, sc, mc, qc := csv.SplitCSV(ln, sep), make(map[int]int), make(map[string]int), 0, make(map[string]int)
+					sl, uc, sc, mc := csv.SplitCSV(ln, sep), make(map[int]int), make(map[string]int), 0
 					for c, i := range parseCMap(cols) {
 						if c = strings.Trim(c, " "); c != "" && i > 0 {
 							sc[c] = i
@@ -304,23 +307,18 @@ func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-cha
 						}
 					}
 					for i, c := range sl {
-						if c = strings.Trim(c, " "); c != "" {
-							if len(sc) == 0 || sc[c] > 0 {
-								vcols[c] = i + 1
-							}
-							if _, e := strconv.ParseFloat(c, 64); e != nil {
-								qc[c] = i + 1
-							}
+						if c = strings.Trim(c, " "); c != "" && (len(sc) == 0 || sc[c] > 0) {
+							vcols[c] = i + 1
 						}
 					}
 					switch wid = len(sl); {
-					case len(sc) == 0 && len(qc) == wid:
-					case len(sc) == 0:
+					case len(sc) == 0 && (!head || len(vcols) != wid):
 						panic(fmt.Errorf("no heading in CSV file %q and no column map provided", path))
+					case len(sc) == 0:
 					case len(vcols) == len(sc):
 					case len(vcols) > 0:
 						panic(fmt.Errorf("missing columns in CSV file %q", path))
-					case len(qc) == wid || mc > wid:
+					case head || mc > wid:
 						panic(fmt.Errorf("column map incompatible with CSV file %q", path))
 					case len(uc) < len(sc):
 						panic(fmt.Errorf("ambiguous column map provided for CSV file %q", path))
@@ -331,18 +329,19 @@ func Read(path, cols, comment string, sep rune) (<-chan map[string]string, <-cha
 
 				default:
 					if b, sl := csv.SliceCSV(ln, sep); len(sl)-1 == wid {
-						m, f, heading := make(map[string]string, len(vcols)), "", true
+						m, f := make(map[string]string, len(vcols)), ""
+						head = true
 						for c, i := range vcols {
 							if sl[i-1] == sl[i] {
-								heading = false
+								head = false
 							} else if bs := bytes.Trim(b[sl[i-1]:sl[i]], " "); len(bs) > 0 {
 								f = string(bs)
-								m[c], heading = f, heading && f == c
+								m[c], head = f, head && f == c
 							} else {
-								heading = false
+								head = false
 							}
 						}
-						if !heading && len(m) > 0 {
+						if !head && len(m) > 0 {
 							m["~line"] = strconv.Itoa(line)
 							out <- m
 						}

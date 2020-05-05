@@ -22,15 +22,16 @@ func atoi(s string, d int) int {
 	return i
 }
 
-// searchSpec scans file type cache for CSV file specifier signature matching digest
+// getSpec scans file type cache for CSV file specifier signature matching "dig", setting Sig in
+// same digest; returns true on match
 //   CSV file type specifier syntax:
 // 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>...]]]..."
 //   examples:
 // 		"=|35,7:INTL:DOM,12$13:20,21$3"
 //		"=,120,102$16,17$3:Mon:Tue:Wed:Thu:Fri:Sat:Sun,62$5:S :M :L :XL"
-func searchSpec(dig Digest) (spec string) {
+func getSpec(dig *Digest) bool {
 nextSpec:
-	for _, spec = range Settings.GetSpecs() {
+	for _, spec := range Settings.GetSpecs() {
 		if !strings.HasPrefix(spec, "="+string(dig.Sep)) {
 			continue nextSpec
 		}
@@ -63,20 +64,22 @@ nextSpec:
 				continue nextSpec
 			}
 		}
-		return
+		dig.Sig = spec
+		return true
 	}
-	return ""
+	return false
 }
 
-// searchFSpec scans file type cache for fixed-field file specifier signature matching digest
+// getFSpec scans file type cache for fixed-field file specifier signature matching "dig", setting
+// Sig and Heading in same digest; returns true on match
 //   fixed-field TXT file type specifier syntax:
 // 		"=({f|h}{<cols> | <col>:<pfx>[:<pfx>]...})..."
 //   examples:
 //		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL"
 //		"=f72,f72:T:F,f20:SKU"
-func searchFSpec(dig Digest) (spec string) {
+func getFSpec(dig *Digest) bool {
 nextSpec:
-	for _, spec = range Settings.GetSpecs() {
+	for _, spec := range Settings.GetSpecs() {
 		if !strings.HasPrefix(spec, "=h") && !strings.HasPrefix(spec, "=f") {
 			continue nextSpec
 		}
@@ -101,9 +104,10 @@ nextSpec:
 				continue nextSpec
 			}
 		}
-		return
+		dig.Sig, dig.Heading = spec, strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
+		return true
 	}
-	return ""
+	return false
 }
 
 // parseCMap parses a column-map string, returning the resulting map

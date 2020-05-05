@@ -54,7 +54,7 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 			dig.Settings.Date = time.Now()
 			csv.Settings.Set(dig.Sig, dig.Settings)
 		}
-		return csv.ReadFixed(path, cols, dig.Comment)
+		return csv.ReadFixed(path, cols, dig.Comment, dig.Heading)
 	default:
 		// update cached column map (if specified) & return CSV reader channels
 		switch {
@@ -66,7 +66,7 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 			dig.Settings.Date = time.Now()
 			csv.Settings.Set(dig.Sig, dig.Settings)
 		}
-		return csv.Read(path, cols, dig.Comment, dig.Sep)
+		return csv.Read(path, cols, dig.Comment, dig.Heading, dig.Sep)
 	}
 }
 
