@@ -193,9 +193,9 @@ nextSep:
 	case dig.Heading:
 		dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
 	case dig.Sep == '\x00':
-		getFSpec(&dig)
+		getFSig(&dig)
 	default:
-		getSpec(&dig)
+		getSig(&dig)
 	}
 	dig.Settings = Settings.Get(dig.Sig)
 	return
