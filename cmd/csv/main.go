@@ -23,15 +23,15 @@ func init() {
 	flag.StringVar(&settingsFlag, "s", ".csv_settings.json", fmt.Sprintf("file-type settings `file` with column maps"))
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column `map`, like...   "+
-		"\"name:2,age:5\",\t\t"+
-		"(\"(<cnam>[:<col>])...\")"))
+		"'name:2,age:5',\t\t"+
+		"('(<cnam>[:<col>])...')"))
 	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column `map`, like... "+
-		"\"name:20,~:39,age:42\",\t"+
-		"(\"{{<cnam>|~}:<ecol> | <cnam>:<bcol>:<ecol>}...[<cnam>]\")"))
+		"'name:20,~:39,age:42',\t"+
+		"('{{<cnam>|~}:<ecol> | <cnam>:<bcol>:<ecol>}...[<cnam>]')"))
 
 	// call on ErrHelp
 	flag.Usage = func() {
-		fmt.Printf("command usage: csv [-d] [-cols \"<map>\"] [-fcols \"<map>\"] [-s <file>] <csvfile> [<csvfile> ...]" +
+		fmt.Printf("command usage: csv [-d] [-cols '<map>'] [-fcols '<map>'] [-s <file>] <csvfile> [<csvfile> ...]" +
 			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column selection maps\n\n")
 		flag.PrintDefaults()
 	}
@@ -54,8 +54,8 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 			if dig.Sig != "" && !dig.Settings.Lock {
 				dig.Settings.Cols, dig.Settings.Date = fcolsFlag, time.Now()
 				csv.Settings.Set(dig.Sig, dig.Settings)
-				if dig.Settings.Type == "" {
-					dig.Settings.Type = fmt.Sprintf("fixed-field: %s", path)
+				if dig.Settings.Type == "" && dig.Settings.Ver == "" {
+					dig.Settings.Type, dig.Settings.Ver = "unspecified fixed-field", path
 				}
 			}
 		}
@@ -70,8 +70,8 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 			cols = colsFlag
 			if dig.Sig != "" && !dig.Settings.Lock {
 				dig.Settings.Cols, dig.Settings.Date = colsFlag, time.Now()
-				if dig.Settings.Type == "" {
-					dig.Settings.Type = fmt.Sprintf("CSV: %s", path)
+				if dig.Settings.Type == "" && dig.Settings.Ver == "" {
+					dig.Settings.Type, dig.Settings.Ver = "unspecified CSV", path
 				}
 				csv.Settings.Set(dig.Sig, dig.Settings)
 			}
