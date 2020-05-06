@@ -325,7 +325,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 					case len(sc) == 0:
 					case len(vcols) == len(sc):
 					case len(vcols) > 0:
-						panic(fmt.Errorf("missing columns in CSV file %q", path))
+						panic(fmt.Errorf("missing %d column(s) in CSV file %q", len(sc)-len(vcols), path))
 					case head || mc > wid:
 						panic(fmt.Errorf("column map incompatible with CSV file %q", path))
 					case len(uc) < len(sc):

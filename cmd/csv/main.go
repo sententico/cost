@@ -46,25 +46,35 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 
 	case dig.Sep == '\x00':
 		// update cached column map (if specified) & return fixed-field TXT reader channels
-		switch {
-		case fcolsFlag == "":
+		switch fcolsFlag {
+		case "":
 			cols = dig.Settings.Cols
-		case dig.Sig != "" && !dig.Settings.Lock:
-			cols, dig.Settings.Cols = fcolsFlag, fcolsFlag
-			dig.Settings.Date = time.Now()
-			csv.Settings.Set(dig.Sig, dig.Settings)
+		default:
+			cols = fcolsFlag
+			if dig.Sig != "" && !dig.Settings.Lock {
+				dig.Settings.Cols, dig.Settings.Date = fcolsFlag, time.Now()
+				csv.Settings.Set(dig.Sig, dig.Settings)
+				if dig.Settings.Type == "" {
+					dig.Settings.Type = fmt.Sprintf("fixed-field: %s", path)
+				}
+			}
 		}
 		return csv.ReadFixed(path, cols, dig.Comment, dig.Heading)
 	default:
 		// update cached column map (if specified) & return CSV reader channels
-		switch {
-		case colsFlag == "":
+		switch colsFlag {
+		case "":
 			cols = dig.Settings.Cols
-		case colsFlag == "*":
-		case dig.Sig != "" && !dig.Settings.Lock:
-			cols, dig.Settings.Cols = colsFlag, colsFlag
-			dig.Settings.Date = time.Now()
-			csv.Settings.Set(dig.Sig, dig.Settings)
+		case "*":
+		default:
+			cols = colsFlag
+			if dig.Sig != "" && !dig.Settings.Lock {
+				dig.Settings.Cols, dig.Settings.Date = colsFlag, time.Now()
+				if dig.Settings.Type == "" {
+					dig.Settings.Type = fmt.Sprintf("CSV: %s", path)
+				}
+				csv.Settings.Set(dig.Sig, dig.Settings)
+			}
 		}
 		return csv.Read(path, cols, dig.Comment, dig.Heading, dig.Sep)
 	}
