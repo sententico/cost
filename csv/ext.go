@@ -23,7 +23,7 @@ type Digest struct {
 	Comment  string        // inferred comment line prefix
 	Sep      rune          // inferred field separator rune (if CSV)
 	Split    [][]string    // trimmed fields of preview rows split by "sep" (if CSV)
-	Heading  bool          // first row probable heading (if CSV)
+	Heading  bool          // first row probable heading
 	Sig      string        // file-type signature (specifier or heading MD5 hash, if determined)
 	Settings SettingsEntry // file-type settings from settings file under signature (if found)
 }
@@ -174,7 +174,19 @@ nextSep:
 		}
 		max, dig.Sep = c, r
 	}
-	if dig.Sep != '\x00' {
+	switch dig.Sep {
+	case '\x00':
+		if row > 2 {
+			wid := len(dig.Preview[1])
+			for _, r := range dig.Preview[2:] {
+				if len(r) != wid {
+					panic(fmt.Errorf("cannot determine file format for %q", path))
+				}
+			}
+			dig.Heading = len(dig.Preview[0]) != wid
+		}
+		getFSig(&dig)
+	default:
 		for rc, r := range dig.Preview {
 			dig.Split = append(dig.Split, []string{})
 			for _, f := range csv.SplitCSV(r, dig.Sep) {
@@ -187,15 +199,11 @@ nextSep:
 				qh[h]++
 			}
 		}
-		dig.Heading = len(qh) == max
-	}
-	switch {
-	case dig.Heading:
-		dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
-	case dig.Sep == '\x00':
-		getFSig(&dig)
-	default:
-		getSig(&dig)
+		if dig.Heading = len(qh) == max; dig.Heading {
+			dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
+		} else {
+			getSig(&dig)
+		}
 	}
 	dig.Settings = Settings.Get(dig.Sig)
 	return

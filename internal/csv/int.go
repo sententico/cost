@@ -6,6 +6,15 @@ import (
 	"os"
 )
 
+type st4180 uint8
+
+const (
+	stSEP st4180 = iota
+	stENCL
+	stESC
+	stUNENCL
+)
+
 // HandleSig is a goroutine helper that monitors the "sig" channel; when closed, "sigv" is
 // modified
 func HandleSig(sig <-chan int, sigv *int) {
@@ -45,25 +54,50 @@ func ReadLn(path string) (<-chan string, <-chan error, chan<- int) {
 	return out, err, sig
 }
 
-// SliceCSV returns buffer with field slices for "csv" split by "sep", approximating RFC 4180
+// SliceCSV returns buffer with field slices for "csv" split by "sep", close to RFC 4180
 func SliceCSV(csv string, sep rune) ([]byte, []int) {
-	buf, sl, encl := make([]byte, 0, len(csv)), make([]int, 1, len(csv)+2), false
+	buf, sl, st := make([]byte, 0, len(csv)), make([]int, 1, len(csv)+2), stSEP
 	for _, r := range csv {
-		switch {
-		case r > '\x7e' || r != '\x09' && r < '\x20':
-			// alternatively replace non-printable ASCII runes with a blank: buf = append(buf, ' ')
-		case r == '"':
-			encl = !encl
-		case !encl && r == sep:
-			sl = append(sl, len(buf))
-		default:
-			buf = append(buf, byte(r))
+		if r > '\x7e' || r != '\x09' && r < '\x20' {
+			continue
+		}
+		switch st {
+		case stSEP:
+			switch r {
+			case sep:
+				sl = append(sl, len(buf))
+			case '"':
+				st = stENCL
+			default:
+				buf, st = append(buf, byte(r)), stUNENCL
+			}
+		case stENCL:
+			switch r {
+			case '"':
+				st = stESC
+			default:
+				buf = append(buf, byte(r))
+			}
+		case stESC:
+			switch r {
+			case sep:
+				sl, st = append(sl, len(buf)), stSEP
+			default:
+				buf, st = append(buf, byte(r)), stENCL
+			}
+		case stUNENCL:
+			switch r {
+			case sep:
+				sl, st = append(sl, len(buf)), stSEP
+			default:
+				buf = append(buf, byte(r))
+			}
 		}
 	}
 	return buf, append(sl, len(buf))
 }
 
-// SplitCSV returns fields in "csv" split by "sep", approximating RFC 4180
+// SplitCSV returns fields in "csv" split by "sep", close to RFC 4180
 func SplitCSV(csv string, sep rune) []string {
 	buf, sl := SliceCSV(csv, sep)
 	fields := make([]string, 0, len(sl))

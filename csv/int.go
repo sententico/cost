@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	previewRows = 6        // number of preview rows returned by Peek
+	previewRows = 5        // number of preview rows returned by Peek
 	sepSet      = ",\t|;:" // priority of separator runes automatically checked if none specified
 	maxFieldLen = 256      // maximum field size allowed for Peek to qualify a separator
 )
@@ -104,7 +104,7 @@ nextSpec:
 				continue nextSpec
 			}
 		}
-		dig.Sig, dig.Heading = spec, strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
+		dig.Sig, dig.Heading = spec, dig.Heading || strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
 		return true
 	}
 	return false
