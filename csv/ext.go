@@ -55,6 +55,7 @@ func (settings *settingsCache) Cache(path string) (err error) {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
 	var b []byte
+
 	settings.path, settings.read = path, false
 	if b, err = ioutil.ReadFile(path); err == nil {
 		err = json.Unmarshal(b, &settings.cache)
@@ -90,6 +91,7 @@ func (settings *settingsCache) Get(sig string) SettingsEntry {
 func (settings *settingsCache) GetSpecs() (specs []string) {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
+
 	for sig := range settings.cache {
 		if strings.HasPrefix(sig, "=") && len(sig) > 2 {
 			specs = append(specs, sig)
@@ -127,6 +129,7 @@ func Peek(path string) (dig Digest, err error) {
 	if e != nil {
 		panic(fmt.Errorf("can't access %q metadata (%v)", path, e))
 	}
+
 	bf, row, tlen, max := bufio.NewScanner(file), -1, 0, 1
 nextLine:
 	for row < previewRows && bf.Scan() {
@@ -158,6 +161,7 @@ nextLine:
 	default:
 		dig.Rows = int(float64(info.Size())/float64(tlen-len(dig.Preview[0])+row-1)*0.995+0.5) * (row - 1)
 	}
+
 nextSep:
 	for _, r := range sepSet {
 		c, sl := 0, []string{}
@@ -174,6 +178,7 @@ nextSep:
 		}
 		max, dig.Sep = c, r
 	}
+
 	switch dig.Sep {
 	case '\x00':
 		if row > 2 {

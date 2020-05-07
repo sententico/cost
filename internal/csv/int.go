@@ -54,7 +54,8 @@ func ReadLn(path string) (<-chan string, <-chan error, chan<- int) {
 	return out, err, sig
 }
 
-// SliceCSV returns buffer with field slices for "csv" split by "sep", close to RFC 4180
+// SliceCSV returns buffer with field slices for "csv" split by "sep", using a safe but tolerant
+// implementation of RFC 4180
 func SliceCSV(csv string, sep rune) ([]byte, []int) {
 	buf, sl, st := make([]byte, 0, len(csv)), make([]int, 1, len(csv)+2), stSEP
 	for _, r := range csv {
@@ -97,7 +98,8 @@ func SliceCSV(csv string, sep rune) ([]byte, []int) {
 	return buf, append(sl, len(buf))
 }
 
-// SplitCSV returns fields in "csv" split by "sep", close to RFC 4180
+// SplitCSV returns fields in "csv" split by "sep", using a safe but tolerant implementation of
+// RFC 4180
 func SplitCSV(csv string, sep rune) []string {
 	buf, sl := SliceCSV(csv, sep)
 	fields := make([]string, 0, len(sl))

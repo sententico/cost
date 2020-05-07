@@ -53,10 +53,10 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 			cols = fcolsFlag
 			if dig.Sig != "" && !dig.Settings.Lock {
 				dig.Settings.Cols, dig.Settings.Date = fcolsFlag, time.Now()
-				csv.Settings.Set(dig.Sig, dig.Settings)
 				if dig.Settings.Type == "" && dig.Settings.Ver == "" {
 					dig.Settings.Type, dig.Settings.Ver = "unspecified fixed-field", path
 				}
+				csv.Settings.Set(dig.Sig, dig.Settings)
 			}
 		}
 		return csv.ReadFixed(path, cols, dig.Comment, dig.Heading)
