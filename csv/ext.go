@@ -41,10 +41,10 @@ type SettingsEntry struct {
 // settingsCache for settings file mapping file-type info by signature (specifier or heading
 // MD5 hash)
 type settingsCache struct {
-	read  bool
-	path  string
-	mutex sync.Mutex
-	cache map[string]SettingsEntry
+	writable bool
+	path     string
+	mutex    sync.Mutex
+	cache    map[string]SettingsEntry
 }
 
 // Settings global holds setting cache from settings file
@@ -56,14 +56,20 @@ func (settings *settingsCache) Cache(path string) (err error) {
 	defer settings.mutex.Unlock()
 	var b []byte
 
-	settings.path, settings.read = path, false
-	if b, err = ioutil.ReadFile(path); err == nil {
-		err = json.Unmarshal(b, &settings.cache)
-		settings.read = err == nil
-	}
-	if !settings.read {
+	switch b, err = ioutil.ReadFile(path); {
+	case err == nil:
+		if err = json.Unmarshal(b, &settings.cache); err != nil {
+			settings.cache = make(map[string]SettingsEntry)
+		}
+		settings.writable = err == nil
+	case os.IsNotExist(err):
 		settings.cache = make(map[string]SettingsEntry)
+		settings.writable = true
+	default:
+		settings.cache = make(map[string]SettingsEntry)
+		settings.writable = false
 	}
+	settings.path = path
 	return
 }
 
@@ -73,6 +79,9 @@ func (settings *settingsCache) Write() error {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
 
+	if !settings.writable {
+		return fmt.Errorf("can't write to %q", settings.path)
+	}
 	b, err := json.MarshalIndent(settings.cache, "", "    ")
 	if err != nil {
 		return err
@@ -104,7 +113,9 @@ func (settings *settingsCache) GetSpecs() (specs []string) {
 func (settings *settingsCache) Set(sig string, entry SettingsEntry) SettingsEntry {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
-	settings.cache[sig] = entry
+	if sig != "" {
+		settings.cache[sig] = entry
+	}
 	return entry
 }
 
@@ -154,8 +165,8 @@ nextLine:
 	switch e := bf.Err(); {
 	case e != nil:
 		panic(fmt.Errorf("problem reading %q (%v)", path, e))
-	case row < 1:
-		panic(fmt.Errorf("%q does not contain data", path))
+	case row < 3:
+		panic(fmt.Errorf("%q needs at least 3 data rows to characterize file", path))
 	case row < previewRows:
 		dig.Rows = row
 	default:
@@ -181,15 +192,13 @@ nextSep:
 
 	switch dig.Sep {
 	case '\x00':
-		if row > 2 {
-			wid := len(dig.Preview[1])
-			for _, r := range dig.Preview[2:] {
-				if len(r) != wid {
-					panic(fmt.Errorf("cannot determine file format for %q", path))
-				}
+		wid := len(dig.Preview[1])
+		for _, r := range dig.Preview[2:] {
+			if len(r) != wid {
+				panic(fmt.Errorf("cannot determine file format for %q", path))
 			}
-			dig.Heading = len(dig.Preview[0]) != wid
 		}
+		dig.Heading = len(dig.Preview[0]) != wid
 		getFSig(&dig)
 	default:
 		for rc, r := range dig.Preview {

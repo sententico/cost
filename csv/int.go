@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	previewRows = 5        // number of preview rows returned by Peek
+	previewRows = 5        // number of preview rows returned by Peek (must be >2)
 	sepSet      = ",\t|;:" // priority of separator runes automatically checked if none specified
 	maxFieldLen = 256      // maximum field size allowed for Peek to qualify a separator
 )
