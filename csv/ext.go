@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,7 +57,10 @@ func (settings *settingsCache) Cache(path string) (err error) {
 	defer settings.mutex.Unlock()
 	var b []byte
 
-	switch b, err = ioutil.ReadFile(path); {
+	if settings.path, err = filepath.Abs(path); err != nil {
+		return err
+	}
+	switch b, err = ioutil.ReadFile(settings.path); {
 	case err == nil:
 		if err = json.Unmarshal(b, &settings.cache); err != nil {
 			settings.cache = make(map[string]SettingsEntry)
@@ -69,7 +73,6 @@ func (settings *settingsCache) Cache(path string) (err error) {
 		settings.cache = make(map[string]SettingsEntry)
 		settings.writable = false
 	}
-	settings.path = path
 	return
 }
 
