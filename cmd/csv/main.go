@@ -53,17 +53,17 @@ func updateSettings(dig *csv.Digest, path, cflag string, force bool) (cols strin
 	switch dig.Sep { // these initial settings should be manually updated
 	case '\x00':
 		if force && dig.Sig == "" {
-			dig.Sig = fmt.Sprintf("=h%d,f%d", len(dig.Preview[0]), len(dig.Preview[1]))
+			dig.Sig, dig.Settings.Date = fmt.Sprintf("=h%d,f%d", len(dig.Preview[0]), len(dig.Preview[1])), time.Now()
 		}
 		if dig.Settings.Type == "" && dig.Settings.Ver == "" {
-			dig.Settings.Type, dig.Settings.Ver = "unspecified fixed-field", path
+			dig.Settings.Type, dig.Settings.Ver, dig.Settings.Date = "unspecified fixed-field", path, time.Now()
 		}
 	default:
 		if force && dig.Sig == "" {
-			dig.Sig = fmt.Sprintf("=%s%d", string(dig.Sep), len(dig.Split[0]))
+			dig.Sig, dig.Settings.Date = fmt.Sprintf("=%s%d", string(dig.Sep), len(dig.Split[0])), time.Now()
 		}
 		if dig.Settings.Type == "" && dig.Settings.Ver == "" {
-			dig.Settings.Type, dig.Settings.Ver = "unspecified CSV", path
+			dig.Settings.Type, dig.Settings.Ver, dig.Settings.Date = "unspecified CSV", path, time.Now()
 		}
 	}
 	if force || !dig.Settings.Lock && dig.Settings.Cols != "" {
