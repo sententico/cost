@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -57,8 +58,14 @@ func (settings *settingsCache) Cache(path string) (err error) {
 	defer settings.mutex.Unlock()
 	var b []byte
 
-	if settings.path, err = filepath.Abs(path); err != nil {
-		return err
+	if strings.HasPrefix(path, "~/") {
+		var u *user.User
+		if u, err = user.Current(); err != nil {
+			return
+		}
+		settings.path = u.HomeDir + path[2:]
+	} else if settings.path, err = filepath.Abs(path); err != nil {
+		return
 	}
 	switch b, err = ioutil.ReadFile(settings.path); {
 	case err == nil:
