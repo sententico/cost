@@ -13,7 +13,7 @@ import (
 var (
 	settingsFlag string
 	detailFlag   bool
-	initFlag     bool
+	forceFlag    bool
 	colsFlag     string
 	fcolsFlag    string
 	wg           sync.WaitGroup
@@ -22,7 +22,7 @@ var (
 func init() {
 	// set up command-line flags
 	flag.StringVar(&settingsFlag, "s", ".csv_settings.json", fmt.Sprintf("file-type settings `file` containing column maps"))
-	flag.BoolVar(&initFlag, "i", false, fmt.Sprintf("force new file-type settings to settings file"))
+	flag.BoolVar(&forceFlag, "f", false, fmt.Sprintf("force file-type settings to settings file"))
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column `map`, like...   "+
 		"'name:2,age:5',\t\t"+
@@ -33,41 +33,40 @@ func init() {
 
 	// call on ErrHelp
 	flag.Usage = func() {
-		fmt.Printf("command usage: csv [-d] [-i] [-cols '<map>'] [-fcols '<map>'] [-s <file>] <csvfile> [<csvfile> ...]" +
+		fmt.Printf("command usage: csv [-d] [-f] [-cols '<map>'] [-fcols '<map>'] [-s <file>] <csvfile> [<csvfile> ...]" +
 			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column selection maps\n\n")
 		flag.PrintDefaults()
 	}
 }
 
-func updateSettings(dig *csv.Digest, path, cflag string, init bool) (cols string) {
+func updateSettings(dig *csv.Digest, path, cflag string, force bool) (cols string) {
 	switch cflag {
 	case "":
 		cols = dig.Settings.Cols
 	case "*":
 	default:
-		cols = cflag
-		if !dig.Settings.Lock && dig.Settings.Cols != cflag {
-			dig.Settings.Cols, dig.Settings.Date = cflag, time.Now()
+		if cols = cflag; dig.Settings.Cols != cols {
+			dig.Settings.Cols, dig.Settings.Date = cols, time.Now()
 		}
 	}
 
 	switch dig.Sep { // these initial settings should be manually updated
 	case '\x00':
-		if init && dig.Sig == "" {
+		if force && dig.Sig == "" {
 			dig.Sig = fmt.Sprintf("=h%d,f%d", len(dig.Preview[0]), len(dig.Preview[1]))
 		}
 		if dig.Settings.Type == "" && dig.Settings.Ver == "" {
 			dig.Settings.Type, dig.Settings.Ver = "unspecified fixed-field", path
 		}
 	default:
-		if init && dig.Sig == "" {
+		if force && dig.Sig == "" {
 			dig.Sig = fmt.Sprintf("=%s%d", string(dig.Sep), len(dig.Split[0]))
 		}
 		if dig.Settings.Type == "" && dig.Settings.Ver == "" {
 			dig.Settings.Type, dig.Settings.Ver = "unspecified CSV", path
 		}
 	}
-	if init || dig.Settings.Cols != "" {
+	if force || !dig.Settings.Lock && dig.Settings.Cols != "" {
 		csv.Settings.Set(dig.Sig, dig.Settings)
 	}
 	return
@@ -78,9 +77,9 @@ func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan er
 	if *dig, e = csv.Peek(path); e != nil {
 		panic(fmt.Errorf("%v", e))
 	} else if dig.Sep == '\x00' {
-		return csv.ReadFixed(path, updateSettings(dig, path, fcolsFlag, initFlag), dig.Comment, dig.Heading)
+		return csv.ReadFixed(path, updateSettings(dig, path, fcolsFlag, forceFlag), dig.Comment, dig.Heading)
 	}
-	return csv.Read(path, updateSettings(dig, path, colsFlag, initFlag), dig.Comment, dig.Heading, dig.Sep)
+	return csv.Read(path, updateSettings(dig, path, colsFlag, forceFlag), dig.Comment, dig.Heading, dig.Sep)
 }
 
 func main() {
