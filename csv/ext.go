@@ -63,10 +63,13 @@ func (settings *settingsCache) Cache(path string) (err error) {
 		if u, err = user.Current(); err != nil {
 			return
 		}
-		settings.path = u.HomeDir + path[2:]
+		if settings.path, err = filepath.Abs(u.HomeDir + path[1:]); err != nil {
+			return
+		}
 	} else if settings.path, err = filepath.Abs(path); err != nil {
 		return
 	}
+
 	switch b, err = ioutil.ReadFile(settings.path); {
 	case err == nil:
 		if err = json.Unmarshal(b, &settings.cache); err != nil {
