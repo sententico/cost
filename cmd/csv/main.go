@@ -26,10 +26,10 @@ func init() {
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column `map`, like...   "+
 		"'name:2,age:5',\t\t"+
-		"('(<cnam>[:<col>])...')"))
+		"('<cnam>[:<col>][,<cnam>[:<col>]]...')"))
 	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column `map`, like... "+
 		"'name:20,~:39,age:42',\t"+
-		"('{{<cnam>|~}:<ecol> | <cnam>:<bcol>:<ecol>}...[<cnam>]')"))
+		"('(<cnam>|~):<ecol>|<cnam>:<bcol>:<ecol>[,(<cnam>|~):<ecol>|<cnam>:<bcol>:<ecol>]...[<cnam>]')"))
 
 	// call on ErrHelp
 	flag.Usage = func() {
@@ -88,9 +88,6 @@ func main() {
 	defer csv.Settings.Write()
 	for _, arg := range flag.Args() {
 		files, _ := filepath.Glob(arg)
-		if len(files) == 0 {
-			files = []string{arg}
-		}
 		for _, file := range files {
 			wg.Add(1)
 

@@ -22,62 +22,77 @@ func atoi(s string, d int) int {
 	return i
 }
 
-// getSig scans file type cache for CSV file specifier signature matching "dig", setting Sig in
-// same digest; returns true on match
+// getSpec method on Digest scans file type cache for CSV file specifier signature matching
+// digest, returning specifier if found
 //   CSV file type specifier syntax:
-// 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>...]]]..."
+// 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>]...]]..."
+//		"=<sep>{<cnam>[,<cnam>]...}"
 //   examples:
 // 		"=|35,7:INTL:DOM,12$13:20,21$3"
 //		"=,120,102$16,17$3:Mon:Tue:Wed:Thu:Fri:Sat:Sun,62$5:S :M :L :XL"
-func getSig(dig *Digest) bool {
+//		"=,{name,age,income}"
+func (dig *Digest) getSpec() (spec string) {
+	head := make(map[string]int, len(dig.Split[0]))
+	for _, c := range dig.Split[0] {
+		head[c]++
+	}
 nextSpec:
-	for _, spec := range Settings.GetSpecs() {
-		if !strings.HasPrefix(spec, "="+string(dig.Sep)) {
+	for _, spec = range Settings.GetSpecs() {
+		if !strings.HasPrefix(spec, "="+string(dig.Sep)) || len(spec) < 3 {
 			continue nextSpec
 		}
-		for _, s := range dig.Split {
-		nextTerm:
-			for i, t := range strings.Split(spec[2:], ",") {
-				v, c1, c2 := strings.Split(t, ":"), -1, -1
-				switch cv := strings.Split(v[0], "$"); len(cv) {
-				default:
-					c2 = atoi(strings.Trim(cv[1], " "), -1)
-					fallthrough
-				case 1:
-					c1 = atoi(strings.Trim(cv[0], " "), -1)
-				}
-				switch {
-				case i == 0 && c1 != len(s):
+		switch spec[2] {
+		case '{':
+			for _, s := range strings.Split(strings.Trim(spec[2:], "{}"), ",") {
+				if _, ok := head[s]; !ok {
 					continue nextSpec
-				case i == 0 || c1 <= 0:
-					continue nextTerm
-				case c1 > len(s) || c2 >= 0 && c2 != len(s[c1-1]):
-					continue nextSpec
-				case len(v) == 1:
-					continue nextTerm
 				}
-				for _, pfx := range v[1:] {
-					if strings.HasPrefix(s[c1-1], strings.TrimLeft(pfx, " ")) {
+			}
+			return
+		default:
+			for _, s := range dig.Split {
+			nextTerm:
+				for i, t := range strings.Split(spec[2:], ",") {
+					v, c1, c2 := strings.Split(t, ":"), -1, -1
+					switch cv := strings.Split(v[0], "$"); len(cv) {
+					default:
+						c2 = atoi(strings.Trim(cv[1], " "), -1)
+						fallthrough
+					case 1:
+						c1 = atoi(strings.Trim(cv[0], " "), -1)
+					}
+					switch {
+					case i == 0 && c1 != len(s):
+						continue nextSpec
+					case i == 0 || c1 <= 0:
+						continue nextTerm
+					case c1 > len(s) || c2 >= 0 && c2 != len(s[c1-1]):
+						continue nextSpec
+					case len(v) == 1:
 						continue nextTerm
 					}
+					for _, pfx := range v[1:] {
+						if strings.HasPrefix(s[c1-1], strings.TrimLeft(pfx, " ")) {
+							continue nextTerm
+						}
+					}
+					continue nextSpec
 				}
-				continue nextSpec
 			}
+			return
 		}
-		dig.Sig = spec
-		return true
 	}
-	return false
+	return ""
 }
 
-// getFSig scans file type cache for fixed-field file specifier signature matching "dig", setting
-// Sig and Heading in same digest; returns true on match
+// getFSpec method on Digest scans file type cache for fixed-field file specifier signature
+// matching digest, returning specifier and heading indicator if found
 //   fixed-field TXT file type specifier syntax:
-// 		"=({f|h}{<cols> | <col>:<pfx>[:<pfx>]...})..."
+// 		"=(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))[,(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))]..."
 //   examples:
 //		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL"
 //		"=f72,f72:T:F,f20:SKU"
-func getFSig(dig *Digest) bool {
+func (dig *Digest) getFSpec() (spec string, head bool) {
 nextSpec:
 	for _, spec := range Settings.GetSpecs() {
 		if !strings.HasPrefix(spec, "=h") && !strings.HasPrefix(spec, "=f") {
@@ -104,15 +119,14 @@ nextSpec:
 				continue nextSpec
 			}
 		}
-		dig.Sig, dig.Heading = spec, dig.Heading || strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
-		return true
+		return spec, dig.Heading || strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
 	}
-	return false
+	return "", dig.Heading
 }
 
 // parseCMap parses a column-map string, returning the resulting map
 //   CSV file type column-map syntax:
-//		"(<cnam>[:<col>])..."
+//		"<cnam>[:<col>][,<cnam>[:<col>]]..."
 //   examples:
 //		"name,age,income"
 //		"name:1,age:4,income:13"

@@ -102,6 +102,14 @@ func (settings *settingsCache) Write() error {
 	return ioutil.WriteFile(settings.path, b, 0644)
 }
 
+// Find method on SettingsCache returns true if file-type signature exists in the settings cache
+func (settings *settingsCache) Find(sig string) bool {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	_, ok := settings.cache[sig]
+	return ok
+}
+
 // Get method on SettingsCache returns cache entry under file-type signature
 func (settings *settingsCache) Get(sig string) SettingsEntry {
 	settings.mutex.Lock()
@@ -212,7 +220,7 @@ nextSep:
 			}
 		}
 		dig.Heading = len(dig.Preview[0]) != wid
-		getFSig(&dig)
+		dig.Sig, dig.Heading = dig.getFSpec()
 	default:
 		for rc, r := range dig.Preview {
 			dig.Split = append(dig.Split, []string{})
@@ -227,9 +235,13 @@ nextSep:
 			}
 		}
 		if dig.Heading = len(qh) == max; dig.Heading {
-			dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep)))))
+			if dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep))))); !Settings.Find(dig.Sig) {
+				if spec := dig.getSpec(); spec != "" {
+					dig.Sig = spec
+				}
+			}
 		} else {
-			getSig(&dig)
+			dig.Sig = dig.getSpec()
 		}
 	}
 	dig.Settings = Settings.Get(dig.Sig)
