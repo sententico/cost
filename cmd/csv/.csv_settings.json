@@ -6,6 +6,13 @@
         "Date": "2020-05-01T13:30:00-04:00",
         "Lock": true
     },
+    "=,{identity/LineItemId,lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType,lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version}": {
+        "Cols": "identity/LineItemId,lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType,lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version",
+        "Type": "AWS CUR",
+        "Ver": "2019 Aspect",
+        "Date": "2020-05-06T14:05:45.246309188-04:00",
+        "Lock": true
+    },
     "=f902,f11:20,f18:-01,f243:sip,f414:GBR:EMI:MCR,f559:S:I": {
         "Cols": "orig:35:49,term:64,plat:74,dt:357:370,dur:399:408,bdur:417:422,olata:457:459,tlrn:474,jur:512:514,tlata:517:519,cost:529,tcost:540,dir:556:558,oocn:580:583,tocn:585:588",
         "Type": "Verizon CDR",
@@ -128,7 +135,7 @@
     "9079372413a416968ee1f13a5a2f46ca": {
         "Cols": "identity/LineItemId,lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType,lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version",
         "Type": "AWS CUR",
-        "Ver": "",
+        "Ver": "May20 Aspect",
         "Date": "2020-05-06T14:05:45.246309188-04:00",
         "Lock": true
     },
