@@ -70,6 +70,8 @@ func (settings *settingsCache) Cache(path string) (err error) {
 		return
 	}
 
+	// BUG: resourceTags/user:version field name/value in (some) CUR files has \r line ending
+	// 		rune from DOS/Win \r\n line ending
 	switch b, err = ioutil.ReadFile(settings.path); {
 	case err == nil:
 		if err = json.Unmarshal(b, &settings.cache); err != nil {
@@ -134,6 +136,7 @@ func (settings *settingsCache) GetSpecs() (specs []string) {
 func (settings *settingsCache) Set(sig string, entry SettingsEntry) SettingsEntry {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
+
 	if sig != "" {
 		settings.cache[sig] = entry
 	}
@@ -142,10 +145,10 @@ func (settings *settingsCache) Set(sig string, entry SettingsEntry) SettingsEntr
 
 // Peek returns a digest to identify the CSV (or fixed-field TXT file) at "path". This digest
 // consists of a preview slice of raw data rows (without blank or comment lines), a total file row
-// estimate, the comment prefix used (if any), and if a CSV, the field separator, trimmed fields
-// of the preview data rows split by it, and a hint whether to treat this row as a heading. If
-// determined, a file-type signature (specifier or heading MD5 hash) with any cached info mapped
-// to it are provided.
+// estimate, a hint whether the first row is a heading, the comment prefix used (if any), and if a
+// CSV, the field separator with trimmed fields of the preview data rows split by it. A file-type
+// signature (specifier or heading MD5 hash as available) with any settings info mapped to it
+// (like file application type, version and default column selector-map) are also provided.
 func Peek(path string) (dig Digest, err error) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -165,7 +168,6 @@ func Peek(path string) (dig Digest, err error) {
 	bf, row, fix, tlen, max, hash := bufio.NewScanner(file), -1, 0, 0, 1, ""
 nextLine:
 	for row < previewRows && bf.Scan() {
-		// BUG: line ending issues with CUR files DOS/Win \r\n vs usual \n
 		switch ln := bf.Text(); {
 		case len(strings.TrimLeft(ln, " ")) == 0:
 		case dig.Comment != "" && strings.HasPrefix(ln, dig.Comment):
@@ -231,8 +233,8 @@ nextSep:
 	switch {
 	case dig.Sep == '\x00' && fix == 0:
 		panic(fmt.Errorf("cannot determine %q file format", path))
-	case fix > 0 && hash == "" && (max < 3 || fix/max > 48):
-		dig.Sep = '\x00' // ambiguous case, fixed-field determination
+	case hash == "" && (fix > 132 && max < 4 || fix/max > bigFieldLen):
+		dig.Sep = '\x00' // ambiguous formats with suspiciously low-density columns
 		fallthrough
 	case dig.Sep == '\x00':
 		dig.Heading = len(dig.Preview[0]) != fix
@@ -254,10 +256,10 @@ nextSep:
 	return
 }
 
-// ReadFixed returns a channel into which a goroutine writes maps of fixed-field TXT rows from
-// file at "path" keyed by "fcols" (channels also provided for errors and for the caller to signal
-// a halt).  Fields selected by column ranges in "fcols" map are trimmed of blanks; empty fields
-// are suppressed; "head" lines, blank lines and those prefixed by "comment" are skipped.
+// ReadFixed returns a channel into which a goroutine writes field-maps of fixed-field TXT rows
+// from file at "path" keyed by "fcols" (channels also provided for errors and for the consumer to
+// signal a halt).  Fields selected by column ranges in "fcols" map are trimmed of blanks; empty
+// fields are suppressed; "head" lines, blank lines and those prefixed by "comment" are skipped.
 func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
 	go func() {
@@ -316,12 +318,12 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 	return out, err, sig
 }
 
-// Read returns a channel into which a goroutine writes field maps of CSV rows from file at "path"
-// keyed by "cols" column selector map, or if "" and "head" present, by the heading in the first
-// data row (channels also provided for errors and for the caller to signal a halt). CSV separator
-// is "sep", or if \x00, will be inferred. Fields are trimmed of blanks and double-quotes (which
-// may enclose separators); empty fields are suppressed; blank lines and those prefixed by
-// "comment" are skipped.
+// Read returns a channel into which a goroutine writes field-maps of CSV rows from file at "path"
+// keyed by column selector-map "cols", or if "" and "head" present, by the heading in the first
+// data row (channels also provided for errors and for the consumer to signal a halt). CSV
+// separator is "sep", or if \x00, will be inferred. Fields are trimmed of blanks and double-
+// quotes (which may enclose separators); empty fields are suppressed; blank lines and those
+// prefixed by "comment" are skipped.
 func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]string, <-chan error, chan<- int) {
 	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
 	go func() {

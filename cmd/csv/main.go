@@ -26,10 +26,10 @@ func init() {
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column `map`, like...   "+
 		"'name:2,age:5',\t\t"+
-		"('<cnam>[:<col>][,<cnam>[:<col>]]...')"))
+		"('<head>[:<col>][,<head>[:<col>]]...')"))
 	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column `map`, like... "+
 		"'name:20,~:39,age:42',\t"+
-		"('(<cnam>|~):<ecol>|<cnam>:<bcol>:<ecol>[,(<cnam>|~):<ecol>|<cnam>:<bcol>:<ecol>]...[<cnam>]')"))
+		"('(<head>|~):<ecol>|<head>:<bcol>:<ecol>[,(<head>|~):<ecol>|<head>:<bcol>:<ecol>]...[,<head>]')"))
 
 	// call on ErrHelp
 	flag.Usage = func() {

@@ -9,6 +9,7 @@ const (
 	previewRows = 5        // number of preview rows returned by Peek (must be >2)
 	sepSet      = ",\t|;:" // priority of separator runes automatically checked if none specified
 	maxFieldLen = 256      // maximum field size allowed for Peek to qualify a separator
+	bigFieldLen = 36       // mean field length above which CSV column-density is suspiciously low
 )
 
 var commentSet = [...]string{"#", "//", "'"}
@@ -22,15 +23,15 @@ func atoi(s string, d int) int {
 	return i
 }
 
-// getSpec method on Digest scans file type cache for CSV file specifier signature matching
+// getSpec method on Digest scans file-type cache for CSV file specifier signature matching
 // digest, returning specifier if found
-//   CSV file type specifier syntax:
-// 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>]...]]..."
-//		"=<sep>{<cnam>[,<cnam>]...}"
+//   CSV file-type specifier syntax:
+// 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>]...]]..." (column lengths/prefixes)
+//		"=<sep>{<head>[,<head>]...}" (column heads uniquely identifying file-type)
 //   examples:
 // 		"=|35,7:INTL:DOM,12$13:20,21$3"
 //		"=,120,102$16,17$3:Mon:Tue:Wed:Thu:Fri:Sat:Sun,62$5:S :M :L :XL"
-//		"=,{name,age,income}"
+//		"=,{name,age,account number}"
 func (dig *Digest) getSpec() (spec string) {
 	head := make(map[string]int, len(dig.Split[0]))
 	for _, c := range dig.Split[0] {
@@ -38,7 +39,7 @@ func (dig *Digest) getSpec() (spec string) {
 	}
 nextSpec:
 	for _, spec = range Settings.GetSpecs() {
-		if !strings.HasPrefix(spec, "="+string(dig.Sep)) || len(spec) < 3 {
+		if !strings.HasPrefix(spec, "="+string(dig.Sep)) {
 			continue nextSpec
 		}
 		switch spec[2] {
@@ -85,13 +86,13 @@ nextSpec:
 	return ""
 }
 
-// getFSpec method on Digest scans file type cache for fixed-field file specifier signature
+// getFSpec method on Digest scans file-type cache for fixed-field file specifier signature
 // matching digest, returning specifier and heading indicator if found
-//   fixed-field TXT file type specifier syntax:
+//   fixed-field TXT file type specifier syntax (heading/field lengths/prefixes):
 // 		"=(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))[,(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))]..."
 //   examples:
-//		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL"
-//		"=f72,f72:T:F,f20:SKU"
+//		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL" (heading & field row specs)
+//		"=f72,f72:T:F,f20:SKU" (field row specs only)
 func (dig *Digest) getFSpec() (spec string, head bool) {
 nextSpec:
 	for _, spec := range Settings.GetSpecs() {
@@ -126,10 +127,10 @@ nextSpec:
 
 // parseCMap parses a column-map string, returning the resulting map
 //   CSV file type column-map syntax:
-//		"<cnam>[:<col>][,<cnam>[:<col>]]..."
-//   examples:
-//		"name,age,income"
-//		"name:1,age:4,income:13"
+//		"<head>[:<col>][,<cnam>[:<col>]]..."
+//   examples (in shell use, enclose in single-quotes):
+//		"name,age,account number" (columns implicitly identified through file header)
+//		"name:1,age:4,account number:13" (explicit column mappings for files with no header)
 func parseCMap(cmap string) (m map[string]int) {
 	if cmap != "" {
 		m = make(map[string]int, 32)
@@ -151,10 +152,10 @@ func parseCMap(cmap string) (m map[string]int) {
 
 // parseFCMap parses a fixed-column-map string, returning the resulting map
 //   fixed-field TXT file type column-map syntax:
-//		"{{<cnam>|~}:<ecol> | <cnam>:<bcol>:<ecol>}...[<cnam>]"
-//   examples:
-//		"name:20,~:62,age:65,~:122,income"
-//		"name:1:20,age:63:65,income:123:132"
+//		"(<head>|~):<ecol> | <head>:<bcol>:<ecol>[,(<head>|~):<ecol>|<head>:<bcol>:<ecol>]...[,<head>]"
+//   examples (in shell use, enclose in single-quotes):
+//		"name:20,~:62,age:65,~:122,account number" (column-end reference style with "~" skips)
+//		"name:1:20,age:63:65,account number:123:132" (full begin:end column references)
 func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 	if fcmap == "" {
 		return map[string][2]int{"~raw": {1, wid}}
