@@ -162,9 +162,10 @@ func Peek(path string) (dig Digest, err error) {
 		panic(fmt.Errorf("can't access %q metadata (%v)", path, e))
 	}
 
-	bf, row, tlen, max := bufio.NewScanner(file), -1, 0, 1
+	bf, row, fix, tlen, max, hash := bufio.NewScanner(file), -1, 0, 0, 1, ""
 nextLine:
 	for row < previewRows && bf.Scan() {
+		// BUG: line ending issues with CUR files DOS/Win \r\n vs usual \n
 		switch ln := bf.Text(); {
 		case len(strings.TrimLeft(ln, " ")) == 0:
 		case dig.Comment != "" && strings.HasPrefix(ln, dig.Comment):
@@ -178,7 +179,12 @@ nextLine:
 			}
 			fallthrough
 		default:
-			row++
+			switch row++; {
+			case row == 2:
+				fix = len(ln)
+			case len(ln) != fix:
+				fix = 0
+			}
 			tlen += len(ln)
 			dig.Preview = append(dig.Preview, ln)
 		}
@@ -196,8 +202,8 @@ nextLine:
 
 nextSep:
 	for _, r := range sepSet {
-		c, sl := 0, []string{}
-		for _, ln := range dig.Preview {
+		c, sl, sh := 0, []string{}, []string{}
+		for i, ln := range dig.Preview {
 			if sl = csv.SplitCSV(ln, r); len(sl) <= max || len(sl) != c && c > 0 {
 				continue nextSep
 			}
@@ -206,20 +212,30 @@ nextSep:
 					continue nextSep
 				}
 			}
-			c = len(sl)
-		}
-		max, dig.Sep = c, r
-	}
-
-	switch dig.Sep {
-	case '\x00':
-		wid := len(dig.Preview[1])
-		for _, r := range dig.Preview[2:] {
-			if len(r) != wid {
-				panic(fmt.Errorf("cannot determine file format for %q", path))
+			if i == 0 {
+				sh, c = sl, len(sl)
 			}
 		}
-		dig.Heading = len(dig.Preview[0]) != wid
+		qh := make(map[string]int, c)
+		for _, h := range sh {
+			h = strings.Trim(h, " ")
+			if _, e := strconv.ParseFloat(h, 64); e != nil && len(h) > 0 {
+				qh[h]++
+			}
+		}
+		if dig.Sep, max = r, c; len(qh) == c {
+			hash = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r)))))
+		}
+	}
+
+	switch {
+	case dig.Sep == '\x00' && fix == 0:
+		panic(fmt.Errorf("cannot determine %q file format", path))
+	case fix > 0 && hash == "" && (max < 3 || fix/max > 48):
+		dig.Sep = '\x00' // ambiguous case, fixed-field determination
+		fallthrough
+	case dig.Sep == '\x00':
+		dig.Heading = len(dig.Preview[0]) != fix
 		dig.Sig, dig.Heading = dig.getFSpec()
 	default:
 		for rc, r := range dig.Preview {
@@ -228,20 +244,10 @@ nextSep:
 				dig.Split[rc] = append(dig.Split[rc], strings.Trim(f, " "))
 			}
 		}
-		qh := make(map[string]int, max)
-		for _, h := range dig.Split[0] {
-			if _, e := strconv.ParseFloat(h, 64); e != nil && len(h) > 0 {
-				qh[h]++
+		if dig.Sig, dig.Heading = hash, hash != ""; !Settings.Find(dig.Sig) {
+			if spec := dig.getSpec(); spec != "" {
+				dig.Sig, dig.Heading = spec, false
 			}
-		}
-		if dig.Heading = len(qh) == max; dig.Heading {
-			if dig.Sig = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(dig.Split[0], string(dig.Sep))))); !Settings.Find(dig.Sig) {
-				if spec := dig.getSpec(); spec != "" {
-					dig.Sig = spec
-				}
-			}
-		} else {
-			dig.Sig = dig.getSpec()
 		}
 	}
 	dig.Settings = Settings.Get(dig.Sig)
