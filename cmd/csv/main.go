@@ -24,17 +24,15 @@ func init() {
 	flag.StringVar(&settingsFlag, "s", "~/.csv_settings.json", fmt.Sprintf("file-type settings `file` containing column maps"))
 	flag.BoolVar(&forceFlag, "f", false, fmt.Sprintf("force file-type settings to settings file"))
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
-	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column `map`, like...   "+
-		"'name:2,age:5',\t\t"+
-		"('<head>[:<col>][,<head>[:<col>]]...')"))
-	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column `map`, like... "+
-		"'name:20,~:39,age:42',\t"+
-		"('(<head>|~):<ecol>|<head>:<bcol>:<ecol>[,(<head>|~):<ecol>|<head>:<bcol>:<ecol>]...[,<head>]')"))
+	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column selector `map`: "+
+		"'<head>[:<col>][,...]'  (ex. 'name:2,age:5')"))
+	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column selector `map`: "+
+		"'(<head>|~):<ecol>|<head>:<bcol>:<ecol>[,...][,<head>]'  (ex. 'name:20,~:39,age:42')"))
 
 	// call on ErrHelp
 	flag.Usage = func() {
-		fmt.Printf("command usage: csv [-d] [-f] [-cols '<map>'] [-fcols '<map>'] [-s <file>] <csvfile> [<csvfile> ...]" +
-			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column selection maps\n\n")
+		fmt.Printf("command usage: csv [-d] [-f] [-cols '<map>'] [-fcols '<map>'] [-s <file>] <csvfile> [...]" +
+			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column selection maps.\n\n")
 		flag.PrintDefaults()
 	}
 }
