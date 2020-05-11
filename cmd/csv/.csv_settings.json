@@ -2,7 +2,7 @@
     "=,26,1$3:2.8,8:NTS:LTS,3$8:20,26$8:20": {
         "Cols": "date:3,time:4,dip:5,dur:7,type:8,orig:9,olrn:11,olata:12,term:15,tlrn:16,tlata:17,ccost:20,dcost:21",
         "Type": "Inteliquent CDR",
-        "Ver": "2.8b",
+        "Ver": "Jun15 2.8b",
         "Date": "2020-05-01T13:30:00-04:00",
         "Lock": true
     },
@@ -37,21 +37,21 @@
     "=f32,f16:0:1:2:3:4:5:6:7:8:9,f24:  ": {
         "Cols": "animal:15,~:25,value",
         "Type": "test fixed-field",
-        "Ver": "v0",
+        "Ver": "Apr20",
         "Date": "2020-04-30T13:30:00-04:00",
         "Lock": true
     },
     "ab41c1eab7ab7d06e9ac0a17d5f948ab": {
         "Cols": "animal,value",
         "Type": "test CSV",
-        "Ver": "v0",
+        "Ver": "Apr20",
         "Date": "2020-05-03T13:45:40.9814211-04:00",
         "Lock": true
     },
     "21dfde3ee0b586af1f25418151289233": {
         "Cols": "callingnumber after prerouting,callednumber after prerouting,callednumber after lnp,call connect time,call end time,term revenue,term revenue duration",
         "Type": "Brightlink CDR",
-        "Ver": "Apr20",
+        "Ver": "Mar20",
         "Date": "2020-04-30T14:04:11.213751102-04:00",
         "Lock": true
     },
@@ -65,28 +65,28 @@
     "559a360493ec00f29648c21a17d77064": {
         "Cols": "Billed_TN,Other_TN,Orig_IP_Address,Term_IP_Address,Other_Country,Rated OCN,Rated LATA,Call_Date,Charge,Description,Direction,Duration",
         "Type": "NuWave CDR",
-        "Ver": "",
+        "Ver": "2015",
         "Date": "2020-04-30T15:08:34.138488104-04:00",
         "Lock": true
     },
     "55cc8bd07b58e215ba935231534cdff6": {
         "Cols": "Call Date,Call Time,Originating Phone Number,Originating Lata,Originating OCN,To Country Code,Dialed Number,Terminating Phone Number,Terminating Lata,Terminating OCN,Route,Call Duration,Billable Time,Billable Amount,Call Type",
         "Type": "Intelepeer CDR",
-        "Ver": "Sep12/13/14 family",
+        "Ver": "Sep14",
         "Date": "2020-04-30T14:38:05.475374797-04:00",
         "Lock": true
     },
     "c2d12419585802dda9e3ba46f95f37db": {
         "Cols": "Traffic direction,Voice / data,Called number,Date of call,Time of call,Duration in second,Amount,True conversation duration,Circuit",
         "Type": "Tata CDR",
-        "Ver": "",
+        "Ver": "Sep19",
         "Date": "2020-04-30T15:33:37.741663872-04:00",
         "Lock": true
     },
     "c72628c4ebb7a293f97c5bfb8afcb78b": {
         "Cols": "SERVTYPE,GMT_ORIGDATE,GMT_ORIGTIME,BILLINGNUM,CPN,ORIGNUM_USED,ORIG_OCN,OLATA,TERMNUM_USED,TERM_OCN,TLATA,DESTYPEUSED,CALLDUR,BILLDUR,CHARGE,FINTKGRP",
         "Type": "Level 3 CDR",
-        "Ver": "v7 GTO",
+        "Ver": "Dec16 v7 GTO",
         "Date": "2020-04-30T14:58:26.500575187-04:00",
         "Lock": true
     },
@@ -104,35 +104,7 @@
         "Date": "2020-04-30T17:21:36.577480348-04:00",
         "Lock": true
     },
-    "0e7c69440af60369cb66fd04d972eada": {
-        "Cols": "EBS volume,an,type,size,iops,az,attm,state,peak busy%,util%,observed,last-use,last-disuse,org,role,name",
-        "Type": "awsmon EBS",
-        "Ver": "",
-        "Date": "2020-05-06T13:43:26.569672408-04:00",
-        "Lock": true
-    },
-    "2721f9a72c7264f9b7a11479461de1af": {
-        "Cols": "Date,Account,Service,Type,Location,Resource ID,Resource Name,Class,User,Role,XAWS Tags,Rate,Qty,Cost\u003e$0.00,Records",
-        "Type": "xawsbill Excel",
-        "Ver": "PM",
-        "Date": "2020-05-06T13:44:24.88873159-04:00",
-        "Lock": true
-    },
-    "576ee188aec9825c559e989e6488cb7e": {
-        "Cols": "Location,Instance Type,Platform,Terms,Eff Rate/hr",
-        "Type": "AWS EC2 rates",
-        "Ver": "",
-        "Date": "2020-05-06T14:26:49.956296395-04:00",
-        "Lock": true
-    },
-    "762b523412ecb8457748f3706af7298d": {
-        "Cols": "Date,Account,Service,Type,Location,Resource ID,Resource Name,Class,User,Role,XAWS Tags,Rate,Qty,Cost\u003e$0.05,Records",
-        "Type": "xawsbill Excel",
-        "Ver": "6w",
-        "Date": "2020-05-06T13:44:24.889032597-04:00",
-        "Lock": true
-    },
-    "9079372413a416968ee1f13a5a2f46ca": {
+    "e55ea86fccbbf6c18046b2449181fdcb": {
         "Cols": "identity/LineItemId,lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType,lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version",
         "Type": "AWS CUR",
         "Ver": "May20 Aspect",
@@ -142,35 +114,63 @@
     "acf61cc1ab3f7dd88f77393ef5766b9f": {
         "Cols": "Instance Type,Platform,Region,On-Demand Hours,Total Running Hours,On-Demand Cost",
         "Type": "AWS EC2 usage",
-        "Ver": "",
+        "Ver": "2019",
         "Date": "2020-05-06T13:58:42.983402224-04:00",
-        "Lock": true
-    },
-    "c8fc08dbcbf690cf6226ce4093ddd64d": {
-        "Cols": "EC2 instance,an,type,plat,az,vpc,ami,state,peak CPU%,peak IOW%,mf GB,df GB,du%,peak Mbps,util%,observed,last-use,last-disuse,org,role,name",
-        "Type": "awsmon EC2",
-        "Ver": "",
-        "Date": "2020-05-06T13:43:26.569741549-04:00",
         "Lock": true
     },
     "e0405d0b1347b7f1e718fb394ed7c523": {
         "Cols": "Instance Type,Number of RIs,Region,Platform,Offering Type,Effective Hourly Rate",
         "Type": "AWS EC2 RI subscriptions",
-        "Ver": "",
+        "Ver": "2019",
         "Date": "2020-05-06T13:58:42.983342791-04:00",
+        "Lock": true
+    },
+    "576ee188aec9825c559e989e6488cb7e": {
+        "Cols": "Location,Instance Type,Platform,Terms,Eff Rate/hr",
+        "Type": "AWS EC2 rates",
+        "Ver": "2019",
+        "Date": "2020-05-06T14:26:49.956296395-04:00",
+        "Lock": true
+    },
+    "c8fc08dbcbf690cf6226ce4093ddd64d": {
+        "Cols": "EC2 instance,an,type,plat,az,vpc,ami,state,peak CPU%,peak IOW%,mf GB,df GB,du%,peak Mbps,util%,observed,last-use,last-disuse,org,role,name",
+        "Type": "awsmon EC2",
+        "Ver": "2019",
+        "Date": "2020-05-06T13:43:26.569741549-04:00",
+        "Lock": true
+    },
+    "0e7c69440af60369cb66fd04d972eada": {
+        "Cols": "EBS volume,an,type,size,iops,az,attm,state,peak busy%,util%,observed,last-use,last-disuse,org,role,name",
+        "Type": "awsmon EBS",
+        "Ver": "2019",
+        "Date": "2020-05-06T13:43:26.569672408-04:00",
         "Lock": true
     },
     "ed20c1b760bedee6d9776fc5c8458d1a": {
         "Cols": "RDS database,an,type,stype,size,engine,ver,lic,az,multiaz,state,peak conn,util%,observed,last-use,last-disuse,org,role",
         "Type": "awsmon RDS",
-        "Ver": "",
+        "Ver": "2019",
         "Date": "2020-05-06T13:43:26.569535733-04:00",
+        "Lock": true
+    },
+    "2721f9a72c7264f9b7a11479461de1af": {
+        "Cols": "Date,Account,Service,Type,Location,Resource ID,Resource Name,Class,User,Role,XAWS Tags,Rate,Qty,Cost\u003e$0.00,Records",
+        "Type": "xawsbill Excel",
+        "Ver": "2019 PM",
+        "Date": "2020-05-06T13:44:24.88873159-04:00",
+        "Lock": true
+    },
+    "762b523412ecb8457748f3706af7298d": {
+        "Cols": "Date,Account,Service,Type,Location,Resource ID,Resource Name,Class,User,Role,XAWS Tags,Rate,Qty,Cost\u003e$0.05,Records",
+        "Type": "xawsbill Excel",
+        "Ver": "2019 6w",
+        "Date": "2020-05-06T13:44:24.889032597-04:00",
         "Lock": true
     },
     "f84e4eedb43b0576aeee317321974914": {
         "Cols": "Date,Account,Service,Type,Location,Resource ID,Resource Name,Class,User,Role,XAWS Tags,Rate,Qty,Cost\u003e$1.00,Records",
         "Type": "xawsbill Excel",
-        "Ver": "9mo",
+        "Ver": "2019 9mo",
         "Date": "2020-05-06T13:44:24.889116334-04:00",
         "Lock": true
     }
