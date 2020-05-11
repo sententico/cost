@@ -127,7 +127,7 @@ nextSpec:
 
 // parseCMap parses a column-map string, returning the resulting map
 //   CSV file type column-map syntax:
-//		"<head>[:<col>][,<cnam>[:<col>]]..."
+//		"<head>[:<col>][,<head>[:<col>]]..."
 //   examples (in shell use, enclose in single-quotes):
 //		"name,age,account number" (columns implicitly identified through file header)
 //		"name:1,age:4,account number:13" (explicit column mappings for files with no header)
@@ -164,7 +164,7 @@ func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 		return map[string][2]int{"~raw": {1, wid}}
 	}
 	m = make(map[string][2]int, 32)
-	b, e, p, h := 0, 0, 0, ""
+	p, b, e, h := 0, 0, 0, ""
 	for _, t := range strings.Split(fcmap, ",") {
 		switch v := strings.Split(t, ":"); len(v) {
 		case 1:

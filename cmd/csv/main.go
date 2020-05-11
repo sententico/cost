@@ -115,7 +115,7 @@ func main() {
 				if e := <-err; e != nil {
 					panic(fmt.Errorf("%v", e))
 				}
-				fmt.Printf("read %d rows from [%s] file %q\n", rows, dig.Settings.Type, f)
+				fmt.Printf("read %d rows from [%s %s] file %q\n", rows, dig.Settings.Type, dig.Settings.Ver, f)
 			}(file)
 		}
 	}
