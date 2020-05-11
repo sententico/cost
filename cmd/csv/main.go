@@ -84,8 +84,12 @@ func main() {
 	flag.Parse()
 	csv.Settings.Cache(settingsFlag)
 	defer csv.Settings.Write()
+
 	for _, arg := range flag.Args() {
 		files, _ := filepath.Glob(arg)
+		if len(files) == 0 {
+			files = []string{arg}
+		}
 		for _, file := range files {
 			wg.Add(1)
 
@@ -103,6 +107,9 @@ func main() {
 				for row := range in {
 					if rows++; detailFlag {
 						fmt.Println(row)
+						// munchers/filters/aggregators here; thread-safe aggregation
+						// aggregates share a common interface type (or empty interface{})
+						// methods: Write, Read, ...?
 					}
 				}
 				if e := <-err; e != nil {
@@ -113,4 +120,6 @@ func main() {
 		}
 	}
 	wg.Wait()
+	// poopers/transformers here; collect muncher aggregates
+	// type switch assertions extract concrete types from interface for transformation
 }

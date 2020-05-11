@@ -134,16 +134,19 @@ nextSpec:
 func parseCMap(cmap string) (m map[string]int) {
 	if cmap != "" {
 		m = make(map[string]int, 32)
-		for i, t := range strings.Split(cmap, ",") {
-			switch v := strings.Split(t, ":"); len(v) {
-			case 1:
-				if n := strings.Trim(v[0], " "); n != "" {
-					m[n] = i + 1
-				}
+		p, c, h := 0, 0, ""
+		for _, t := range strings.Split(cmap, ",") {
+			v := strings.Split(t, ":")
+			switch c = atoi(v[len(v)-1], -1); {
+			case c == -1:
+				h, c = strings.Trim(t, " "), p+1
+			case c <= 0:
+				h, c = strings.Trim(strings.Join(v[:len(v)-1], ":"), " "), p+1
 			default:
-				if n, c := strings.Trim(v[0], " "), atoi(v[1], -1); n != "" && c > 0 {
-					m[n] = c
-				}
+				h = strings.Trim(strings.Join(v[:len(v)-1], ":"), " ")
+			}
+			if h != "" {
+				m[h], p = c, c
 			}
 		}
 	}
@@ -161,25 +164,25 @@ func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 		return map[string][2]int{"~raw": {1, wid}}
 	}
 	m = make(map[string][2]int, 32)
-	a, b, p, n := 0, 0, 0, ""
+	b, e, p, h := 0, 0, 0, ""
 	for _, t := range strings.Split(fcmap, ",") {
 		switch v := strings.Split(t, ":"); len(v) {
 		case 1:
-			if n, b = strings.Trim(v[0], " "), wid; n != "" && n != "~" && p < wid {
-				m[n] = [2]int{p + 1, wid}
+			if h, e = strings.Trim(v[0], " "), wid; h != "" && h != "~" && p < wid {
+				m[h] = [2]int{p + 1, wid}
 			}
 		case 2:
-			if n, b = strings.Trim(v[0], " "), atoi(v[1], -1); n != "" && n != "~" &&
-				b > p && b <= wid {
-				m[n] = [2]int{p + 1, b}
+			if h, e = strings.Trim(v[0], " "), atoi(v[1], -1); h != "" && h != "~" &&
+				e > p && e <= wid {
+				m[h] = [2]int{p + 1, e}
 			}
 		default:
-			if n, a, b = strings.Trim(v[0], " "), atoi(v[1], -1), atoi(v[2], -1); n != "" && n != "~" &&
-				a > 0 && b >= a && b <= wid {
-				m[n] = [2]int{a, b}
+			if h, b, e = strings.Trim(v[0], " "), atoi(v[1], -1), atoi(v[2], -1); h != "" && h != "~" &&
+				b > 0 && e >= b && e <= wid {
+				m[h] = [2]int{b, e}
 			}
 		}
-		p = b
+		p = e
 	}
 	return
 }
