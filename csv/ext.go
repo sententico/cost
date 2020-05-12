@@ -70,8 +70,6 @@ func (settings *settingsCache) Cache(path string) (err error) {
 		return
 	}
 
-	// BUG: resourceTags/user:version field name/value in (some) CUR files has \r line ending
-	// 		rune from DOS/Win \r\n line ending
 	switch b, err = ioutil.ReadFile(settings.path); {
 	case err == nil:
 		if err = json.Unmarshal(b, &settings.cache); err != nil {
@@ -206,7 +204,7 @@ nextSep:
 	for _, r := range sepSet {
 		c, sl, sh := 0, []string{}, []string{}
 		for i, ln := range dig.Preview {
-			if sl = csv.SplitCSV(ln, r); len(sl) <= max || len(sl) != c && c > 0 {
+			if sl = csv.SplitCSV(ln, r); len(sl) <= max || c > 0 && len(sl) != c {
 				continue nextSep
 			}
 			for _, f := range sl {
@@ -218,6 +216,9 @@ nextSep:
 				sh, c = sl, len(sl)
 			}
 		}
+		if dig.Sep, max, hash = r, c, fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r))))); Settings.Find(hash) {
+			break
+		}
 		qh := make(map[string]int, c)
 		for _, h := range sh {
 			h = strings.Trim(h, " ")
@@ -225,8 +226,8 @@ nextSep:
 				qh[h]++
 			}
 		}
-		if dig.Sep, max = r, c; len(qh) == c {
-			hash = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r)))))
+		if len(qh) != c {
+			hash = ""
 		}
 	}
 
