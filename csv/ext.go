@@ -249,7 +249,7 @@ nextSep:
 		}
 		if dig.Sig, dig.Heading = hash, hash != ""; !Settings.Find(dig.Sig) {
 			if spec := dig.getSpec(); spec != "" {
-				dig.Sig, dig.Heading = spec, false
+				dig.Sig, dig.Heading = spec, spec[2] == '{'
 			}
 		}
 	}

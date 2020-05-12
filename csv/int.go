@@ -45,7 +45,7 @@ nextSpec:
 		switch spec[2] {
 		case '{':
 			for _, s := range strings.Split(strings.Trim(spec[2:], "{}"), ",") {
-				if _, ok := head[s]; !ok {
+				if _, ok := head[strings.Trim(s, " ")]; !ok {
 					continue nextSpec
 				}
 			}
