@@ -385,7 +385,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 							if sl[i-1] == sl[i] {
 								head = false
 							} else if bs := bytes.Trim(b[sl[i-1]:sl[i]], " "); len(bs) > 0 {
-								f = string(bs)
+								f = string(bs) // TODO: preserve as []byte to save copy?
 								m[c], head = f, head && f == c
 							} else {
 								head = false

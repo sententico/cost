@@ -57,7 +57,7 @@ func ReadLn(path string) (<-chan string, <-chan error, chan<- int) {
 // SliceCSV returns buffer with field slices for "csv" split by "sep", using a safe but tolerant
 // implementation of RFC 4180
 func SliceCSV(csv string, sep rune) ([]byte, []int) {
-	buf, sl, st := make([]byte, 0, len(csv)), make([]int, 1, len(csv)+2), stSEP
+	buf, sl, st := make([]byte, 0, len(csv)), make([]int, 1, 4+len(csv)/4), stSEP
 	for _, r := range csv {
 		if r > '\x7e' || r != '\x09' && r < '\x20' {
 			continue
