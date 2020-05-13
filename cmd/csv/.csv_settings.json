@@ -62,6 +62,13 @@
         "Date": "2020-04-30T14:11:43.164540361-04:00",
         "Lock": true
     },
+    "407041994ad1f96ee9b400442122812e": {
+        "Cols": "media_ip,call_time,duration,dest_num,ani,total_amount",
+        "Type": "IDT CDR",
+        "Ver": "2019",
+        "Date": "2020-05-12T13:09:20.546859566-04:00",
+        "Lock": true
+    },
     "559a360493ec00f29648c21a17d77064": {
         "Cols": "Billed_TN,Other_TN,Orig_IP_Address,Term_IP_Address,Other_Country,Rated OCN,Rated LATA,Call_Date,Charge,Description,Direction,Duration",
         "Type": "NuWave CDR",
