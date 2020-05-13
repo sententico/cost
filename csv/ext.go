@@ -164,7 +164,7 @@ func Peek(path string) (dig Digest, err error) {
 nextLine:
 	for row < previewRows && bf.Scan() {
 		switch ln := bf.Text(); {
-		case len(strings.TrimLeft(ln, " ")) == 0:
+		case len(strings.TrimSpace(ln)) == 0:
 		case dig.Comment != "" && strings.HasPrefix(ln, dig.Comment):
 		case row < 0:
 			row = 0
@@ -218,7 +218,7 @@ nextSep:
 		}
 		qh := make(map[string]int, c)
 		for _, h := range sh {
-			h = strings.Trim(h, " ")
+			h = strings.TrimSpace(h)
 			if _, e := strconv.ParseFloat(h, 64); e != nil && len(h) > 0 {
 				qh[h]++
 			}
@@ -241,7 +241,7 @@ nextSep:
 		for rc, r := range dig.Preview {
 			dig.Split = append(dig.Split, []string{})
 			for _, f := range csv.SplitCSV(r, dig.Sep) {
-				dig.Split[rc] = append(dig.Split[rc], strings.Trim(f, " "))
+				dig.Split[rc] = append(dig.Split[rc], strings.TrimSpace(f))
 			}
 		}
 		if dig.Sig, dig.Heading = hash, hash != ""; !Settings.Find(dig.Sig) {
@@ -294,7 +294,7 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 				default:
 					m := make(map[string]string, len(cols))
 					for c, r := range cols {
-						if f := strings.Trim(ln[r[0]-1:r[1]], " "); len(f) > 0 {
+						if f := strings.TrimSpace(ln[r[0]-1 : r[1]]); len(f) > 0 {
 							m[c] = f
 						}
 					}
@@ -340,7 +340,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 		for ln := range in {
 			for line++; ; {
 				switch {
-				case len(strings.TrimLeft(ln, " ")) == 0:
+				case len(strings.TrimSpace(ln)) == 0:
 				case comment != "" && strings.HasPrefix(ln, comment):
 				case sep == '\x00':
 					for _, r := range sepSet {
@@ -357,7 +357,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						}
 					}
 					for i, c := range sl {
-						if c = strings.Trim(c, " "); c != "" && (len(pc) == 0 || pc[c] > 0) {
+						if c = strings.TrimSpace(c); c != "" && (len(pc) == 0 || pc[c] > 0) {
 							vcols[c] = i + 1
 						}
 					}

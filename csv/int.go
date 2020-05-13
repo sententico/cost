@@ -45,7 +45,7 @@ nextSpec:
 		switch spec[2] {
 		case '{':
 			for _, s := range strings.Split(strings.Trim(spec[2:], "{}"), ",") {
-				if _, ok := head[strings.Trim(s, " ")]; !ok {
+				if _, ok := head[strings.TrimSpace(s)]; !ok {
 					continue nextSpec
 				}
 			}
@@ -57,10 +57,10 @@ nextSpec:
 					v, c1, c2 := strings.Split(t, ":"), -1, -1
 					switch cv := strings.Split(v[0], "$"); len(cv) {
 					default:
-						c2 = atoi(strings.Trim(cv[1], " "), -1)
+						c2 = atoi(strings.TrimSpace(cv[1]), -1)
 						fallthrough
 					case 1:
-						c1 = atoi(strings.Trim(cv[0], " "), -1)
+						c1 = atoi(strings.TrimSpace(cv[0]), -1)
 					}
 					switch {
 					case i == 0 && c1 != len(s):
@@ -139,11 +139,11 @@ func parseCMap(cmap string) (m map[string]int) {
 			v := strings.Split(t, ":")
 			switch c = atoi(v[len(v)-1], -1); {
 			case c == -1:
-				h, c = strings.Trim(t, " "), p+1
+				h, c = strings.TrimSpace(t), p+1
 			case c <= 0:
-				h, c = strings.Trim(strings.Join(v[:len(v)-1], ":"), " "), p+1
+				h, c = strings.TrimSpace(strings.Join(v[:len(v)-1], ":")), p+1
 			default:
-				h = strings.Trim(strings.Join(v[:len(v)-1], ":"), " ")
+				h = strings.TrimSpace(strings.Join(v[:len(v)-1], ":"))
 			}
 			if h != "" {
 				m[h], p = c, c
@@ -168,16 +168,16 @@ func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
 	for _, t := range strings.Split(fcmap, ",") {
 		switch v := strings.Split(t, ":"); len(v) {
 		case 1:
-			if h, e = strings.Trim(v[0], " "), wid; h != "" && h != "~" && p < wid {
+			if h, e = strings.TrimSpace(v[0]), wid; h != "" && h != "~" && p < wid {
 				m[h] = [2]int{p + 1, wid}
 			}
 		case 2:
-			if h, e = strings.Trim(v[0], " "), atoi(v[1], -1); h != "" && h != "~" &&
+			if h, e = strings.TrimSpace(v[0]), atoi(v[1], -1); h != "" && h != "~" &&
 				e > p && e <= wid {
 				m[h] = [2]int{p + 1, e}
 			}
 		default:
-			if h, b, e = strings.Trim(v[0], " "), atoi(v[1], -1), atoi(v[2], -1); h != "" && h != "~" &&
+			if h, b, e = strings.TrimSpace(v[0]), atoi(v[1], -1), atoi(v[2], -1); h != "" && h != "~" &&
 				b > 0 && e >= b && e <= wid {
 				m[h] = [2]int{b, e}
 			}
