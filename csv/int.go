@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	previewRows = 12       // number of preview rows returned by Peek (must be >2)
+	previewRows = 16       // number of preview rows returned by Peek (must be >2)
 	sepSet      = ",\t|;:" // priority of separator runes automatically checked if none specified
 	maxFieldLen = 256      // maximum field size allowed for Peek to qualify a separator
 	bigFieldLen = 36       // mean field length above which CSV column-density is suspiciously low

@@ -25,7 +25,7 @@ type Digest struct {
 	Comment  string        // inferred comment line prefix
 	Sep      rune          // inferred field separator rune (if CSV)
 	Split    [][]string    // trimmed fields of preview rows split by "sep" (if CSV)
-	Heading  bool          // first row probable heading
+	Heading  bool          // first row inferred as heading
 	Sig      string        // file-type signature (specifier or heading MD5 hash, if determined)
 	Settings SettingsEntry // file-type settings from settings file under signature (if found)
 }
@@ -34,8 +34,8 @@ type Digest struct {
 // its signature (specifier or heading MD5 hash)
 type SettingsEntry struct {
 	Cols string    // column map
-	Type string    // file-type ID
-	Ver  string    // file version identifier
+	Type string    // file-type identifier
+	Ver  string    // file version
 	Date time.Time // entry update timestamp
 	Lock bool      // entry locked to automatic updates
 }
@@ -70,18 +70,15 @@ func (settings *settingsCache) Cache(path string) (err error) {
 		return
 	}
 
-	switch b, err = ioutil.ReadFile(settings.path); {
-	case err == nil:
+	switch b, err = ioutil.ReadFile(settings.path); err {
+	case nil:
 		if err = json.Unmarshal(b, &settings.cache); err != nil {
 			settings.cache = make(map[string]SettingsEntry)
 		}
 		settings.writable = err == nil
-	case os.IsNotExist(err):
-		settings.cache = make(map[string]SettingsEntry)
-		settings.writable = true
 	default:
 		settings.cache = make(map[string]SettingsEntry)
-		settings.writable = false
+		settings.writable = os.IsNotExist(err)
 	}
 	return
 }
@@ -106,8 +103,8 @@ func (settings *settingsCache) Write() error {
 func (settings *settingsCache) Find(sig string) bool {
 	settings.mutex.Lock()
 	defer settings.mutex.Unlock()
-	_, ok := settings.cache[sig]
-	return ok
+	_, found := settings.cache[sig]
+	return found
 }
 
 // Get method on SettingsCache returns cache entry under file-type signature
