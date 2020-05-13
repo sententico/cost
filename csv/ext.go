@@ -379,13 +379,13 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 
 				default:
 					if b, sl := csv.SliceCSV(ln, sep); len(sl)-1 == wid {
-						m, f := make(map[string]string, len(vcols)), ""
+						m := make(map[string]string, len(vcols))
 						head = true
 						for c, i := range vcols {
 							if sl[i-1] == sl[i] {
 								head = false
 							} else if bs := bytes.Trim(b[sl[i-1]:sl[i]], " "); len(bs) > 0 {
-								f = string(bs) // TODO: preserve as []byte to save copy?
+								f := string(bs) // TODO: preserve as []byte to save copy?
 								m[c], head = f, head && f == c
 							} else {
 								head = false
