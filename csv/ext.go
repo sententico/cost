@@ -272,7 +272,7 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 		defer close(isig)
 		csv.HandleSig(sig, &sigv)
 
-		cols, wid, line, algn := map[string][2]int{}, 0, 0, 0
+		cols, heads, wid, line, algn := map[string][2]int{}, 0, 0, 0, 0
 		for ln := range in {
 			for line++; ; {
 				switch {
@@ -282,7 +282,7 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 					head = false
 				case wid == 0:
 					wid = len(ln)
-					if cols = parseFCMap(fcols, wid); len(cols) == 0 {
+					if cols, heads = parseFCMap(fcols, wid); heads == 0 {
 						panic(fmt.Errorf("bad column map provided for fixed-field file %q", path))
 					}
 					continue
@@ -292,14 +292,17 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 						panic(fmt.Errorf("excessive column misalignment in fixed-field file %q (>%d rows)", path, algn))
 					}
 				default:
-					m := make(map[string]string, len(cols))
+					m, skip := make(map[string]string, len(cols)), false
 					for c, r := range cols {
-						if f := strings.TrimSpace(ln[r[0]-1 : r[1]]); len(f) > 0 {
+						if f := strings.TrimSpace(ln[r[0]-1 : r[1]]); c[0] == '~' && strings.HasPrefix(f, c[1:]) {
+							skip = true
+							break
+						} else if len(f) > 0 {
 							m[c] = f
 						}
 					}
-					if len(m) > 0 {
-						m["~line"] = strconv.Itoa(line)
+					if len(m) > 0 && !skip {
+						m["line~"] = strconv.Itoa(line)
 						out <- m
 					}
 				}
@@ -350,7 +353,8 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 					}
 					continue
 				case len(vcols) == 0:
-					sl, pc, uc, mc := csv.SplitCSV(ln, sep), parseCMap(cols), make(map[int]int), 0
+					pc, _ := parseCMap(cols) // TODO: fix this section for line skips in pc
+					sl, uc, mc := csv.SplitCSV(ln, sep), make(map[int]int), 0
 					for _, c := range pc {
 						if uc[c]++; c > mc {
 							mc = c
@@ -379,20 +383,21 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 
 				default:
 					if b, sl := csv.SliceCSV(ln, sep); len(sl)-1 == wid {
-						m := make(map[string]string, len(vcols))
-						head = true
+						m, skip := make(map[string]string, len(vcols)), true
 						for c, i := range vcols {
 							if sl[i-1] == sl[i] {
-								head = false
-							} else if f := string(bytes.TrimSpace(b[sl[i-1]:sl[i]])); len(f) > 0 {
-								// TODO: preserve field as []byte to save copy?
-								m[c], head = f, head && f == c
+								skip = false
+							} else if f := string(bytes.TrimSpace(b[sl[i-1]:sl[i]])); c[0] == '~' && strings.HasPrefix(f, c[1:]) {
+								skip = true
+								break
+							} else if len(f) > 0 {
+								m[c], skip = f, skip && f == c
 							} else {
-								head = false
+								skip = false
 							}
 						}
-						if !head && len(m) > 0 {
-							m["~line"] = strconv.Itoa(line)
+						if len(m) > 0 && !skip {
+							m["line~"] = strconv.Itoa(line)
 							out <- m
 						}
 					} else if algn++; line > 200 && float64(algn)/float64(line) > 0.02 {

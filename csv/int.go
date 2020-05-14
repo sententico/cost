@@ -125,64 +125,100 @@ nextSpec:
 	return "", dig.Heading
 }
 
-// parseCMap parses a column-map string, returning the resulting map
+// parseCMap parses a CSV column-map string, returning map and head count
 //   CSV file type column-map syntax:
-//		"<head>[:<col>][,<head>[:<col>]]..."
+//		"(<head>|[~<pfx>])[:<col>][,(<head>|[~<pfx>])[:<col>]]..."
 //   examples (in shell use, enclose in single-quotes):
-//		"name,age,account number" (columns implicitly identified through file header)
-//		"name:1,age:4,account number:13" (explicit column mappings for files with no header)
-func parseCMap(cmap string) (m map[string]int) {
-	if cmap != "" {
-		m = make(map[string]int, 32)
-		p, c, h := 0, 0, ""
-		for _, t := range strings.Split(cmap, ",") {
-			v := strings.Split(t, ":")
-			switch c = atoi(v[len(v)-1], -1); {
-			case c == -1:
-				h, c = strings.TrimSpace(t), p+1
-			case c <= 0:
-				h, c = strings.TrimSpace(strings.Join(v[:len(v)-1], ":")), p+1
-			default:
-				h = strings.TrimSpace(strings.Join(v[:len(v)-1], ":"))
-			}
-			if h != "" {
-				m[h], p = c, c
-			}
+//		"name,,,age,,acct num" (columns, with skips, implicitly identified via file header)
+//		"name:1,age:4,acct num:6" (explicit column mappings for files with no header)
+//		"~N/A:6,name,,,age,,acct num:6" (same with field-prefix row skip)
+func parseCMap(cmap string) (m map[string]int, heads int) {
+	if cmap == "" {
+		return
+	}
+	m = make(map[string]int, 32)
+	h, p, c := "", 0, -1
+
+	for _, t := range strings.Split(cmap, ",") {
+		if v := strings.Split(t, ":"); len(v) == 1 {
+			h, c = strings.TrimSpace(t), p+1
+		} else if c = atoi(v[len(v)-1], -1); c > 0 {
+			h = strings.TrimSpace(strings.Join(v[:len(v)-1], ":"))
+		} else {
+			h, c = strings.TrimSpace(t), p+1
+		}
+		if h != "" && h != "~" {
+			m[h] = c
+		}
+		p = c
+	}
+
+	for h = range m {
+		if h[0] != '~' {
+			heads++
 		}
 	}
 	return
 }
 
-// parseFCMap parses a fixed-column-map string, returning the resulting map
+// parseFCMap parses a fixed-field column-map string for a "wid"-column file, returning map and
+// head count
 //   fixed-field TXT file type column-map syntax:
-//		"(<head>|~):<ecol> | <head>:<bcol>:<ecol>[,(<head>|~):<ecol>|<head>:<bcol>:<ecol>]...[,<head>]"
+//		"(<head>|[~<pfx>])[:<bcol>]:<ecol> [,(<head>|[~<pfx>])[:<bcol>]:<ecol>]...[,<head>|~<pfx>]"
 //   examples (in shell use, enclose in single-quotes):
-//		"name:20,~:62,age:65,~:122,account number" (column-end reference style with "~" skips)
-//		"name:1:20,age:63:65,account number:123:132" (full begin:end column references)
-func parseFCMap(fcmap string, wid int) (m map[string][2]int) {
+//		"name:20,:62,age:65,:122,acct num" (column-end reference style with column skips)
+//		"name:1:20,age:63:65,acct num:123:132" (full begin:end column references)
+//		"name:1:20,age:63:65,~N/A:123:132,acct num:123:132" (same with field-prefix row skip)
+func parseFCMap(fcmap string, wid int) (m map[string][2]int, heads int) {
 	if fcmap == "" {
-		return map[string][2]int{"~raw": {1, wid}}
+		return map[string][2]int{"raw~": {1, wid}}, 1
 	}
 	m = make(map[string][2]int, 32)
-	p, b, e, h := 0, 0, 0, ""
+	h, p, b, e := "", 0, -1, -1
+
 	for _, t := range strings.Split(fcmap, ",") {
 		switch v := strings.Split(t, ":"); len(v) {
 		case 1:
-			if h, e = strings.TrimSpace(v[0]), wid; h != "" && h != "~" && p < wid {
-				m[h] = [2]int{p + 1, wid}
-			}
+			h, b, e = strings.TrimSpace(t), -1, -1
 		case 2:
-			if h, e = strings.TrimSpace(v[0]), atoi(v[1], -1); h != "" && h != "~" &&
-				e > p && e <= wid {
-				m[h] = [2]int{p + 1, e}
+			switch b, e = -1, atoi(v[1], -1); {
+			case e > 0:
+				h = strings.TrimSpace(v[0])
+			default:
+				h = strings.TrimSpace(t)
 			}
 		default:
-			if h, b, e = strings.TrimSpace(v[0]), atoi(v[1], -1), atoi(v[2], -1); h != "" && h != "~" &&
-				b > 0 && e >= b && e <= wid {
-				m[h] = [2]int{b, e}
+			switch b, e = atoi(v[len(v)-2], -1), atoi(v[len(v)-1], -1); {
+			case b > 0 && e > 0:
+				h = strings.TrimSpace(strings.Join(v[:len(v)-2], ":"))
+			case e > 0:
+				h = strings.TrimSpace(strings.Join(v[:len(v)-1], ":"))
+			default:
+				h, b = strings.TrimSpace(t), -1
 			}
 		}
+
+		switch {
+		case e > wid:
+			continue
+		case b > 0:
+			p = b - 1
+		case e > 0:
+		case p < wid:
+			e = wid
+		default:
+			continue
+		}
+		if h != "" && h != "~" && p < e {
+			m[h] = [2]int{p + 1, e}
+		}
 		p = e
+	}
+
+	for h = range m {
+		if h[0] != '~' {
+			heads++
+		}
 	}
 	return
 }
