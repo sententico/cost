@@ -358,32 +358,40 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 					}
 					continue
 				case len(vcols) == 0:
-					pc, _ := parseCMap(cols) // TODO: fix this section for line skips in pc
+					pc, pch := parseCMap(cols)
 					sl, uc, mc := csv.SplitCSV(ln, sep), make(map[int]int), 0
-					for _, c := range pc {
-						if uc[c]++; c > mc {
+					for h, c := range pc {
+						if h[0] != '~' && h[0] != '=' {
+							uc[c]++
+						}
+						if c > mc {
 							mc = c
 						}
 					}
 					for i, c := range sl {
-						if c = strings.TrimSpace(c); c != "" && (len(pc) == 0 || pc[c] > 0) {
+						if c = strings.TrimSpace(c); c != "" && (pch == 0 || pc[c] > 0) {
 							vcols[c] = i + 1
 						}
 					}
 					switch wid = len(sl); {
-					case len(pc) == 0 && (!head || len(vcols) != wid):
+					case pch == 0 && (!head || len(vcols) != wid):
 						panic(fmt.Errorf("no heading in CSV file %q and no column map provided", path))
-					case len(pc) == 0:
-					case len(vcols) == len(pc):
+					case pch == 0:
+					case len(vcols) == pch:
 					case len(vcols) > 0:
-						panic(fmt.Errorf("missing %d column(s) in CSV file %q", len(pc)-len(vcols), path))
+						panic(fmt.Errorf("missing %d column(s) in CSV file %q", pch-len(vcols), path))
 					case head || mc > wid:
 						panic(fmt.Errorf("column map incompatible with CSV file %q", path))
-					case len(uc) < len(pc):
+					case len(uc) < pch:
 						panic(fmt.Errorf("ambiguous column map provided for CSV file %q", path))
 					default:
 						vcols = pc
 						continue
+					}
+					for h, c := range pc {
+						if h[0] == '~' || h[0] == '=' {
+							vcols[h] = c
+						}
 					}
 
 				default:
