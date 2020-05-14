@@ -294,9 +294,10 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 				default:
 					m, skip := make(map[string]string, len(cols)), false
 					for c, r := range cols {
-						if f := strings.TrimSpace(ln[r[0]-1 : r[1]]); c[0] == '~' && strings.HasPrefix(f, c[1:]) {
-							skip = true
-							break
+						if f := strings.TrimSpace(ln[r[0]-1 : r[1]]); c[0] == '~' {
+							if skip = strings.HasPrefix(f, c[1:]); skip {
+								break
+							}
 						} else if len(f) > 0 {
 							m[c] = f
 						}
@@ -387,9 +388,10 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						for c, i := range vcols {
 							if sl[i-1] == sl[i] {
 								skip = false
-							} else if f := string(bytes.TrimSpace(b[sl[i-1]:sl[i]])); c[0] == '~' && strings.HasPrefix(f, c[1:]) {
-								skip = true
-								break
+							} else if f := string(bytes.TrimSpace(b[sl[i-1]:sl[i]])); c[0] == '~' {
+								if skip = strings.HasPrefix(f, c[1:]); skip {
+									break
+								}
 							} else if len(f) > 0 {
 								m[c], skip = f, skip && f == c
 							} else {
