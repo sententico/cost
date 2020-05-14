@@ -293,16 +293,16 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 					}
 				default:
 					m, skip := make(map[string]string, len(cols)), false
-				nextCol:
 					for c, r := range cols {
-						switch f := strings.TrimSpace(ln[r[0]-1 : r[1]]); {
-						case c[0] == '~' && strings.HasPrefix(f, c[1:]):
-							skip = true
-							break nextCol
-						case c[0] == '=' && !strings.HasPrefix(f, c[1:]):
-							skip = true
-							break nextCol
-						case len(f) > 0:
+						if f := strings.TrimSpace(ln[r[0]-1 : r[1]]); c[0] == '~' {
+							if skip = strings.HasPrefix(f, c[1:]); skip {
+								break
+							}
+						} else if c[0] == '=' {
+							if skip = !strings.HasPrefix(f, c[1:]); skip {
+								break
+							}
+						} else if len(f) > 0 {
 							m[c] = f
 						}
 					}
@@ -389,18 +389,18 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 				default:
 					if b, sl := csv.SliceCSV(ln, sep); len(sl)-1 == wid {
 						m, skip := make(map[string]string, len(vcols)), true
-					nextCol:
 						for c, i := range vcols {
-							switch f := string(bytes.TrimSpace(b[sl[i-1]:sl[i]])); {
-							case c[0] == '~' && strings.HasPrefix(f, c[1:]):
-								skip = true
-								break nextCol
-							case c[0] == '=' && !strings.HasPrefix(f, c[1:]):
-								skip = true
-								break nextCol
-							case len(f) > 0:
+							if f := string(bytes.TrimSpace(b[sl[i-1]:sl[i]])); c[0] == '~' {
+								if skip = strings.HasPrefix(f, c[1:]); skip {
+									break
+								}
+							} else if c[0] == '=' {
+								if skip = !strings.HasPrefix(f, c[1:]); skip {
+									break
+								}
+							} else if len(f) > 0 {
 								m[c], skip = f, skip && f == c
-							default:
+							} else {
 								skip = false
 							}
 						}
