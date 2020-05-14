@@ -25,9 +25,9 @@ func init() {
 	flag.BoolVar(&forceFlag, "f", false, fmt.Sprintf("force file-type settings to settings file"))
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("CSV column selector `map`: "+
-		"'(<head>|[~<pfx>])[:<col>][,...]'  (ex. 'name,,age,acct:6,~N/A:6')"))
+		"'(<head>|[(~|=)<pfx>])[:<col>][,...]'  (ex. 'name,,age,acct:6,~N/A:6')"))
 	flag.StringVar(&fcolsFlag, "fcols", "", fmt.Sprintf("fixed-column selector `map`: "+
-		"'(<head>|[~<pfx>])[:<bcol>]:<ecol>[,...][,(<head>|[~<pfx>])]'  (ex. 'name:20,:39,age:42,:120,acct')"))
+		"'(<head>|[(~|=)<pfx>])[:<bcol>]:<ecol>[,...][,(<head>|[(~|=)<pfx>])]'  (ex. 'name:20,:39,age:42,:120,acct')"))
 
 	// call on ErrHelp
 	flag.Usage = func() {

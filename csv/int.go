@@ -127,7 +127,7 @@ nextSpec:
 
 // parseCMap parses a CSV column-map string, returning map and head count
 //   CSV file type column-map syntax:
-//		"(<head>|[~<pfx>])[:<col>][,(<head>|[~<pfx>])[:<col>]]..."
+//		"(<head>|[(~|=)<pfx>])[:<col>][,(<head>|[(~|=)<pfx>])[:<col>]]..."
 //   examples (in shell use, enclose in single-quotes):
 //		"name,,,age,,acct num" (columns, with skips, implicitly identified via file header)
 //		"name:1,age:4,acct num:6" (explicit column mappings for files with no header)
@@ -147,14 +147,14 @@ func parseCMap(cmap string) (m map[string]int, heads int) {
 		} else {
 			h, c = strings.TrimSpace(t), p+1
 		}
-		if h != "" && h != "~" {
+		if h != "" && h != "~" && h != "=" {
 			m[h] = c
 		}
 		p = c
 	}
 
 	for h = range m {
-		if h[0] != '~' {
+		if h[0] != '~' && h[0] != '=' {
 			heads++
 		}
 	}
@@ -164,7 +164,7 @@ func parseCMap(cmap string) (m map[string]int, heads int) {
 // parseFCMap parses a fixed-field column-map string for a "wid"-column file, returning map and
 // head count
 //   fixed-field TXT file type column-map syntax:
-//		"(<head>|[~<pfx>])[:<bcol>]:<ecol> [,(<head>|[~<pfx>])[:<bcol>]:<ecol>]...[,<head>|~<pfx>]"
+//		"(<head>|[(~|=)<pfx>])[:<bcol>]:<ecol> [,(<head>|[(~|=)<pfx>])[:<bcol>]:<ecol>]...[,<head>|(~|=)<pfx>]"
 //   examples (in shell use, enclose in single-quotes):
 //		"name:20,:62,age:65,:122,acct num" (column-end reference style with column skips)
 //		"name:1:20,age:63:65,acct num:123:132" (full begin:end column references)
@@ -209,14 +209,14 @@ func parseFCMap(fcmap string, wid int) (m map[string][2]int, heads int) {
 		default:
 			continue
 		}
-		if h != "" && h != "~" && p < e {
+		if h != "" && h != "~" && h != "=" && p < e {
 			m[h] = [2]int{p + 1, e}
 		}
 		p = e
 	}
 
 	for h = range m {
-		if h[0] != '~' {
+		if h[0] != '~' && h[0] != '=' {
 			heads++
 		}
 	}
