@@ -296,10 +296,10 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 				nextCol:
 					for c, r := range cols {
 						switch f := strings.TrimSpace(ln[r[0]-1 : r[1]]); {
-						case c[0] == '=':
+						case c[0] == '~':
 							skip = strings.HasPrefix(f, c[1:])
 							break nextCol
-						case c[0] == '~':
+						case c[0] == '=':
 							skip = !strings.HasPrefix(f, c[1:])
 							break nextCol
 						case len(f) > 0:
