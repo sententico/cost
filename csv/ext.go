@@ -272,7 +272,7 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 		defer close(isig)
 		csv.HandleSig(sig, &sigv)
 
-		cols, heads, wid, line, algn := map[string][2]int{}, 0, 0, 0, 0
+		cols, sel, wid, line, algn, f := map[string]cmapEntry{}, 0, 0, 0, 0, ""
 		for ln := range in {
 			for line++; ; {
 				switch {
@@ -282,8 +282,8 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 					head = false
 				case wid == 0:
 					wid = len(ln)
-					if cols, heads = parseFCMap(fcols, wid); heads == 0 {
-						panic(fmt.Errorf("bad column map provided for fixed-field file %q", path))
+					if cols, sel = parseCMap(fcols, true, wid); sel == 0 {
+						panic(fmt.Errorf("no columns selected by map provided for fixed-field file %q", path))
 					}
 					continue
 
@@ -293,21 +293,25 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 					}
 				default:
 					m, skip := make(map[string]string, len(cols)), false
-					for c, r := range cols {
-						if f := strings.TrimSpace(ln[r[0]-1 : r[1]]); c[0] == '~' {
-							if skip = strings.HasPrefix(f, c[1:]); skip {
-								break
+					for h, c := range cols {
+						if f = strings.TrimSpace(ln[c.begin-1 : c.col]); len(c.prefix) > 0 {
+							for _, p := range c.prefix {
+								if skip = strings.HasPrefix(f, p) == !c.inclusive; skip == !c.inclusive {
+									break
+								}
 							}
-						} else if c[0] == '=' {
-							if skip = !strings.HasPrefix(f, c[1:]); skip {
+							if skip {
 								break
+							} else if c.skip {
+								continue
 							}
-						} else if len(f) > 0 {
-							m[c] = f
+						}
+						if len(f) > 0 {
+							m[h] = f
 						}
 					}
-					if len(m) > 0 && !skip {
-						m["line~"] = strconv.Itoa(line)
+					if !skip && len(m) > 0 {
+						m["~line"] = strconv.Itoa(line)
 						out <- m
 					}
 				}
@@ -344,7 +348,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 		defer close(isig)
 		csv.HandleSig(sig, &sigv)
 
-		vcols, wid, line, algn := make(map[string]int, 32), 0, 0, 0
+		vcols, wid, line, algn, skip, f := make(map[string]cmapEntry, 32), 0, 0, 0, false, ""
 		for ln := range in {
 			for line++; ; {
 				switch {
@@ -358,62 +362,67 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 					}
 					continue
 				case len(vcols) == 0:
-					pc, pch := parseCMap(cols)
-					sl, uc, mc := csv.SplitCSV(ln, sep), make(map[int]int), 0
-					for h, c := range pc {
-						if h[0] != '~' && h[0] != '=' {
-							uc[c]++
-						}
-						if c > mc {
-							mc = c
+					sl, uc, vs := csv.SplitCSV(ln, sep), make(map[int]int), 0
+					wid = len(sl)
+					pc, ps := parseCMap(cols, false, wid)
+					for _, c := range pc {
+						uc[c.col]++
+					}
+					for i, h := range sl {
+						if h = strings.TrimSpace(h); h != "" && (ps == 0 || pc[h].col > 0) {
+							c := pc[h]
+							c.col = i
+							vcols[h] = c
 						}
 					}
-					for i, c := range sl {
-						if c = strings.TrimSpace(c); c != "" && (pch == 0 || pc[c] > 0) {
-							vcols[c] = i + 1
+					for _, c := range vcols {
+						if !c.skip {
+							vs++
 						}
 					}
-					switch wid = len(sl); {
-					case pch == 0 && (!head || len(vcols) != wid):
-						panic(fmt.Errorf("no heading in CSV file %q and no column map provided", path))
-					case pch == 0:
-					case len(vcols) == pch:
-					case len(vcols) > 0:
-						panic(fmt.Errorf("missing %d column(s) in CSV file %q", pch-len(vcols), path))
-					case head || mc > wid:
+					switch {
+					case ps == 0 && (!head || len(vcols) != wid):
+						panic(fmt.Errorf("can't read CSV file %q without column heads in file or map", path))
+					case ps == 0 && vs == 0:
+						panic(fmt.Errorf("column map skips all columns in CSV file %q", path))
+					case ps == 0:
+					case vs == ps:
+					case vs > 0:
+						panic(fmt.Errorf("missing %d column(s) in CSV file %q", ps-vs, path))
+					case head:
 						panic(fmt.Errorf("column map incompatible with CSV file %q", path))
-					case len(uc) < pch:
-						panic(fmt.Errorf("ambiguous column map provided for CSV file %q", path))
+					case len(uc) < len(pc):
+						panic(fmt.Errorf("%d conflicting column(s) in map provided for CSV file %q", len(pc)-len(uc), path))
 					default:
 						vcols = pc
 						continue
 					}
-					for h, c := range pc {
-						if h[0] == '~' || h[0] == '=' {
-							vcols[h] = c
-						}
-					}
 
 				default:
 					if b, sl := csv.SliceCSV(ln, sep); len(sl)-1 == wid {
-						m, skip := make(map[string]string, len(vcols)), true
-						for c, i := range vcols {
-							if f := string(bytes.TrimSpace(b[sl[i-1]:sl[i]])); c[0] == '~' {
-								if skip = strings.HasPrefix(f, c[1:]); skip {
-									break
+						m := make(map[string]string, len(vcols))
+						skip, head = false, true
+						for h, c := range vcols {
+							if f = string(bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]])); len(c.prefix) > 0 {
+								for _, p := range c.prefix {
+									if skip = strings.HasPrefix(f, p) == !c.inclusive; skip == !c.inclusive {
+										break
+									}
 								}
-							} else if c[0] == '=' {
-								if skip = !strings.HasPrefix(f, c[1:]); skip {
+								if skip {
 									break
+								} else if c.skip {
+									continue
 								}
-							} else if len(f) > 0 {
-								m[c], skip = f, skip && f == c
+							}
+							if len(f) > 0 {
+								m[h], head = f, head && f == h
 							} else {
-								skip = false
+								head = false
 							}
 						}
-						if len(m) > 0 && !skip {
-							m["line~"] = strconv.Itoa(line)
+						if !skip && !head && len(m) > 0 {
+							m["~line"] = strconv.Itoa(line)
 							out <- m
 						}
 					} else if algn++; line > 200 && float64(algn)/float64(line) > 0.02 {

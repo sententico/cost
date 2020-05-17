@@ -12,6 +12,12 @@ const (
 	bigFieldLen = 36       // mean field length above which CSV column-density is suspiciously low
 )
 
+type cmapEntry struct {
+	col, begin      int      // column reference (paired with begin column for fixed-field files)
+	skip, inclusive bool     // skip: filter-only columns; inclusive: prefix op (exclusive default)
+	prefix          []string // prefix operands
+}
+
 var commentSet = [...]string{"#", "//", "'"}
 
 // atoi is a helper string-to-int function with selectable default value on error
@@ -91,8 +97,8 @@ nextSpec:
 //   fixed-field TXT file type specifier syntax (heading/field lengths/prefixes):
 // 		"=(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))[,(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))]..."
 //   examples:
-//		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL" (heading & field row specs)
-//		"=f72,f72:T:F,f20:SKU" (field row specs only)
+//		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL" (heading & field row lengths/prefixes)
+//		"=f72,f72:T:F,f20:SKU" (field row length/prefixes only)
 func (dig *Digest) getFSpec() (spec string, head bool) {
 nextSpec:
 	for _, spec := range Settings.GetSpecs() {
@@ -125,99 +131,85 @@ nextSpec:
 	return "", dig.Heading
 }
 
-// parseCMap parses a CSV column-map string, returning map and head count
-//   CSV file type column-map syntax:
-//		"(<head>|[(~|=)<pfx>])[:<col>][,(<head>|[(~|=)<pfx>])[:<col>]]..."
+// parseCMap parses a column-map string for CSV or fixed-field file types of specified width,
+// returning map with selected column count
+//   column-map syntax for CSV files:
+//   	"[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]
+//       [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]]..."
+//   column-map syntax for fixed-field TXT files:
+//		"[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<bcol>]:<ecol>
+//       [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<bcol>]:<ecol>]..."
 //   examples (in shell use, enclose in single-quotes):
-//		"name,,,age,,acct num" (columns, with skips, implicitly identified via file header)
-//		"name:1,age:4,acct num:6" (explicit column mappings for files with no header)
-//		"~N/A:6,name,,,age,,acct num:6" (same with field-prefix row skip)
-func parseCMap(cmap string) (m map[string]int, heads int) {
-	if cmap == "" {
+//      "name,,,age,,acct num" (implicit columns, with skips)
+//		"name:1,age:4,acct num:6" (same, with explicit columns)
+//		"name:={James:Mary},,,age,,acct num:!{N/A:00000}" (same with include/exclude filters)
+//		"name:20,:62,age:65,:122,acct num:127" (now in a fixed file with implicit begin columns)
+//		"name:1:20,age:63:65,!acct num:![N/A:00000:]:123:127" (same but explicit with skip/filter)
+func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapEntry, selected int) {
+	switch {
+	case cmap == "" && fixed:
+		return map[string]cmapEntry{"~raw": {begin: 1, col: wid}}, 1
+	case cmap == "":
 		return
 	}
-	m = make(map[string]int, 32)
-	h, p, c := "", 0, -1
+	m = make(map[string]cmapEntry, 32)
+	cursor := 0
 
 	for _, t := range strings.Split(cmap, ",") {
-		if v := strings.Split(t, ":"); len(v) == 1 {
-			h, c = strings.TrimSpace(t), p+1
-		} else if c = atoi(v[len(v)-1], -1); c > 0 {
-			h = strings.TrimSpace(strings.Join(v[:len(v)-1], ":"))
-		} else {
-			h, c = strings.TrimSpace(t), p+1
-		}
-		if h != "" && h != "~" && h != "=" {
-			m[h] = c
-		}
-		p = c
-	}
+		v, me, a, b, h := strings.Split(t, ":"), cmapEntry{}, 0, 0, ""
 
-	for h = range m {
-		if h[0] != '~' && h[0] != '=' {
-			heads++
-		}
-	}
-	return
-}
-
-// parseFCMap parses a fixed-field column-map string for a "wid"-column file, returning map and
-// head count
-//   fixed-field TXT file type column-map syntax:
-//		"(<head>|[(~|=)<pfx>])[:<bcol>]:<ecol> [,(<head>|[(~|=)<pfx>])[:<bcol>]:<ecol>]...[,<head>|(~|=)<pfx>]"
-//   examples (in shell use, enclose in single-quotes):
-//		"name:20,:62,age:65,:122,acct num" (column-end reference style with column skips)
-//		"name:1:20,age:63:65,acct num:123:132" (full begin:end column references)
-//		"name:1:20,age:63:65,~N/A:123:132,acct num:123:132" (same with field-prefix row skip)
-func parseFCMap(fcmap string, wid int) (m map[string][2]int, heads int) {
-	if fcmap == "" {
-		return map[string][2]int{"raw~": {1, wid}}, 1
-	}
-	m = make(map[string][2]int, 32)
-	h, p, b, e := "", 0, -1, -1
-
-	for _, t := range strings.Split(fcmap, ",") {
-		switch v := strings.Split(t, ":"); len(v) {
-		case 1:
-			h, b, e = strings.TrimSpace(t), -1, -1
-		case 2:
-			switch b, e = -1, atoi(v[1], -1); {
-			case e > 0:
-				h = strings.TrimSpace(v[0])
-			default:
-				h = strings.TrimSpace(t)
+		if len(v) > 2 && fixed {
+			if me.col, b = atoi(v[len(v)-1], 0), len(v)-1; me.col > 0 {
+				if me.begin, b = atoi(v[len(v)-2], 0), len(v)-3; me.begin == 0 || me.begin > me.col {
+					me.begin, b = 0, len(v)-2
+				}
 			}
-		default:
-			switch b, e = atoi(v[len(v)-2], -1), atoi(v[len(v)-1], -1); {
-			case b > 0 && e > 0:
-				h = strings.TrimSpace(strings.Join(v[:len(v)-2], ":"))
-			case e > 0:
-				h = strings.TrimSpace(strings.Join(v[:len(v)-1], ":"))
-			default:
-				h, b = strings.TrimSpace(t), -1
+		} else if len(v) > 1 {
+			if me.col, b = atoi(v[len(v)-1], 0), len(v)-2; me.col == 0 {
+				b = len(v) - 1
 			}
 		}
-
+		for a = 1; a < len(v) && !strings.HasPrefix(v[a], "=[") && !strings.HasPrefix(v[a], "!["); a++ {
+		}
+		if a <= b && strings.HasSuffix(v[b], "]") {
+			me.skip, me.inclusive = strings.HasPrefix(v[0], "!"), v[a][0] == '='
+			v[a] = v[a][2:]
+			v[b] = v[b][:len(v[b])-1]
+			me.prefix = v[a : b+1]
+		} else if a < len(v) {
+			continue
+		}
 		switch {
-		case e > wid:
-			continue
-		case b > 0:
-			p = b - 1
-		case e > 0:
-		case p < wid:
-			e = wid
+		case a <= b:
+			h = strings.Join(v[:a], ":")
+		case me.begin > 0:
+			h = strings.Join(v[:len(v)-2], ":")
+		case me.col > 0:
+			h = strings.Join(v[:len(v)-1], ":")
 		default:
+			h = t
+		}
+		switch {
+		case fixed && me.col > cursor && me.begin == 0:
+			me.begin = cursor + 1
+		case !fixed && me.col == 0:
+			me.col = cursor + 1
+		}
+
+		switch th := strings.TrimLeft(h, "!"); {
+		case me.col == 0 || me.col > wid || me.begin == 0 && fixed:
 			continue
+		case th != "" && (h[0] != '!' || me.skip):
+			m[th] = me
+			fallthrough
+		default:
+			cursor = me.col
 		}
-		if h != "" && h != "~" && h != "=" && p < e {
-			m[h] = [2]int{p + 1, e}
-		}
-		p = e
 	}
 
-	for h = range m {
-		if h[0] != '~' && h[0] != '=' {
-			heads++
+	for _, me := range m {
+		if !me.skip {
+			selected++
 		}
 	}
 	return

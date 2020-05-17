@@ -21,21 +21,21 @@
         "Lock": true
     },
     "=h250,h1:H0120,h68:CDRCUR,f250,f1:08": {
-        "Cols": "oloc:29:30,olata:33,dt:47,~:48,term:63,~:75,tloc:77,tlata:80,dur:89,~:90,dec:92,~:97,orig:107,~:109,tcc:112,occ:115,~:135,dir:136,~:156,jur:157,~:160,oocn:164,tocn:168,~:170,cost:188,~:195,tlrn:205,~:206,ojip:212",
+        "Cols": "oloc:29:30,olata:33,dt:47,:48,term:63,:75,tloc:77,tlata:80,dur:89,:90,dec:92,:97,orig:107,:109,tcc:112,occ:115,:135,dir:136,:156,jur:157,:160,oocn:164,tocn:168,:170,cost:188,:195,tlrn:205,:206,ojip:212",
         "Type": "Global Crossing CDR",
         "Ver": "Jan09 250",
         "Date": "2020-05-01T13:30:00-04:00",
         "Lock": true
     },
     "=h300,h1:0CARRIER20,f300,f1:120": {
-        "Cols": "dt:2:16,dur:25,orig:35,term:51,~:52,cost:64,~:84,dunits:94,dcode:95,~:98,tz:99,~:101,bdur:109,~:113,plat:116,~:123,dir:124,~:191,olrn:201,tlrn:211,~:230,jur:231,~:232,intl:233,olata:236,tlata:239,~:243,oocn:247,tocn:251,olrni:252,tlrni:253,~:278,drate:280",
+        "Cols": "dt:2:16,dur:25,orig:35,term:51,:52,cost:64,:84,dunits:94,dcode:95,:98,tz:99,:101,bdur:109,:113,plat:116,:123,dir:124,:191,olrn:201,tlrn:211,:230,jur:231,:232,intl:233,olata:236,tlata:239,:243,oocn:247,tocn:251,olrni:252,tlrni:253,:278,drate:280",
         "Type": "ATT CDR",
         "Ver": "Nov07 v19 AVOICS",
         "Date": "2020-05-03T15:11:49.8202887-04:00",
         "Lock": true
     },
     "=f32,f16:0:1:2:3:4:5:6:7:8:9,f24:  ": {
-        "Cols": "animal:15,~:25,value",
+        "Cols": "animal:15,:25,value",
         "Type": "test fixed-field",
         "Ver": "Apr20",
         "Date": "2020-04-30T13:30:00-04:00",
