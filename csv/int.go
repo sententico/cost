@@ -134,13 +134,13 @@ nextSpec:
 // parseCMap parses a column-map string for CSV or fixed-field file types of specified width,
 // returning map with selected column count
 //   column-map syntax for CSV files:
-//   	"[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]
-//       [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]]..."
+//		"[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]
+//		 [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]]..."
 //   column-map syntax for fixed-field TXT files:
 //		"[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<bcol>]:<ecol>
-//       [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<bcol>]:<ecol>]..."
+//		 [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<bcol>]:<ecol>]..."
 //   examples (in shell use, enclose in single-quotes):
-//      "name,,,age,,acct num" (implicit columns, with skips)
+//		"name,,,age,,acct num" (implicit columns, with skips)
 //		"name:1,age:4,acct num:6" (same, with explicit columns)
 //		"name:={James:Mary},,,age,,acct num:!{N/A:00000}" (same with inclusive/exclusive filters)
 //		"name:20,:62,age:65,:122,acct num:127" (now in a fixed file with implicit begin columns)
