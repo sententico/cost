@@ -142,7 +142,7 @@ nextSpec:
 //   examples (in shell use, enclose in single-quotes):
 //      "name,,,age,,acct num" (implicit columns, with skips)
 //		"name:1,age:4,acct num:6" (same, with explicit columns)
-//		"name:={James:Mary},,,age,,acct num:!{N/A:00000}" (same with include/exclude filters)
+//		"name:={James:Mary},,,age,,acct num:!{N/A:00000}" (same with inclusive/exclusive filters)
 //		"name:20,:62,age:65,:122,acct num:127" (now in a fixed file with implicit begin columns)
 //		"name:1:20,age:63:65,!acct num:![N/A:00000:]:123:127" (same but explicit with skip/filter)
 func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapEntry, selected int) {
@@ -169,9 +169,9 @@ func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapEntry, select
 				b = len(v) - 1
 			}
 		}
-		for a = 1; a < len(v) && !strings.HasPrefix(v[a], "=[") && !strings.HasPrefix(v[a], "!["); a++ {
+		for a = 1; a < len(v) && !strings.HasPrefix(v[a], "={") && !strings.HasPrefix(v[a], "!{"); a++ {
 		}
-		if a <= b && strings.HasSuffix(v[b], "]") {
+		if a <= b && strings.HasSuffix(v[b], "}") {
 			me.skip, me.inclusive = strings.HasPrefix(v[0], "!"), v[a][0] == '='
 			v[a] = v[a][2:]
 			v[b] = v[b][:len(v[b])-1]
