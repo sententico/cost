@@ -350,7 +350,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 		defer close(isig)
 		csv.HandleSig(sig, &sigv)
 
-		vcols, wid, line, algn, skip := make(map[string]cmapEntry, 32), 0, 0, 0, false
+		vcols, wid, line, algn, skip, f := make(map[string]cmapEntry, 32), 0, 0, 0, false, *string
 		for ln := range in {
 			for line++; ; {
 				switch {
@@ -406,10 +406,10 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						skip, head = false, true
 						for h, c := range vcols {
 							fs := bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]])
-							f := *(*string)(unsafe.Pointer(&fs)) // avoid copy for ~8% performance gain
+							f := (*string)(unsafe.Pointer(&fs)) // avoid new string for ~8% perf gain
 							if len(c.prefix) > 0 {
 								for _, p := range c.prefix {
-									if skip = strings.HasPrefix(f, p) == !c.inclusive; skip == !c.inclusive {
+									if skip = strings.HasPrefix(*f, p) == !c.inclusive; skip == !c.inclusive {
 										break
 									}
 								}
@@ -419,8 +419,8 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 									continue
 								}
 							}
-							if len(f) > 0 {
-								m[h], head = f, head && f == h
+							if len(*f) > 0 {
+								m[h], head = *f, head && *f == h
 							} else {
 								head = false
 							}
