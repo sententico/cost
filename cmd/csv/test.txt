@@ -13,5 +13,5 @@ squirrel       0.5            10
   
 // weird animal section
 //
-wombat         40           10
+wombat         40             10
 weasel         8              10
