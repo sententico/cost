@@ -405,9 +405,8 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						skip, head = false, true
 						for h, c := range vcols {
 							fs := bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]])
-							f = *(*string)(unsafe.Pointer(&fs))
-							// ALT: f = string(bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]]))
-							if len(c.prefix) > 0 {
+							if f = *(*string)(unsafe.Pointer(&fs)); len(c.prefix) > 0 {
+								// "unsafe" copy elimination for ~8% performance gain
 								for _, p := range c.prefix {
 									if skip = strings.HasPrefix(f, p) == !c.inclusive; skip == !c.inclusive {
 										break
