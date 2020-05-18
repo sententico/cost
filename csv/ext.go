@@ -350,7 +350,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 		defer close(isig)
 		csv.HandleSig(sig, &sigv)
 
-		vcols, wid, line, algn, skip, f := make(map[string]cmapEntry, 32), 0, 0, 0, false, *string
+		vcols, wid, line, algn, skip := make(map[string]cmapEntry, 32), 0, 0, 0, false
 		for ln := range in {
 			for line++; ; {
 				switch {
