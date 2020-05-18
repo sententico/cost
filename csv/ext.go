@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/sententico/cost/internal/csv"
 )
@@ -285,7 +286,6 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 					if cols, sel = parseCMap(fcols, true, wid); sel == 0 {
 						panic(fmt.Errorf("no columns selected by map provided for fixed-field file %q", path))
 					}
-					fmt.Println(cols, sel)
 					continue
 
 				case len(ln) != wid:
@@ -404,8 +404,10 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						m := make(map[string]string, len(vcols))
 						skip, head = false, true
 						for h, c := range vcols {
-							// ALT: f = *(*string)(unsafe.Pointer(&b[sl[c.col-1]:sl[c.col]])
-							if f = string(bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]])); len(c.prefix) > 0 {
+							fs := bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]])
+							f = *(*string)(unsafe.Pointer(&fs))
+							// ALT: f = string(bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]]))
+							if len(c.prefix) > 0 {
 								for _, p := range c.prefix {
 									if skip = strings.HasPrefix(f, p) == !c.inclusive; skip == !c.inclusive {
 										break
