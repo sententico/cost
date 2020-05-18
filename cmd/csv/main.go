@@ -21,16 +21,16 @@ var (
 
 func init() {
 	// set up command-line flags
-	flag.StringVar(&settingsFlag, "s", "~/.csv_settings.json", fmt.Sprintf("file-type settings `file` containing column maps"))
+	flag.StringVar(&settingsFlag, "s", "~/.csv_settings.json", fmt.Sprintf("file-type settings `file` containing column filter maps"))
 	flag.BoolVar(&forceFlag, "f", false, fmt.Sprintf("force file-type settings to settings file"))
 	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
-	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("column selector `map`: "+
-		"'[!]<head>[:(=|!){<pfx>[:<pfx>]...}][[:<bcol>]:<col>][,...]'  (ex. 'name,,age,acct:~{n/a:0000}:6')"))
+	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("column filter `map`: "+
+		"'[!]<head>[:(=|!){<pfx>[:<pfx>]...}][[:<bcol>]:<col>][,...]'  (ex. 'name,,!stat:={OK},age,acct:!{n/a:0000}:6')"))
 
 	// call on ErrHelp
 	flag.Usage = func() {
 		fmt.Printf("command usage: csv [-d] [-f] [-cols '<map>'] [-s <file>] <csvfile> [...]" +
-			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column selection maps.\n\n")
+			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column filter maps.\n\n")
 		flag.PrintDefaults()
 	}
 }
