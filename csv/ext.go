@@ -2,7 +2,6 @@ package csv
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -239,11 +238,8 @@ nextSep:
 		dig.Heading = len(dig.Preview[0]) != fix
 		dig.Sig, dig.Heading = dig.getFSpec()
 	default:
-		for rc, r := range dig.Preview {
-			dig.Split = append(dig.Split, []string{})
-			for _, f := range csv.SplitCSV(r, dig.Sep) {
-				dig.Split[rc] = append(dig.Split[rc], strings.TrimSpace(f))
-			}
+		for _, r := range dig.Preview {
+			dig.Split = append(dig.Split, csv.SplitCSV(r, dig.Sep))
 		}
 		if dig.Sig, dig.Heading = hash, hash != ""; !Settings.Find(dig.Sig) {
 			if spec := dig.getSpec(); spec != "" {
@@ -371,7 +367,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						uc[c.col]++
 					}
 					for i, h := range sl {
-						if h = strings.TrimSpace(h); h != "" && (ps == 0 || pc[h].col > 0) {
+						if h != "" && (ps == 0 || pc[h].col > 0) {
 							c := pc[h]
 							c.col = i + 1
 							vcols[h] = c
@@ -405,7 +401,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						m := make(map[string]string, len(vcols))
 						skip, head = false, true
 						for h, c := range vcols {
-							fs := bytes.TrimSpace(b[sl[c.col-1]:sl[c.col]])
+							fs := b[sl[c.col-1]:sl[c.col]]
 							f := (*string)(unsafe.Pointer(&fs)) // avoid new string for ~8% perf gain
 							if len(c.prefix) > 0 {
 								for _, p := range c.prefix {
