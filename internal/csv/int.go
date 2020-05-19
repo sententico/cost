@@ -110,7 +110,7 @@ func SliceCSV(csv string, sep rune) ([]byte, []int) {
 		case stSFX:
 			switch r {
 			case sep:
-				buf, st = buf[:slen], stSEP
+				sl, buf, st = append(sl, slen), buf[:slen], stSEP
 			case ' ':
 				buf = append(buf, byte(r))
 			default:
@@ -119,7 +119,7 @@ func SliceCSV(csv string, sep rune) ([]byte, []int) {
 		}
 	}
 	if st == stSFX {
-		buf = buf[:slen]
+		return buf, append(sl, slen)
 	}
 	return buf, append(sl, len(buf))
 }
