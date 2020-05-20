@@ -15,7 +15,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/sententico/cost/internal/csv"
+	"github.com/sententico/cost/internal/io"
 )
 
 // Digest structure summarizing a CSV/TXT file for identification
@@ -201,7 +201,7 @@ nextSep:
 	for _, r := range sepSet {
 		c, sl, sh := 0, []string{}, []string{}
 		for i, ln := range dig.Preview {
-			if sl = csv.SplitCSV(ln, r); len(sl) <= max || c > 0 && len(sl) != c {
+			if sl = io.SplitCSV(ln, r); len(sl) <= max || c > 0 && len(sl) != c {
 				continue nextSep
 			}
 			for _, f := range sl {
@@ -239,7 +239,7 @@ nextSep:
 		dig.Sig, dig.Heading = dig.getFSpec()
 	default:
 		for _, r := range dig.Preview {
-			dig.Split = append(dig.Split, csv.SplitCSV(r, dig.Sep))
+			dig.Split = append(dig.Split, io.SplitCSV(r, dig.Sep))
 		}
 		if dig.Sig, dig.Heading = hash, hash != ""; !Settings.Find(dig.Sig) {
 			if spec := dig.getSpec(); spec != "" {
@@ -265,9 +265,9 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 			close(err)
 			close(out)
 		}()
-		in, ierr, isig := csv.ReadLn(path)
+		in, ierr, isig := io.ReadLn(path)
 		defer close(isig)
-		csv.HandleSig(sig, &sigv)
+		io.HandleSig(sig, &sigv)
 
 		cols, sel, wid, line, algn := map[string]cmapEntry{}, 0, 0, 0, 0
 		for ln := range in {
@@ -342,9 +342,9 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 			close(err)
 			close(out)
 		}()
-		in, ierr, isig := csv.ReadLn(path)
+		in, ierr, isig := io.ReadLn(path)
 		defer close(isig)
-		csv.HandleSig(sig, &sigv)
+		io.HandleSig(sig, &sigv)
 
 		vcols, wid, line, algn, skip := make(map[string]cmapEntry, 32), 0, 0, 0, false
 		for ln := range in {
@@ -354,13 +354,13 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 				case comment != "" && strings.HasPrefix(ln, comment):
 				case sep == '\x00':
 					for _, r := range sepSet {
-						if c := len(csv.SplitCSV(ln, r)); c > wid {
+						if c := len(io.SplitCSV(ln, r)); c > wid {
 							wid, sep = c, r
 						}
 					}
 					continue
 				case len(vcols) == 0:
-					sl, uc, vs := csv.SplitCSV(ln, sep), make(map[int]int), 0
+					sl, uc, vs := io.SplitCSV(ln, sep), make(map[int]int), 0
 					wid = len(sl)
 					pc, ps := parseCMap(cols, false, wid)
 					for _, c := range pc {
@@ -397,7 +397,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 					}
 
 				default:
-					if b, sl := csv.SliceCSV(ln, sep); len(sl)-1 == wid {
+					if b, sl := io.SliceCSV(ln, sep); len(sl)-1 == wid {
 						m := make(map[string]string, len(vcols))
 						skip, head = false, true
 						for h, c := range vcols {
