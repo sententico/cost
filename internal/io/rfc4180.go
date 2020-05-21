@@ -14,11 +14,16 @@ const (
 // SliceCSV returns buffer with blank-trimmed field slices for "csv" split by "sep", using a safe
 // but tolerant implementation of RFC 4180
 func SliceCSV(csv string, sep rune, expected int) ([]byte, []int) {
+	if expected > len(csv) {
+		expected = len(csv) + 1
+	}
 	buf, sl, st, slen := make([]byte, 0, len(csv)-expected+1), make([]int, 1, expected+1), stSEP, 0
+
 	for _, r := range csv {
 		if r > '\x7e' || r != '\x09' && r < '\x20' {
 			continue // all non-printable ASCII runes dropped
 		}
+
 		switch st {
 		case stSEP:
 			switch r {
@@ -73,6 +78,7 @@ func SliceCSV(csv string, sep rune, expected int) ([]byte, []int) {
 			}
 		}
 	}
+
 	if st == stSFX {
 		return buf, append(sl, slen)
 	}
