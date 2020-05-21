@@ -397,7 +397,7 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 					}
 
 				default:
-					if b, sl := io.SliceCSV(ln, sep); len(sl)-1 == wid {
+					if b, sl := io.SliceCSV(ln, sep, wid); len(sl)-1 == wid {
 						m := make(map[string]string, len(vcols))
 						skip, head = false, true
 						for h, c := range vcols {

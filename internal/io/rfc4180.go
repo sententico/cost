@@ -1,9 +1,9 @@
 package io
 
-type st4180 uint8
+type state uint8
 
 const (
-	stSEP st4180 = iota
+	stSEP state = iota
 	stENCL
 	stESC
 	stPFX
@@ -13,16 +13,16 @@ const (
 
 // SliceCSV returns buffer with blank-trimmed field slices for "csv" split by "sep", using a safe
 // but tolerant implementation of RFC 4180
-func SliceCSV(csv string, sep rune) ([]byte, []int) {
-	buf, sl, st, slen := make([]byte, 0, len(csv)), make([]int, 1, 4+len(csv)/4), stSEP, 0
+func SliceCSV(csv string, sep rune, expected int) ([]byte, []int) {
+	buf, sl, st, slen := make([]byte, 0, len(csv)-expected+1), make([]int, 1, expected+1), stSEP, 0
 	for _, r := range csv {
 		if r > '\x7e' || r != '\x09' && r < '\x20' {
-			continue
+			continue // all non-printable ASCII runes dropped
 		}
 		switch st {
 		case stSEP:
 			switch r {
-			case sep:
+			case sep: // separator state
 				sl = append(sl, len(buf))
 			case '"':
 				st = stENCL
@@ -31,21 +31,21 @@ func SliceCSV(csv string, sep rune) ([]byte, []int) {
 			default:
 				buf, st = append(buf, byte(r)), stIFX
 			}
-		case stENCL:
+		case stENCL: // double-quote enclosure state (ingests until closing double-quote)
 			switch r {
 			case '"':
 				st = stESC
 			default:
 				buf = append(buf, byte(r))
 			}
-		case stESC:
+		case stESC: // double-quote single-rune escape state (any rune but separator escaped)
 			switch r {
 			case sep:
 				sl, st = append(sl, len(buf)), stSEP
 			default:
 				buf, st = append(buf, byte(r)), stENCL
 			}
-		case stPFX:
+		case stPFX: // unenclosed prefix state (leading blanks skipped)
 			switch r {
 			case sep:
 				sl, st = append(sl, len(buf)), stSEP
@@ -53,7 +53,7 @@ func SliceCSV(csv string, sep rune) ([]byte, []int) {
 			default:
 				buf, st = append(buf, byte(r)), stIFX
 			}
-		case stIFX:
+		case stIFX: // unenclosed infix state (ingests until blank/separator)
 			switch r {
 			case sep:
 				sl, st = append(sl, len(buf)), stSEP
@@ -62,7 +62,7 @@ func SliceCSV(csv string, sep rune) ([]byte, []int) {
 			default:
 				buf = append(buf, byte(r))
 			}
-		case stSFX:
+		case stSFX: // unenclosed suffix state (final blanks deleted if separator reached)
 			switch r {
 			case sep:
 				sl, buf, st = append(sl, slen), buf[:slen], stSEP
@@ -82,7 +82,7 @@ func SliceCSV(csv string, sep rune) ([]byte, []int) {
 // SplitCSV returns blank-trimmed fields in "csv" split by "sep", using a safe but tolerant
 // implementation of RFC 4180
 func SplitCSV(csv string, sep rune) []string {
-	buf, sl := SliceCSV(csv, sep)
+	buf, sl := SliceCSV(csv, sep, 1+len(csv)/4)
 	fields := make([]string, 0, len(sl))
 	for i := 1; i < len(sl); i++ {
 		fields = append(fields, string(buf[sl[i-1]:sl[i]]))
