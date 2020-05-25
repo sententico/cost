@@ -256,7 +256,7 @@ nextSep:
 // signal a halt).  Fields selected by column ranges in "fcols" map are trimmed of blanks; empty
 // fields are suppressed; "head" lines, blank lines and those prefixed by "comment" are skipped.
 func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string, <-chan error, chan<- int) {
-	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
+	out, err, sig := make(chan map[string]string, 64), make(chan error, 1), make(chan int)
 	go func() {
 		defer func() {
 			if e := recover(); e != nil {
@@ -267,7 +267,6 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 		}()
 		in, ierr, isig := io.ReadLn(path)
 		defer close(isig)
-		io.HandleSig(sig, &sigv)
 
 		cols, sel, wid, line, algn := map[string]cmapEntry{}, 0, 0, 0, 0
 		for ln := range in {
@@ -310,13 +309,14 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 					}
 					if !skip && len(m) > 0 {
 						m["~line"] = strconv.Itoa(line)
-						out <- m
+						select {
+						case out <- m:
+						case <-sig:
+							return
+						}
 					}
 				}
 				break
-			}
-			if sigv != 0 {
-				return
 			}
 		}
 		if e := <-ierr; e != nil {
@@ -333,7 +333,7 @@ func ReadFixed(path, fcols, comment string, head bool) (<-chan map[string]string
 // quotes (which may enclose separators); empty fields are suppressed; blank lines and those
 // prefixed by "comment" are skipped.
 func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]string, <-chan error, chan<- int) {
-	out, err, sig, sigv := make(chan map[string]string, 64), make(chan error, 1), make(chan int), 0
+	out, err, sig := make(chan map[string]string, 64), make(chan error, 1), make(chan int)
 	go func() {
 		defer func() {
 			if e := recover(); e != nil {
@@ -344,7 +344,6 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 		}()
 		in, ierr, isig := io.ReadLn(path)
 		defer close(isig)
-		io.HandleSig(sig, &sigv)
 
 		vcols, wid, line, algn, skip := make(map[string]cmapEntry, 32), 0, 0, 0, false
 		for ln := range in {
@@ -423,16 +422,17 @@ func Read(path, cols, comment string, head bool, sep rune) (<-chan map[string]st
 						}
 						if !skip && !head && len(m) > 0 {
 							m["~line"] = strconv.Itoa(line)
-							out <- m
+							select {
+							case out <- m:
+							case <-sig:
+								return
+							}
 						}
 					} else if algn++; line > 200 && float64(algn)/float64(line) > 0.02 {
 						panic(fmt.Errorf("excessive column misalignment in CSV file %q (>%d rows)", path, algn))
 					}
 				}
 				break
-			}
-			if sigv != 0 {
-				return
 			}
 		}
 		if e := <-ierr; e != nil {
