@@ -14,7 +14,7 @@ func WC(agg interface{}) {
 	wc := agg.(map[string]map[string]int)
 	head := make([]string, 0, len(wc))
 	for k := range wc {
-		if len(wc[k]) < 1000 {
+		if len(wc[k]) < 2000 {
 			head = append(head, k)
 		}
 	}
@@ -48,10 +48,10 @@ func WC(agg interface{}) {
 			case r >= len(cols[c]):
 				fmt.Printf(",,")
 			case c == 0:
-				fmt.Printf("%v,%v", cols[c][r], wc[h][cols[c][r]])
+				fmt.Printf("%q,%v", cols[c][r], wc[h][cols[c][r]])
 				output = true
 			default:
-				fmt.Printf(",%v,%v", cols[c][r], wc[h][cols[c][r]])
+				fmt.Printf(",%q,%v", cols[c][r], wc[h][cols[c][r]])
 				output = true
 			}
 		}
