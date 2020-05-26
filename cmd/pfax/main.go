@@ -9,35 +9,17 @@ import (
 	"github.com/sententico/cost/agg"
 	"github.com/sententico/cost/csv"
 	"github.com/sententico/cost/flt"
-	_ "github.com/sententico/cost/internal/pfax"
+	"github.com/sententico/cost/internal/pfax"
 	"github.com/sententico/cost/xfm"
 )
 
-type fentry struct {
-	flt  func(chan<- interface{}, <-chan map[string]string)
-	cols string
-}
-type fmap map[string]fentry
-
-var (
-	settingsFlag string
-	wg           sync.WaitGroup
-	xMap         = map[string]struct {
-		descr string
-		xfm   func(interface{})
-		agg   func(<-chan interface{}) interface{}
-		fm    fmap
-	}{
-		"wc": {`wc transform desciption`, xfm.WC, agg.WC, fmap{
-			"Level 3 CDR": {flt.WC, "SERVTYPE,!BILL_IND:!{N},BILLINGNUM,DESTYPEUSED"},
-			"*":           {flt.WC, ""},
-		}},
-	}
-)
+var wg sync.WaitGroup
 
 func init() {
 	// set up command-line flags
-	flag.StringVar(&settingsFlag, "s", "~/.csv_settings.json", fmt.Sprintf("file-type settings `file` containing column filter maps"))
+	pfax.Args.XfmFlag = "wc"
+	flag.Var(&pfax.Args.XfmFlag, "x", fmt.Sprintf("transform `xfm` to be applied to CSV/fixed-field files"))
+	flag.StringVar(&pfax.Args.SettingsFlag, "s", "~/.csv_settings.json", fmt.Sprintf("file-type settings `file` containing column filter maps"))
 
 	// call on ErrHelp
 	flag.Usage = func() {
@@ -45,14 +27,20 @@ func init() {
 			"\n\nThis command...\n\n")
 		flag.PrintDefaults()
 	}
+
+	pfax.Xm = pfax.Xmap{
+		"wc": {`wc transform desciption`, xfm.WC, agg.WC, pfax.Fmap{
+			"Level 3 CDR": {flt.WC, "SERVTYPE,!BILL_IND:!{N},BILLINGNUM,DESTYPEUSED"},
+			"*":           {flt.WC, ""},
+		}},
+	}
 }
 
 func main() {
 	flag.Parse()
-	csv.Settings.Cache(settingsFlag)
-	x := xMap["wc"]
+	csv.Settings.Cache(pfax.Args.SettingsFlag)
+	x, fin := pfax.Xm[string(pfax.Args.XfmFlag)], make(chan interface{}, 64)
 
-	fin := make(chan interface{}, 64)
 	for _, arg := range flag.Args() {
 		files, _ := filepath.Glob(arg)
 		if len(files) == 0 {
@@ -74,18 +62,18 @@ func main() {
 					err  <-chan error
 					sig  chan<- int
 					e    error
-					fe   fentry
+					fe   pfax.Fentry
 					ok   bool
 					cols string
 				)
 				if dig, e = csv.Peek(fn); e != nil {
 					panic(fmt.Errorf("%v", e))
-				} else if fe, ok = x.fm[dig.Settings.Type]; !ok {
-					if fe, ok = x.fm["*"]; !ok {
+				} else if fe, ok = x.Fm[dig.Settings.Type]; !ok {
+					if fe, ok = x.Fm["*"]; !ok {
 						panic(fmt.Errorf("no filter defined for %q [%v]", fn, dig.Settings.Type))
 					}
 				}
-				if cols = fe.cols; cols == "" {
+				if cols = fe.Cols; cols == "" {
 					cols = dig.Settings.Cols
 				}
 				if dig.Sep == '\x00' {
@@ -95,7 +83,7 @@ func main() {
 				}
 				defer close(sig)
 
-				fe.flt(fin, in)
+				fe.Flt(fin, in, dig)
 				if e := <-err; e != nil {
 					panic(fmt.Errorf("%v", e))
 				}
@@ -106,5 +94,5 @@ func main() {
 		defer close(fin)
 		wg.Wait()
 	}()
-	x.xfm(x.agg(fin))
+	x.Xfm(x.Agg(fin))
 }
