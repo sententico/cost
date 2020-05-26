@@ -1,5 +1,5 @@
 package agg
 
 import (
-	_ "github.com/sententico/cost/internal/pfax"
+	_ "github.com/sententico/cost/internal/pfax" // stub reference
 )

@@ -2,7 +2,7 @@ package flt
 
 import (
 	"github.com/sententico/cost/csv"
-	_ "github.com/sententico/cost/internal/pfax"
+	_ "github.com/sententico/cost/internal/pfax" // stub reference
 )
 
 // Nil concurrently pass-through filters CSV/fixed-field inputs for aggregation

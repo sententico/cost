@@ -3,7 +3,7 @@ package xfm
 import (
 	"fmt"
 
-	_ "github.com/sententico/cost/internal/pfax"
+	_ "github.com/sententico/cost/internal/pfax" // stub reference
 )
 
 // WC transforms filtered aggregate...

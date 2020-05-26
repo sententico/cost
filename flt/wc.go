@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/sententico/cost/csv"
-	_ "github.com/sententico/cost/internal/pfax"
+	_ "github.com/sententico/cost/internal/pfax" // stub reference
 )
 
 // WC concurrently filters CSV/fixed-field input for aggregation
