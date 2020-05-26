@@ -22,15 +22,15 @@ type fmap map[string]fentry
 var (
 	settingsFlag string
 	wg           sync.WaitGroup
-	xMap       = map[string]struct {
+	xMap         = map[string]struct {
 		descr string
 		xfm   func(interface{})
 		agg   func(<-chan interface{}) interface{}
 		fm    fmap
 	}{
 		"wc": {`wc transform desciption`, xfm.WC, agg.WC, fmap{
-			"Level 3 CDR":  {flt.WC, "SERVTYPE,!BILL_IND:!{N},BILLINGNUM,DESTYPEUSED"}
-			"*": 			{flt.WC, ""}
+			"Level 3 CDR": {flt.WC, "SERVTYPE,!BILL_IND:!{N},BILLINGNUM,DESTYPEUSED"},
+			"*":           {flt.WC, ""},
 		}},
 	}
 )
