@@ -14,21 +14,24 @@ import (
 )
 
 type fentry struct {
-	cols string
 	flt  func(chan<- interface{}, <-chan map[string]string)
+	cols string
 }
 type fmap map[string]fentry
 
 var (
 	settingsFlag string
 	wg           sync.WaitGroup
-	faxMap       = map[string]struct {
+	xMap       = map[string]struct {
 		descr string
 		xfm   func(interface{})
 		agg   func(<-chan interface{}) interface{}
 		fm    fmap
 	}{
-		"wc": {`wc transform desciption`, xfm.WC, agg.WC, fmap{"*": {"", flt.WC}}},
+		"wc": {`wc transform desciption`, xfm.WC, agg.WC, fmap{
+			"Level 3 CDR":  {flt.WC, "SERVTYPE,!BILL_IND:!{N},BILLINGNUM,DESTYPEUSED"}
+			"*": 			{flt.WC, ""}
+		}},
 	}
 )
 
@@ -47,7 +50,7 @@ func init() {
 func main() {
 	flag.Parse()
 	csv.Settings.Cache(settingsFlag)
-	x := faxMap["wc"]
+	x := xMap["wc"]
 
 	fin := make(chan interface{}, 64)
 	for _, arg := range flag.Args() {
