@@ -9,10 +9,15 @@ import (
 	"github.com/sententico/cost/agg"
 	"github.com/sententico/cost/csv"
 	"github.com/sententico/cost/flt"
+	_ "github.com/sententico/cost/internal/pfax"
 	"github.com/sententico/cost/xfm"
 )
 
-type fmap map[string]func(chan<- interface{}, <-chan map[string]string)
+type fentry struct {
+	cols string
+	flt  func(chan<- interface{}, <-chan map[string]string)
+}
+type fmap map[string]fentry
 
 var (
 	settingsFlag string
@@ -21,9 +26,9 @@ var (
 		descr string
 		xfm   func(interface{})
 		agg   func(<-chan interface{}) interface{}
-		flt   fmap
+		fm    fmap
 	}{
-		"wc": {`wc transform desciption`, xfm.WC, agg.WC, fmap{"test CSV": flt.WC}},
+		"wc": {`wc transform desciption`, xfm.WC, agg.WC, fmap{"*": {"", flt.WC}}},
 	}
 )
 
@@ -61,29 +66,33 @@ func main() {
 					wg.Done()
 				}()
 				var (
-					dig csv.Digest
-					in  <-chan map[string]string
-					err <-chan error
-					sig chan<- int
-					e   error
-					f   func(chan<- interface{}, <-chan map[string]string)
-					ok  bool
+					dig  csv.Digest
+					in   <-chan map[string]string
+					err  <-chan error
+					sig  chan<- int
+					e    error
+					fe   fentry
+					ok   bool
+					cols string
 				)
 				if dig, e = csv.Peek(fn); e != nil {
 					panic(fmt.Errorf("%v", e))
-				} else if dig.Sep == '\x00' {
-					in, err, sig = csv.ReadFixed(fn, dig.Settings.Cols, dig.Comment, dig.Heading)
-				} else {
-					in, err, sig = csv.Read(fn, dig.Settings.Cols, dig.Comment, dig.Heading, dig.Sep)
-				}
-				defer close(sig)
-
-				if f, ok = x.flt[dig.Settings.Type]; !ok {
-					if f, ok = x.flt["*"]; !ok {
+				} else if fe, ok = x.fm[dig.Settings.Type]; !ok {
+					if fe, ok = x.fm["*"]; !ok {
 						panic(fmt.Errorf("no filter defined for %q [%v]", fn, dig.Settings.Type))
 					}
 				}
-				f(fin, in)
+				if cols = fe.cols; cols == "" {
+					cols = dig.Settings.Cols
+				}
+				if dig.Sep == '\x00' {
+					in, err, sig = csv.ReadFixed(fn, cols, dig.Comment, dig.Heading)
+				} else {
+					in, err, sig = csv.Read(fn, cols, dig.Comment, dig.Heading, dig.Sep)
+				}
+				defer close(sig)
+
+				fe.flt(fin, in)
 				if e := <-err; e != nil {
 					panic(fmt.Errorf("%v", e))
 				}

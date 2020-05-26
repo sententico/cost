@@ -1,7 +1,7 @@
 package agg
 
 import (
-	_ "github.com/sententico/cost/internal/fax"
+	_ "github.com/sententico/cost/internal/pfax"
 )
 
 // WC aggregates filtered input for transformation

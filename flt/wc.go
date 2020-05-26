@@ -3,12 +3,11 @@ package flt
 import (
 	"strings"
 
-	_ "github.com/sententico/cost/internal/fax"
+	_ "github.com/sententico/cost/internal/pfax"
 )
 
 // WC concurrently filters CSV/fixed-field input for aggregation
 func WC(fin chan<- interface{}, in <-chan map[string]string) {
-	// pre-checked for compatability with dig.Settings.Type
 	var ke map[string]int
 	km, ok := make(map[string]map[string]int), false
 	for row := range in {
