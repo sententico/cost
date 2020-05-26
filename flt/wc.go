@@ -22,7 +22,7 @@ func WC(fin chan<- interface{}, in <-chan map[string]string, dig csv.Digest) {
 			}
 			if _, ok = ke[v]; ok {
 				ke[v]++
-			} else if len(ke) < 100 {
+			} else if len(ke) < 1000 {
 				ke[v] = 1
 			}
 		}

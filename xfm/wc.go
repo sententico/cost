@@ -14,12 +14,14 @@ func WC(agg interface{}) {
 	wc := agg.(map[string]map[string]int)
 	head := make([]string, 0, len(wc))
 	for k := range wc {
-		head = append(head, k)
+		if len(wc[k]) < 1000 {
+			head = append(head, k)
+		}
 	}
 	sort.Slice(head, func(i, j int) bool {
 		return head[i] < head[j]
 	})
-	cols := make(map[int][]string, len(wc))
+	cols := make(map[int][]string, len(head))
 	for c, h := range head {
 		col := make([]string, 0, len(wc[h]))
 		for k := range wc[h] {
@@ -31,9 +33,14 @@ func WC(agg interface{}) {
 		cols[c] = col
 	}
 
-	fmt.Printf("%v,\n", strings.Join(head, ",,"))
-	for r := 0; r < 100; r++ {
-		output := false
+	switch len(head) {
+	case 0:
+		fmt.Printf("no wc output")
+	default:
+		fmt.Printf("%v,\n", strings.Join(head, ",,"))
+	}
+	for r, output := 0, true; output; r++ {
+		output = false
 		for c, h := range head {
 			switch {
 			case r >= len(cols[c]) && c == 0:
@@ -49,9 +56,6 @@ func WC(agg interface{}) {
 			}
 		}
 		fmt.Printf("\n")
-		if !output {
-			break
-		}
 	}
 	return
 }
