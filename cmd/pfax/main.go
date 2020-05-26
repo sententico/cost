@@ -1,12 +1,98 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"path/filepath"
+	"sync"
+
+	"github.com/sententico/cost/agg"
+	"github.com/sententico/cost/csv"
+	"github.com/sententico/cost/flt"
+	"github.com/sententico/cost/xfm"
+)
+
+type fmap map[string]func(chan<- interface{}, <-chan map[string]string)
+
+var (
+	settingsFlag string
+	wg           sync.WaitGroup
+	faxMap       = map[string]struct {
+		descr string
+		xfm   func(interface{})
+		agg   func(<-chan interface{}) interface{}
+		flt   fmap
+	}{
+		"wc": {`wc transform desciption`, xfm.WC, agg.WC, fmap{"test CSV": flt.WC}},
+	}
 )
 
 func init() {
+	// set up command-line flags
+	flag.StringVar(&settingsFlag, "s", "~/.csv_settings.json", fmt.Sprintf("file-type settings `file` containing column filter maps"))
+
+	// call on ErrHelp
+	flag.Usage = func() {
+		fmt.Printf("command usage: pfax [-s <file>] <csvfile> [...]" +
+			"\n\nThis command...\n\n")
+		flag.PrintDefaults()
+	}
 }
 
 func main() {
-	fmt.Println("stub for pfax utility")
+	flag.Parse()
+	csv.Settings.Cache(settingsFlag)
+	x := faxMap["wc"]
+
+	fin := make(chan interface{}, 64)
+	for _, arg := range flag.Args() {
+		files, _ := filepath.Glob(arg)
+		if len(files) == 0 {
+			files = []string{arg}
+		}
+		for _, file := range files {
+			wg.Add(1)
+
+			go func(fn string) {
+				defer func() {
+					if e := recover(); e != nil {
+						fmt.Printf("%v\n", e)
+					}
+					wg.Done()
+				}()
+				var (
+					dig csv.Digest
+					in  <-chan map[string]string
+					err <-chan error
+					sig chan<- int
+					e   error
+					f   func(chan<- interface{}, <-chan map[string]string)
+					ok  bool
+				)
+				if dig, e = csv.Peek(fn); e != nil {
+					panic(fmt.Errorf("%v", e))
+				} else if dig.Sep == '\x00' {
+					in, err, sig = csv.ReadFixed(fn, dig.Settings.Cols, dig.Comment, dig.Heading)
+				} else {
+					in, err, sig = csv.Read(fn, dig.Settings.Cols, dig.Comment, dig.Heading, dig.Sep)
+				}
+				defer close(sig)
+
+				if f, ok = x.flt[dig.Settings.Type]; !ok {
+					if f, ok = x.flt["*"]; !ok {
+						panic(fmt.Errorf("no filter defined for %q [%v]", fn, dig.Settings.Type))
+					}
+				}
+				f(fin, in)
+				if e := <-err; e != nil {
+					panic(fmt.Errorf("%v", e))
+				}
+			}(file)
+		}
+	}
+	go func() {
+		defer close(fin)
+		wg.Wait()
+	}()
+	x.xfm(x.agg(fin))
 }

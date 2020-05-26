@@ -15,7 +15,6 @@ var (
 	detailFlag   bool
 	forceFlag    bool
 	colsFlag     string
-	fcolsFlag    string
 	wg           sync.WaitGroup
 )
 
@@ -96,7 +95,7 @@ func main() {
 					if e := recover(); e != nil {
 						fmt.Printf("%v\n", e)
 					}
-					defer wg.Done()
+					wg.Done()
 				}()
 				dig, rows := csv.Digest{}, 0
 				in, err, sig := peekOpen(f, &dig)
@@ -105,9 +104,6 @@ func main() {
 				for row := range in {
 					if rows++; detailFlag {
 						fmt.Println(row)
-						// munchers/filters/aggregators here; thread-safe aggregation
-						// aggregates share a common interface type (or empty interface{})
-						// methods: Write, Read, ...?
 					}
 				}
 				if e := <-err; e != nil {
@@ -118,6 +114,4 @@ func main() {
 		}
 	}
 	wg.Wait()
-	// poopers/transformers here; collect muncher aggregates
-	// type switch assertions extract concrete types from interface for transformation
 }
