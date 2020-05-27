@@ -58,13 +58,13 @@ func main() {
 				}()
 				var (
 					dig  csv.Digest
-					in   <-chan map[string]string
-					err  <-chan error
-					sig  chan<- int
 					e    error
 					fe   pfax.Fentry
 					ok   bool
 					cols string
+					in   <-chan map[string]string
+					err  <-chan error
+					sig  chan<- int
 				)
 				if dig, e = csv.Peek(fn); e != nil {
 					panic(fmt.Errorf("%v", e))

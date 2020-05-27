@@ -8,15 +8,19 @@ import (
 	_ "github.com/sententico/cost/internal/pfax" // stub reference
 )
 
-// WC transforms filtered aggregate...
+// WC transform; CSV output of WC aggregate
 func WC(agg interface{}) {
-	// type switch assertions extract concrete types from interface for transformation
 	wc := agg.(map[string]map[string]int)
 	head := make([]string, 0, len(wc))
 	for k := range wc {
+		// bypass output of wide-ranging values
 		if len(wc[k]) < 2000 {
 			head = append(head, k)
 		}
+	}
+	if len(head) == 0 {
+		fmt.Println("no wc output")
+		return
 	}
 	sort.Slice(head, func(i, j int) bool {
 		return head[i] < head[j]
@@ -33,29 +37,19 @@ func WC(agg interface{}) {
 		cols[c] = col
 	}
 
-	switch len(head) {
-	case 0:
-		fmt.Printf("no wc output")
-	default:
-		fmt.Printf("%v,\n", strings.Join(head, ",,"))
-	}
-	for r, output := 0, true; output; r++ {
-		output = false
+	for r, ln := 0, strings.Join(head, ",,")+","; strings.TrimLeft(ln, ",") != ""; r++ {
+		fmt.Println(ln)
 		for c, h := range head {
 			switch {
 			case r >= len(cols[c]) && c == 0:
-				fmt.Printf(",")
+				ln = ","
 			case r >= len(cols[c]):
-				fmt.Printf(",,")
+				ln += ",,"
 			case c == 0:
-				fmt.Printf("%q,%v", cols[c][r], wc[h][cols[c][r]])
-				output = true
+				ln = fmt.Sprintf("%q,%v", cols[c][r], wc[h][cols[c][r]])
 			default:
-				fmt.Printf(",%q,%v", cols[c][r], wc[h][cols[c][r]])
-				output = true
+				ln += fmt.Sprintf(",%q,%v", cols[c][r], wc[h][cols[c][r]])
 			}
 		}
-		fmt.Printf("\n")
 	}
-	return
 }

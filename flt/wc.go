@@ -7,7 +7,7 @@ import (
 	_ "github.com/sententico/cost/internal/pfax" // stub reference
 )
 
-// WC concurrently filters CSV/fixed-field input for aggregation
+// WC concurrent filter; counts CSV/fixed-field values per column
 func WC(fin chan<- interface{}, in <-chan map[string]string, dig csv.Digest) {
 	var ke map[string]int
 	km, ok := make(map[string]map[string]int), false
@@ -28,5 +28,4 @@ func WC(fin chan<- interface{}, in <-chan map[string]string, dig csv.Digest) {
 		}
 	}
 	fin <- km
-	return
 }
