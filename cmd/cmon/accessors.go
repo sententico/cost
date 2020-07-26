@@ -1,0 +1,103 @@
+package main
+
+import (
+	"log"
+	"time"
+)
+
+const (
+	s90 = 90 * time.Second
+	s6  = 6 * time.Second
+)
+
+func (o obj) boot(n string, c chan string) {
+	switch n {
+	case "ec2":
+		ec2Boot(o)
+	case "rds":
+		rdsBoot(o)
+	}
+	c <- n
+}
+func (o obj) maint(n string) {
+	switch n {
+	case "ec2":
+		ec2Maint(o)
+	case "rds":
+		rdsMaint(o)
+	}
+	log.Printf("%q object maintenance failed", n)
+}
+func (o obj) term(n string, c chan string) {
+	switch n {
+	case "ec2":
+		ec2Term(o)
+	case "rds":
+		rdsTerm(o)
+	}
+	c <- n
+}
+
+func ec2Boot(o obj) {
+	o.data = nil
+}
+func ec2MaintS(o obj, s chan uint32) {
+	o.req <- objRq{0, s}
+	token := <-s
+	// shared access maintenance
+	o.rel <- token
+}
+func ec2MaintX(o obj, s chan uint32) {
+	o.req <- objRq{rtEXCL, s}
+	token := <-s
+	// exclusive access maintenance
+	o.rel <- token
+}
+func ec2Maint(o obj) {
+	for sig, st, xt := make(chan uint32, 1), time.NewTicker(s6), time.NewTicker(s90); ; {
+		select {
+		case <-st.C:
+			ec2MaintS(o, sig)
+		case <-xt.C:
+			ec2MaintX(o, sig)
+		}
+	}
+}
+func ec2Term(o obj) {
+	or := objRq{rtEXCL, make(chan uint32, 1)}
+	o.req <- or
+	<-or.sig
+	// term object here (e.g., persist); term accessors don't release object
+}
+
+func rdsBoot(o obj) {
+	o.data = nil
+}
+func rdsMaintS(o obj, s chan uint32) {
+	o.req <- objRq{0, s}
+	token := <-s
+	// shared access maintenance
+	o.rel <- token
+}
+func rdsMaintX(o obj, s chan uint32) {
+	o.req <- objRq{rtEXCL, s}
+	token := <-s
+	// exclusive access maintenance
+	o.rel <- token
+}
+func rdsMaint(o obj) {
+	for sig, st, xt := make(chan uint32, 1), time.NewTicker(s6), time.NewTicker(s90); ; {
+		select {
+		case <-st.C:
+			rdsMaintS(o, sig)
+		case <-xt.C:
+			rdsMaintX(o, sig)
+		}
+	}
+}
+func rdsTerm(o obj) {
+	or := objRq{rtEXCL, make(chan uint32, 1)}
+	o.req <- or
+	<-or.sig
+	// term object here (e.g., persist); term accessors don't release object
+}
