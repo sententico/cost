@@ -15,7 +15,7 @@ type (
 	rqTyp  uint8
 	objRq  struct {
 		rt  rqTyp
-		sig chan uint32
+		acc chan uint32
 	}
 	obj struct {
 		stat objSt
@@ -43,7 +43,7 @@ const (
 var (
 	sig  chan os.Signal
 	srv  *http.Server
-	cobj map[string]obj
+	cObj map[string]obj
 )
 
 func init() {
@@ -59,12 +59,12 @@ func init() {
 	srv = &http.Server{
 		Addr:           ":" + port,
 		Handler:        mux,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		ReadTimeout:    12 * time.Second,
+		WriteTimeout:   12 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	cobj = map[string]obj{
+	cObj = map[string]obj{
 		"ec2": {},
 		"rds": {},
 	}
@@ -76,54 +76,48 @@ func httpMonitor(hr httpRq) http.HandlerFunc { // pass in args for closure to cl
 		case hrAPI:
 			// map to rmonitor
 			// select inputs from accessor(s) result(s) & http.CloseNotifier channels
-			w.Write([]byte("api"))
+			w.Write([]byte("api response"))
 		case hrTEST:
-			w.Write([]byte("test"))
+			w.Write([]byte("test response"))
 		}
 	}
 }
 
-func objManage(o obj, n string, c chan string) {
-	var rq objRq
-	var token uint32
+func objManage(o obj, n string, ctl chan string) {
+	var or objRq
+	var accessors, token uint32
 	o.req = make(chan objRq, 16)
 	o.rel = make(chan uint32, 16)
-	o.boot(n, c)
+	o.boot(n, ctl)
 
 	// loop indefinitely as object access manager when boot complete
-	for accessors := 0; ; token++ {
-		for rq = <-o.req; rq.rt&rtEXCL == 0; token++ {
-			rq.sig <- token
-			for accessors++; ; {
-				if accessors > 0 {
-					select {
-					case rq = <-o.req:
-					case <-o.rel:
-						accessors--
-						continue
-					}
-				} else {
-					rq = <-o.req
+	for ; ; token++ {
+		for or = <-o.req; or.rt&rtEXCL == 0; token++ {
+			or.acc <- token
+			for accessors++; ; accessors-- {
+				select {
+				case or = <-o.req:
+					break
+				case <-o.rel:
 				}
-				break
 			}
 		}
 		for ; accessors > 0; accessors-- {
 			<-o.rel
 		}
-		rq.sig <- token
+		or.acc <- token
 		<-o.rel
 	}
 }
 
 func main() {
-	ctl := make(chan string, 1)
-	for n, o := range cobj {
+	ctl := make(chan string, 4)
+	for n, o := range cObj {
 		go objManage(o, n, ctl)
 	}
-	for i := 0; i < len(cobj); i++ {
+	for i := 0; i < len(cObj); i++ {
 		n := <-ctl
-		o := cobj[n]
+		o := cObj[n]
 		o.stat = osINIT
 		log.Printf("%q object booted", n)
 	}
@@ -131,18 +125,19 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("cannot listen for HTTP requests: %v", err)
 	}
-	for n, o := range cobj {
+	log.Printf("listening on port %v for HTTP requests", srv.Addr)
+	for n, o := range cObj {
 		go o.maint(n)
 	}
 
 	log.Printf("signal %v received: beginning shutdown", <-sig)
 	srv.Close() // check out srv.Shutdown() alternative?
-	for n, o := range cobj {
+	for n, o := range cObj {
 		go o.term(n, ctl)
 	}
-	for i := 0; i < len(cobj); i++ {
+	for i := 0; i < len(cObj); i++ {
 		n := <-ctl
-		o := cobj[n]
+		o := cObj[n]
 		o.stat = osTERM
 		log.Printf("%q object shutdown", n)
 	}
