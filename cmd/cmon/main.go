@@ -27,8 +27,15 @@ type (
 )
 
 const (
-	hrAPI httpRq = iota
-	hrTEST
+	hrADMIN httpRq = iota
+	hrAPI0
+	hrVM0
+	hrDISK0
+	hrDB0
+	hrAPI1
+	hrVM1
+	hrDISK1
+	hrDB1
 )
 const (
 	osNIL objSt = iota
@@ -59,8 +66,15 @@ func init() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/api", httpMonitor(hrAPI))
-	mux.Handle("/test", httpMonitor(hrTEST))
+	mux.Handle("/admin", httpMonitor(hrADMIN))
+	mux.Handle("/api/v0", httpMonitor(hrAPI0))
+	mux.Handle("/api/v0/vms", httpMonitor(hrVM0))
+	mux.Handle("/api/v0/disks", httpMonitor(hrDISK0))
+	mux.Handle("/api/v0/dbs", httpMonitor(hrDB0))
+	mux.Handle("/api/v1", httpMonitor(hrAPI1))
+	mux.Handle("/api/v1/vms", httpMonitor(hrVM1))
+	mux.Handle("/api/v1/disks", httpMonitor(hrDISK1))
+	mux.Handle("/api/v1/dbs", httpMonitor(hrDB1))
 	srv = &http.Server{
 		Addr:           ":" + port,
 		Handler:        mux,
@@ -78,12 +92,26 @@ func init() {
 func httpMonitor(hr httpRq) http.HandlerFunc { // pass in args for closure to close over
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch hr {
-		case hrAPI:
+		case hrADMIN:
+			w.Write([]byte("admin stub response"))
+		case hrAPI0:
 			// map to rmonitor
 			// select inputs from accessor(s) result(s) & http.CloseNotifier channels
-			w.Write([]byte("api response"))
-		case hrTEST:
-			w.Write([]byte("test response"))
+			w.Write([]byte("APIv0 stub response"))
+		case hrVM0:
+			w.Write([]byte("APIv0 VMs stub response"))
+		case hrDISK0:
+			w.Write([]byte("APIv0 disks stub response"))
+		case hrDB0:
+			w.Write([]byte("APIv0 DBs stub response"))
+		case hrAPI1:
+			w.Write([]byte("APIv1 stub response"))
+		case hrVM1:
+			w.Write([]byte("APIv1 VMs stub response"))
+		case hrDISK1:
+			w.Write([]byte("APIv1 disks stub response"))
+		case hrDB1:
+			w.Write([]byte("APIv1 DBs stub response"))
 		}
 	}
 }
