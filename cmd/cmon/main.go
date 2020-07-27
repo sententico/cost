@@ -97,12 +97,13 @@ func objManage(o *obj, n string, ctl chan string) {
 
 	// loop indefinitely as object access manager when boot complete
 	for ; ; token++ {
+	nextRequest:
 		for or = <-o.req; or.rt&rtEXCL == 0; token++ {
 			or.acc <- token
 			for accessors++; ; accessors-- {
 				select {
 				case or = <-o.req:
-					break
+					continue nextRequest
 				case <-o.rel:
 				}
 			}
@@ -141,7 +142,7 @@ func main() {
 		sig <- nil
 	}()
 
-	log.Printf("signal %v received: beginning shutdown", <-sig)
+	log.Printf("signal received (%v): beginning shutdown", <-sig)
 	srv.Close() // context/srv.Shutdown() more graceful alternative
 	for n, o := range cObj {
 		go o.term(n, ctl)
