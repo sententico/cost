@@ -43,7 +43,7 @@ const (
 var (
 	sig  chan os.Signal
 	srv  *http.Server
-	cObj map[string]obj
+	cObj map[string]*obj
 )
 
 func init() {
@@ -64,7 +64,7 @@ func init() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	cObj = map[string]obj{
+	cObj = map[string]*obj{
 		"ec2": {},
 		"rds": {},
 	}
@@ -83,7 +83,7 @@ func httpMonitor(hr httpRq) http.HandlerFunc { // pass in args for closure to cl
 	}
 }
 
-func objManage(o obj, n string, ctl chan string) {
+func objManage(o *obj, n string, ctl chan string) {
 	var or objRq
 	var accessors, token uint32
 	o.req = make(chan objRq, 16)
@@ -117,15 +117,14 @@ func main() {
 	}
 	for i := 0; i < len(cObj); i++ {
 		n := <-ctl
-		o := cObj[n]
-		o.stat = osINIT
+		cObj[n].stat = osINIT
 		log.Printf("%q object booted", n)
 	}
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("cannot listen for HTTP requests: %v", err)
 	}
-	log.Printf("listening on port %v for HTTP requests", srv.Addr)
+	log.Printf("listening on port %v for HTTP requests", srv.Addr[1:])
 	for n, o := range cObj {
 		go o.maint(n)
 	}
@@ -137,8 +136,7 @@ func main() {
 	}
 	for i := 0; i < len(cObj); i++ {
 		n := <-ctl
-		o := cObj[n]
-		o.stat = osTERM
+		cObj[n].stat = osTERM
 		log.Printf("%q object shutdown", n)
 	}
 	log.Printf("graceful shutdown complete")
