@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -42,6 +43,7 @@ const (
 
 var (
 	sig  chan os.Signal
+	port string
 	srv  *http.Server
 	cObj map[string]*obj
 )
@@ -50,12 +52,15 @@ func init() {
 	sig = make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
-	mux, port := http.NewServeMux(), os.Getenv("CMON_PORT")
-	mux.Handle("/api", httpMonitor(hrAPI))
-	mux.Handle("/test", httpMonitor(hrTEST))
+	flag.StringVar(&port, "port", os.Getenv("CMON_PORT"), "server listen port")
+	flag.Parse()
 	if port == "" {
 		port = "8080"
 	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/api", httpMonitor(hrAPI))
+	mux.Handle("/test", httpMonitor(hrTEST))
 	srv = &http.Server{
 		Addr:           ":" + port,
 		Handler:        mux,
@@ -121,16 +126,23 @@ func main() {
 		log.Printf("%q object booted", n)
 	}
 
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("cannot listen for HTTP requests: %v", err)
-	}
-	log.Printf("listening on port %v for HTTP requests", srv.Addr[1:])
 	for n, o := range cObj {
 		go o.maint(n)
 	}
+	go func() {
+		log.Printf("listening on port %v for HTTP requests", srv.Addr[1:])
+		switch err := srv.ListenAndServe(); err {
+		case nil:
+		case http.ErrServerClosed:
+		default:
+			log.Fatalf("cannot listen for HTTP requests: %v", err)
+		}
+		log.Printf("stopped listening for HTTP requests")
+		sig <- nil
+	}()
 
 	log.Printf("signal %v received: beginning shutdown", <-sig)
-	srv.Close() // check out srv.Shutdown() alternative?
+	srv.Close() // context/srv.Shutdown() more graceful alternative
 	for n, o := range cObj {
 		go o.term(n, ctl)
 	}
