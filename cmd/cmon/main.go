@@ -53,6 +53,7 @@ var (
 	port string
 	srv  *http.Server
 	cObj map[string]*obj
+	logI *log.Logger
 	logW *log.Logger
 	logE *log.Logger
 	exit int
@@ -62,10 +63,9 @@ func init() {
 	sig = make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
-	log.SetPrefix("cmon: ")
-	log.SetFlags(log.LstdFlags)
-	logW = log.New(os.Stderr, "cmon WARNING: ", log.LstdFlags|log.Lshortfile)
-	logE = log.New(os.Stderr, "cmon ERROR: ", log.LstdFlags|log.Lshortfile)
+	logI = log.New(os.Stderr, "", log.Lshortfile)
+	logW = log.New(os.Stderr, "WARNING ", log.Lshortfile)
+	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
 	flag.StringVar(&port, "port", os.Getenv("CMON_PORT"), "server listen port")
 	flag.Parse()
@@ -161,18 +161,24 @@ func main() {
 		n := <-ctl
 		o := cObj[n]
 		o.stat = osINIT
-		log.Printf("%q object booted", n)
+		logI.Printf("%q object booted", n)
 		go o.maint(n)
 	}
 
-	log.Printf("listening on port %v for HTTP requests", srv.Addr[1:])
+	logI.Printf("listening on port %v for HTTP requests", srv.Addr[1:])
 	go func() {
-		log.Printf("beginning shutdown on %v signal", <-sig)
+		switch s := <-sig; s {
+		case syscall.SIGINT, syscall.SIGTERM:
+			logI.Printf("beginning signaled shutdown")
+		default:
+			logE.Printf("beginning shutdown on %v signal", s)
+			exit = 1
+		}
 		srv.Close() // context/srv.Shutdown() more graceful alternative
 	}()
 	switch err := srv.ListenAndServe(); err {
 	case nil, http.ErrServerClosed:
-		log.Printf("stopped listening for HTTP requests")
+		logI.Printf("stopped listening for HTTP requests")
 	default:
 		logE.Printf("beginning shutdown on HTTP listener failure: %v", err)
 		exit = 1
@@ -184,8 +190,8 @@ func main() {
 	for i := 0; i < len(cObj); i++ {
 		n := <-ctl
 		cObj[n].stat = osTERM
-		log.Printf("%q object shutdown", n)
+		logI.Printf("%q object shutdown", n)
 	}
-	log.Printf("shutdown complete")
+	logI.Printf("shutdown complete")
 	os.Exit(exit)
 }
