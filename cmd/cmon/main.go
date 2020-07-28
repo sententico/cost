@@ -49,14 +49,12 @@ const (
 )
 
 var (
-	sig  chan os.Signal
-	port string
-	srv  *http.Server
-	cObj map[string]*obj
-	logI *log.Logger
-	logW *log.Logger
-	logE *log.Logger
-	exit int
+	sig              chan os.Signal
+	port             string
+	srv              *http.Server
+	cObj             map[string]*obj
+	logI, logW, logE *log.Logger
+	exit             int
 )
 
 func init() {
@@ -70,7 +68,7 @@ func init() {
 	flag.StringVar(&port, "port", os.Getenv("CMON_PORT"), "server listen port")
 	flag.Parse()
 	if port == "" {
-		port = "8080"
+		port = "4404"
 	}
 
 	mux := http.NewServeMux()
@@ -131,8 +129,7 @@ func objManage(o *obj, n string, ctl chan string) {
 	o.rel = make(chan uint32, 16)
 	o.boot(n, ctl)
 
-	// loop indefinitely as object access manager when boot complete
-	for ; ; token++ {
+	for ; ; token++ { // loop indefinitely as object access manager when boot complete
 	nextRequest:
 		for or = <-o.req; or.rt&rtEXCL == 0; token++ {
 			or.acc <- token
@@ -171,7 +168,7 @@ func main() {
 		case syscall.SIGINT, syscall.SIGTERM:
 			logI.Printf("beginning signaled shutdown")
 		default:
-			logE.Printf("beginning shutdown on %v signal", s)
+			logE.Printf("beginning shutdown on unexpected %v signal", s)
 			exit = 1
 		}
 		srv.Close() // context/srv.Shutdown() more graceful alternative
