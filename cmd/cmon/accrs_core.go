@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	_ "log"
 	"time"
 )
 
@@ -26,7 +26,7 @@ func (o *obj) maint(n string) {
 	case "rds":
 		rdsMaint(o)
 	}
-	log.Printf("%q object maintenance failed", n)
+	logE.Printf("%q object maintenance failed", n)
 }
 func (o *obj) term(n string, ctl chan string) {
 	switch n {

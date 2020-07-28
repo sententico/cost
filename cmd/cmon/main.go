@@ -55,6 +55,7 @@ var (
 	cObj map[string]*obj
 	logW *log.Logger
 	logE *log.Logger
+	exit int
 )
 
 func init() {
@@ -174,6 +175,7 @@ func main() {
 		log.Printf("stopped listening for HTTP requests")
 	default:
 		logE.Printf("beginning shutdown on HTTP listener failure: %v", err)
+		exit = 1
 	}
 
 	for n, o := range cObj {
@@ -185,4 +187,5 @@ func main() {
 		log.Printf("%q object shutdown", n)
 	}
 	log.Printf("shutdown complete")
+	os.Exit(exit)
 }
