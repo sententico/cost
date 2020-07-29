@@ -49,19 +49,21 @@ const (
 )
 
 var (
-	sig              chan os.Signal
-	port             string
-	srv              *http.Server
-	cObj             map[string]*obj
-	logI, logW, logE *log.Logger
-	exit             int
+	sig                    chan os.Signal
+	port                   string
+	srv                    *http.Server
+	cObj                   map[string]*obj
+	logD, logI, logW, logE *log.Logger
+	exit                   int
 )
 
 func init() {
 	sig = make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
-	logI = log.New(os.Stderr, "", log.Lshortfile)
+	log.SetFlags(0)
+	logD = log.New(os.Stderr, "DEBUG ", log.Lshortfile|log.Lmicroseconds)
+	logI = log.New(os.Stderr, "", 0)
 	logW = log.New(os.Stderr, "WARNING ", log.Lshortfile)
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
@@ -150,6 +152,7 @@ func objManage(o *obj, n string, ctl chan string) {
 }
 
 func main() {
+	logD.Printf("booting %v monitored objects", len(cObj))
 	ctl := make(chan string, 4)
 	for n, o := range cObj {
 		go objManage(o, n, ctl)
@@ -177,7 +180,7 @@ func main() {
 	case nil, http.ErrServerClosed:
 		logI.Printf("stopped listening for HTTP requests")
 	default:
-		logE.Printf("beginning shutdown on HTTP listener failure: %v", err)
+		logE.Printf("beginning shutdown on HTTP listener failure (%v)", err)
 		exit = 1
 	}
 
