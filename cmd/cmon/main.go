@@ -152,7 +152,7 @@ func objManage(o *obj, n string, ctl chan string) {
 }
 
 func main() {
-	logD.Printf("booting %v monitored objects", len(cObj))
+	logI.Printf("booting %v monitored objects", len(cObj))
 	ctl := make(chan string, 4)
 	for n, o := range cObj {
 		go objManage(o, n, ctl)
