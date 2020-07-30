@@ -77,15 +77,15 @@ func init() {
 
 	rqID, rqS, rqE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	mux := http.NewServeMux()
-	mux.Handle("/admin", httpMonitor(hrADMIN))
-	mux.Handle("/api/v0", httpMonitor(hrAPI0))
-	mux.Handle("/api/v0/vms", httpMonitor(hrVM0))
-	mux.Handle("/api/v0/disks", httpMonitor(hrDISK0))
-	mux.Handle("/api/v0/dbs", httpMonitor(hrDB0))
-	mux.Handle("/api/v1", httpMonitor(hrAPI1))
-	mux.Handle("/api/v1/vms", httpMonitor(hrVM1))
-	mux.Handle("/api/v1/disks", httpMonitor(hrDISK1))
-	mux.Handle("/api/v1/dbs", httpMonitor(hrDB1))
+	mux.Handle("/admin", httpHandler(hrADMIN))
+	mux.Handle("/api/v0", httpHandler(hrAPI0))
+	mux.Handle("/api/v0/vms", httpHandler(hrVM0))
+	mux.Handle("/api/v0/disks", httpHandler(hrDISK0))
+	mux.Handle("/api/v0/dbs", httpHandler(hrDB0))
+	mux.Handle("/api/v1", httpHandler(hrAPI1))
+	mux.Handle("/api/v1/vms", httpHandler(hrVM1))
+	mux.Handle("/api/v1/disks", httpHandler(hrDISK1))
+	mux.Handle("/api/v1/dbs", httpHandler(hrDB1))
 	srv = &http.Server{
 		Addr:           ":" + port,
 		Handler:        mux,
@@ -100,7 +100,7 @@ func init() {
 	}
 }
 
-func httpMonitor(hr httpRq) http.HandlerFunc { // pass in args for closure to close over
+func httpHandler(hr httpRq) http.HandlerFunc { // pass in args for closure to close over
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := <-rqID
 		switch rqS <- id; hr {
@@ -157,8 +157,14 @@ func objManage(o *obj, n string, ctl chan string) {
 }
 
 func rqMonitor() {
-	for {
+	var lc int64
+	for t := time.NewTicker(60000 * time.Millisecond); ; {
 		select {
+		case <-t.C:
+			if nc := rqCount - int64(len(rqID)); nc > lc {
+				logI.Printf("handled %v requests", nc-lc)
+				lc = nc
+			}
 		case <-rqS:
 			rqOpen++
 		case <-rqE:
