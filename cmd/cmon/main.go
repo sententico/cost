@@ -11,11 +11,11 @@ import (
 )
 
 type (
-	httpRq uint8
+	httpSe uint8
 	objSt  uint8
-	rqTyp  uint8
+	accTyp uint8
 	objRq  struct {
-		rt  rqTyp
+		typ accTyp
 		acc chan uint32
 	}
 	obj struct {
@@ -27,15 +27,15 @@ type (
 )
 
 const (
-	hrADMIN httpRq = iota
-	hrAPI0
-	hrVM0
-	hrDISK0
-	hrDB0
-	hrAPI1
-	hrVM1
-	hrDISK1
-	hrDB1
+	hsADMIN httpSe = iota
+	hsAPI0
+	hsVM0
+	hsDISK0
+	hsDB0
+	hsAPI1
+	hsVM1
+	hsDISK1
+	hsDB1
 )
 const (
 	osNIL objSt = iota
@@ -43,20 +43,20 @@ const (
 	osTERM
 )
 const (
-	rtEXCL rqTyp = 1 << iota
-	rtLONG
-	rtPRI
+	atEXCL accTyp = 1 << iota
+	atLONG
+	atPRI
 )
 
 var (
 	sig                    chan os.Signal
-	rqID, rqS, rqE         chan int64
+	seID, seS, seE         chan int64
 	port                   string
 	srv                    *http.Server
 	cObj                   map[string]*obj
 	logD, logI, logW, logE *log.Logger
-	exit, rqOpen           int
-	rqCount                int64
+	exit, seOpen           int
+	seCount                int64
 )
 
 func init() {
@@ -75,17 +75,17 @@ func init() {
 		port = "4404"
 	}
 
-	rqID, rqS, rqE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
+	seID, seS, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	mux := http.NewServeMux()
-	mux.Handle("/admin", httpHandler(hrADMIN))
-	mux.Handle("/api/v0", httpHandler(hrAPI0))
-	mux.Handle("/api/v0/vms", httpHandler(hrVM0))
-	mux.Handle("/api/v0/disks", httpHandler(hrDISK0))
-	mux.Handle("/api/v0/dbs", httpHandler(hrDB0))
-	mux.Handle("/api/v1", httpHandler(hrAPI1))
-	mux.Handle("/api/v1/vms", httpHandler(hrVM1))
-	mux.Handle("/api/v1/disks", httpHandler(hrDISK1))
-	mux.Handle("/api/v1/dbs", httpHandler(hrDB1))
+	mux.Handle("/admin", httpSession(hsADMIN))
+	mux.Handle("/api/v0", httpSession(hsAPI0))
+	mux.Handle("/api/v0/vms", httpSession(hsVM0))
+	mux.Handle("/api/v0/disks", httpSession(hsDISK0))
+	mux.Handle("/api/v0/dbs", httpSession(hsDB0))
+	mux.Handle("/api/v1", httpSession(hsAPI1))
+	mux.Handle("/api/v1/vms", httpSession(hsVM1))
+	mux.Handle("/api/v1/disks", httpSession(hsDISK1))
+	mux.Handle("/api/v1/dbs", httpSession(hsDB1))
 	srv = &http.Server{
 		Addr:           ":" + port,
 		Handler:        mux,
@@ -100,32 +100,32 @@ func init() {
 	}
 }
 
-func httpHandler(hr httpRq) http.HandlerFunc { // pass in args for closure to close over
+func httpSession(hs httpSe) http.HandlerFunc { // pass in args for closure to close over
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := <-rqID
-		switch rqS <- id; hr {
-		case hrADMIN:
+		id := <-seID
+		switch seS <- id; hs {
+		case hsADMIN:
 			w.Write([]byte("admin stub response"))
-		case hrAPI0:
-			// map to rmonitor
+		case hsAPI0:
+			// map to hsession
 			// select inputs from accessor(s) result(s) & http.CloseNotifier channels
 			w.Write([]byte("APIv0 stub response"))
-		case hrVM0:
+		case hsVM0:
 			w.Write([]byte("APIv0 VMs stub response"))
-		case hrDISK0:
+		case hsDISK0:
 			w.Write([]byte("APIv0 disks stub response"))
-		case hrDB0:
+		case hsDB0:
 			w.Write([]byte("APIv0 DBs stub response"))
-		case hrAPI1:
+		case hsAPI1:
 			w.Write([]byte("APIv1 stub response"))
-		case hrVM1:
+		case hsVM1:
 			w.Write([]byte("APIv1 VMs stub response"))
-		case hrDISK1:
+		case hsDISK1:
 			w.Write([]byte("APIv1 disks stub response"))
-		case hrDB1:
+		case hsDB1:
 			w.Write([]byte("APIv1 DBs stub response"))
 		}
-		rqE <- id
+		seE <- id
 	}
 }
 
@@ -138,7 +138,7 @@ func objManage(o *obj, n string, ctl chan string) {
 
 	for ; ; token++ { // loop indefinitely as object access manager when boot complete
 	nextRequest:
-		for or = <-o.req; or.rt&rtEXCL == 0; token++ {
+		for or = <-o.req; or.typ&atEXCL == 0; token++ {
 			or.acc <- token
 			for accessors++; ; accessors-- {
 				select {
@@ -156,21 +156,21 @@ func objManage(o *obj, n string, ctl chan string) {
 	}
 }
 
-func rqMonitor() {
+func seMonitor() {
 	var lc int64
 	for t := time.NewTicker(60000 * time.Millisecond); ; {
 		select {
 		case <-t.C:
-			if nc := rqCount - int64(len(rqID)); nc > lc {
-				logI.Printf("handled %v requests", nc-lc)
+			if nc := seCount - int64(len(seID)); nc > lc {
+				logI.Printf("handled %v sessions", nc-lc)
 				lc = nc
 			}
-		case <-rqS:
-			rqOpen++
-		case <-rqE:
-			rqOpen--
-		case rqID <- rqCount:
-			rqCount++
+		case <-seS:
+			seOpen++
+		case <-seE:
+			seOpen--
+		case seID <- seCount:
+			seCount++
 		}
 	}
 }
@@ -205,10 +205,10 @@ func main() {
 		time.Sleep(1250 * time.Millisecond)
 		srv.Close()
 	}()
-	go rqMonitor()
+	go seMonitor()
 	switch err := srv.ListenAndServe(); err {
 	case nil, http.ErrServerClosed:
-		logI.Printf("stopped listening for HTTP requests (%v open)", rqOpen)
+		logI.Printf("stopped listening for HTTP requests (%v sessions open)", seOpen)
 	default:
 		logE.Printf("beginning shutdown on HTTP listener failure (%v)", err)
 		exit = 1
@@ -220,6 +220,6 @@ func main() {
 		cObj[n].stat = osTERM
 		logI.Printf("%q object shutdown", n)
 	}
-	logI.Printf("shutdown complete with %v requests handled", <-rqID)
+	logI.Printf("shutdown complete with %v sessions handled", <-seID)
 	os.Exit(exit)
 }

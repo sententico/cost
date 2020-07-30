@@ -48,7 +48,7 @@ func ec2MaintS(o *obj, acc chan uint32) {
 	o.rel <- token
 }
 func ec2MaintX(o *obj, acc chan uint32) {
-	o.req <- objRq{rtEXCL, acc}
+	o.req <- objRq{atEXCL, acc}
 	token := <-acc
 	// exclusive access maintenance
 	o.rel <- token
@@ -64,7 +64,7 @@ func ec2Maint(o *obj) {
 	}
 }
 func ec2Term(o *obj) {
-	or := objRq{rtEXCL, make(chan uint32, 1)}
+	or := objRq{atEXCL, make(chan uint32, 1)}
 	o.req <- or
 	<-or.acc
 	// persist object for shutdown; term accessors don't release object
@@ -81,7 +81,7 @@ func rdsMaintS(o *obj, acc chan uint32) {
 	o.rel <- token
 }
 func rdsMaintX(o *obj, acc chan uint32) {
-	o.req <- objRq{rtEXCL, acc}
+	o.req <- objRq{atEXCL, acc}
 	token := <-acc
 	// exclusive access maintenance
 	o.rel <- token
@@ -97,7 +97,7 @@ func rdsMaint(o *obj) {
 	}
 }
 func rdsTerm(o *obj) {
-	or := objRq{rtEXCL, make(chan uint32, 1)}
+	or := objRq{atEXCL, make(chan uint32, 1)}
 	o.req <- or
 	<-or.acc
 	// persist object for shutdown; term accessors don't release object
