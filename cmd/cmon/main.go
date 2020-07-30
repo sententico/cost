@@ -158,14 +158,15 @@ func objManage(o *obj, n string, ctl chan string) {
 
 func seMonitor() {
 	var lc int64
-	for t := time.NewTicker(60000 * time.Millisecond); ; {
+	for s, t := seS, time.NewTicker(60000*time.Millisecond); ; {
 		select {
 		case <-t.C:
 			if nc := seCount - int64(len(seID)); nc > lc {
 				logI.Printf("handled %v sessions", nc-lc)
 				lc = nc
 			}
-		case <-seS:
+		case <-s:
+			// seS may be set to nil to stop new sessions
 			seOpen++
 		case <-seE:
 			seOpen--
@@ -220,6 +221,6 @@ func main() {
 		cObj[n].stat = osTERM
 		logI.Printf("%q object shutdown", n)
 	}
-	logI.Printf("shutdown complete with %v sessions handled", <-seID)
+	logI.Printf("shutdown complete with %v sessions handled", seCount-int64(len(seID)))
 	os.Exit(exit)
 }
