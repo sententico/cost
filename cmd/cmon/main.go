@@ -50,11 +50,13 @@ const (
 
 var (
 	sig                    chan os.Signal
+	rqID, rqS, rqE         chan int64
 	port                   string
 	srv                    *http.Server
 	cObj                   map[string]*obj
 	logD, logI, logW, logE *log.Logger
-	exit                   int
+	exit, rqOpen           int
+	rqCount                int64
 )
 
 func init() {
@@ -73,6 +75,7 @@ func init() {
 		port = "4404"
 	}
 
+	rqID, rqS, rqE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	mux := http.NewServeMux()
 	mux.Handle("/admin", httpMonitor(hrADMIN))
 	mux.Handle("/api/v0", httpMonitor(hrAPI0))
@@ -99,7 +102,8 @@ func init() {
 
 func httpMonitor(hr httpRq) http.HandlerFunc { // pass in args for closure to close over
 	return func(w http.ResponseWriter, r *http.Request) {
-		switch hr {
+		id := <-rqID
+		switch rqS <- id; hr {
 		case hrADMIN:
 			w.Write([]byte("admin stub response"))
 		case hrAPI0:
@@ -121,6 +125,7 @@ func httpMonitor(hr httpRq) http.HandlerFunc { // pass in args for closure to cl
 		case hrDB1:
 			w.Write([]byte("APIv1 DBs stub response"))
 		}
+		rqE <- id
 	}
 }
 
@@ -151,6 +156,19 @@ func objManage(o *obj, n string, ctl chan string) {
 	}
 }
 
+func rqMonitor() {
+	for {
+		select {
+		case <-rqS:
+			rqOpen++
+		case <-rqE:
+			rqOpen--
+		case rqID <- rqCount:
+			rqCount++
+		}
+	}
+}
+
 func main() {
 	logI.Printf("booting %v monitored objects", len(cObj))
 	ctl := make(chan string, 4)
@@ -170,28 +188,32 @@ func main() {
 		switch s := <-sig; s {
 		case syscall.SIGINT, syscall.SIGTERM:
 			logI.Printf("beginning signaled shutdown")
+		case nil:
 		default:
 			logE.Printf("beginning shutdown on unexpected %v signal", s)
 			exit = 1
 		}
-		srv.Close() // context/srv.Shutdown() more graceful alternative
+		for n, o := range cObj {
+			go o.term(n, ctl)
+		}
+		time.Sleep(1250 * time.Millisecond)
+		srv.Close()
 	}()
+	go rqMonitor()
 	switch err := srv.ListenAndServe(); err {
 	case nil, http.ErrServerClosed:
-		logI.Printf("stopped listening for HTTP requests")
+		logI.Printf("stopped listening for HTTP requests (%v open)", rqOpen)
 	default:
 		logE.Printf("beginning shutdown on HTTP listener failure (%v)", err)
 		exit = 1
 	}
+	sig <- nil
 
-	for n, o := range cObj {
-		go o.term(n, ctl)
-	}
 	for i := 0; i < len(cObj); i++ {
 		n := <-ctl
 		cObj[n].stat = osTERM
 		logI.Printf("%q object shutdown", n)
 	}
-	logI.Printf("shutdown complete")
+	logI.Printf("shutdown complete with %v requests handled", <-rqID)
 	os.Exit(exit)
 }
