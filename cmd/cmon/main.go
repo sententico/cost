@@ -56,7 +56,7 @@ var (
 	cObj                   map[string]*obj
 	logD, logI, logW, logE *log.Logger
 	exit, seOpen           int
-	seCount                int64
+	seInit, seSeq          int64
 )
 
 func init() {
@@ -76,6 +76,8 @@ func init() {
 	}
 
 	seID, seS, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
+	seInit = time.Now().UnixNano()
+	seSeq = seInit
 	mux := http.NewServeMux()
 	mux.Handle("/admin", httpSession(hsADMIN))
 	mux.Handle("/api/v0", httpSession(hsAPI0))
@@ -105,10 +107,10 @@ func httpSession(hs httpSe) http.HandlerFunc { // pass in args for closure to cl
 		id := <-seID
 		switch seS <- id; hs {
 		case hsADMIN:
+			// map to http session func
+			// select inputs from accessor(s) result(s) & http.CloseNotifier channels
 			w.Write([]byte("admin stub response"))
 		case hsAPI0:
-			// map to hsession
-			// select inputs from accessor(s) result(s) & http.CloseNotifier channels
 			w.Write([]byte("APIv0 stub response"))
 		case hsVM0:
 			w.Write([]byte("APIv0 VMs stub response"))
@@ -156,24 +158,33 @@ func objManage(o *obj, n string, ctl chan string) {
 	}
 }
 
-func seMonitor() {
+func seMonitor(quit <-chan bool, ok chan<- bool) {
 	var lc int64
-	for s, t := seS, time.NewTicker(60000*time.Millisecond); ; {
+	var to <-chan time.Time
+
+	for id, t := seID, time.NewTicker(60*time.Second); seID != nil || seOpen > 0; {
+	nextSelect:
 		select {
 		case <-t.C:
-			if nc := seCount - int64(len(seID)); nc > lc {
+			if nc := seSeq - seInit - int64(len(seID)); nc > lc {
 				logI.Printf("handled %v sessions", nc-lc)
 				lc = nc
 			}
-		case <-s:
-			// seS may be set to nil to stop new sessions
+		case <-to:
+			break nextSelect
+		case <-seS:
 			seOpen++
 		case <-seE:
 			seOpen--
-		case seID <- seCount:
-			seCount++
+		case seID <- seSeq:
+			seSeq++
+		case <-quit:
+			seID, to = nil, time.After(3000*time.Millisecond)
+			seSeq -= int64(len(id))
+			t.Stop()
 		}
 	}
+	ok <- true
 }
 
 func main() {
@@ -192,6 +203,8 @@ func main() {
 
 	logI.Printf("listening on port %v for HTTP requests", srv.Addr[1:])
 	go func() {
+		quit, ok := make(chan bool), make(chan bool)
+		go seMonitor(quit, ok)
 		switch s := <-sig; s {
 		case syscall.SIGINT, syscall.SIGTERM:
 			logI.Printf("beginning signaled shutdown")
@@ -200,13 +213,13 @@ func main() {
 			logE.Printf("beginning shutdown on unexpected %v signal", s)
 			exit = 1
 		}
+		quit <- true
+		<-ok
+		srv.Close()
 		for n, o := range cObj {
 			go o.term(n, ctl)
 		}
-		time.Sleep(1250 * time.Millisecond)
-		srv.Close()
 	}()
-	go seMonitor()
 	switch err := srv.ListenAndServe(); err {
 	case nil, http.ErrServerClosed:
 		logI.Printf("stopped listening for HTTP requests (%v sessions open)", seOpen)
@@ -221,6 +234,6 @@ func main() {
 		cObj[n].stat = osTERM
 		logI.Printf("%q object shutdown", n)
 	}
-	logI.Printf("shutdown complete with %v sessions handled", seCount-int64(len(seID)))
+	logI.Printf("shutdown complete with %v sessions handled", seSeq-seInit-int64(len(seID)))
 	os.Exit(exit)
 }
