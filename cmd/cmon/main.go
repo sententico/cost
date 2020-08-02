@@ -1,17 +1,26 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
 
 type (
-	httpSe uint8
+	ObjSettings struct {
+		Token string
+	}
+	MonSettings struct {
+		User, Port string
+		Objects    map[string]ObjSettings
+	}
 	objSt  uint8
 	accTyp uint8
 	objRq  struct {
@@ -19,30 +28,21 @@ type (
 		acc chan uint32
 	}
 	obj struct {
-		stat objSt
-		req  chan objRq
-		rel  chan uint32
-		data *interface{}
+		stat       objSt
+		req        chan objRq
+		rel        chan uint32
+		boot, term func(string, chan string)
+		maint      func(string)
+		data       interface{}
 	}
 )
 
-const (
-	hsADMIN httpSe = iota
-	hsAPI0
-	hsVM0
-	hsDISK0
-	hsDB0
-	hsAPI1
-	hsVM1
-	hsDISK1
-	hsDB1
-)
-const (
+const ( // object states
 	osNIL objSt = iota
 	osINIT
 	osTERM
 )
-const (
+const ( // object access types
 	atEXCL accTyp = 1 << iota
 	atLONG
 	atPRI
@@ -50,13 +50,14 @@ const (
 
 var (
 	sig                    chan os.Signal
-	seID, seS, seE         chan int64
-	port                   string
+	seID, seB, seE         chan int64
+	sfile, port            string
 	srv                    *http.Server
-	cObj                   map[string]*obj
+	mObj                   map[string]*obj
 	logD, logI, logW, logE *log.Logger
-	exit, seOpen           int
+	seOpen, exit           int
 	seInit, seSeq          int64
+	settings               MonSettings
 )
 
 func init() {
@@ -69,25 +70,43 @@ func init() {
 	logW = log.New(os.Stderr, "WARNING ", log.Lshortfile)
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
-	flag.StringVar(&port, "port", os.Getenv("CMON_PORT"), "server listen port")
+	o, val := map[string]*obj{
+		"ec2.aws": {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
+		"rds.aws": {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
+	}, func(pri string, dflt string) string {
+		if strings.HasPrefix(pri, "CMON_") {
+			pri = os.Getenv(pri)
+		}
+		if pri == "" {
+			return dflt
+		}
+		return pri
+	}
+	flag.StringVar(&sfile, "settings", val("CMON_SETTINGS", ".cmon_settings.json"), "main settings file")
 	flag.Parse()
-	if port == "" {
-		port = "4404"
+	if b, err := ioutil.ReadFile(sfile); err != nil {
+		logE.Fatalf("cannot read settings file %q (%v)", sfile, err)
+	} else if err = json.Unmarshal(b, &settings); err != nil {
+		logE.Fatalf("%q is invalid JSON settings file (%v)", sfile, err)
+	}
+	for n := range o {
+		if _, ok := settings.Objects[n]; !ok {
+			delete(o, n)
+		}
+	}
+	if mObj, port = o, val(strings.TrimLeft(settings.Port, ":"), "4404"); len(o) == 0 {
+		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 
-	seID, seS, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
+	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	seInit = time.Now().UnixNano()
 	seSeq = seInit
 	mux := http.NewServeMux()
-	mux.Handle("/admin", httpSession(hsADMIN))
-	mux.Handle("/api/v0", httpSession(hsAPI0))
-	mux.Handle("/api/v0/vms", httpSession(hsVM0))
-	mux.Handle("/api/v0/disks", httpSession(hsDISK0))
-	mux.Handle("/api/v0/dbs", httpSession(hsDB0))
-	mux.Handle("/api/v1", httpSession(hsAPI1))
-	mux.Handle("/api/v1/vms", httpSession(hsVM1))
-	mux.Handle("/api/v1/disks", httpSession(hsDISK1))
-	mux.Handle("/api/v1/dbs", httpSession(hsDB1))
+	mux.Handle("/admin", apiSession(admin))
+	mux.Handle("/api/v0", apiSession(api0))
+	mux.Handle("/api/v0/vms", apiSession(api0VMs))
+	mux.Handle("/api/v0/disks", apiSession(api0Disks))
+	mux.Handle("/api/v0/dbs", apiSession(api0DBs))
 	srv = &http.Server{
 		Addr:           ":" + port,
 		Handler:        mux,
@@ -95,43 +114,9 @@ func init() {
 		WriteTimeout:   12 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-
-	cObj = map[string]*obj{
-		"ec2": {},
-		"rds": {},
-	}
 }
 
-func httpSession(hs httpSe) http.HandlerFunc { // pass in args for closure to close over
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := <-seID
-		switch seS <- id; hs {
-		case hsADMIN:
-			// map to http session func
-			// select inputs from accessor(s) result(s) & http.CloseNotifier channels
-			w.Write([]byte("admin stub response"))
-		case hsAPI0:
-			w.Write([]byte("APIv0 stub response"))
-		case hsVM0:
-			w.Write([]byte("APIv0 VMs stub response"))
-		case hsDISK0:
-			w.Write([]byte("APIv0 disks stub response"))
-		case hsDB0:
-			w.Write([]byte("APIv0 DBs stub response"))
-		case hsAPI1:
-			w.Write([]byte("APIv1 stub response"))
-		case hsVM1:
-			w.Write([]byte("APIv1 VMs stub response"))
-		case hsDISK1:
-			w.Write([]byte("APIv1 disks stub response"))
-		case hsDB1:
-			w.Write([]byte("APIv1 DBs stub response"))
-		}
-		seE <- id
-	}
-}
-
-func objManage(o *obj, n string, ctl chan string) {
+func objManager(o *obj, n string, ctl chan string) {
 	var or objRq
 	var accessors, token uint32
 	o.req = make(chan objRq, 16)
@@ -158,7 +143,7 @@ func objManage(o *obj, n string, ctl chan string) {
 	}
 }
 
-func seMonitor(quit <-chan bool, ok chan<- bool) {
+func seManager(quit <-chan bool, ok chan<- bool) {
 	var lc int64
 	var to <-chan time.Time
 
@@ -172,7 +157,7 @@ func seMonitor(quit <-chan bool, ok chan<- bool) {
 			}
 		case <-to:
 			break nextSelect
-		case <-seS:
+		case <-seB:
 			seOpen++
 		case <-seE:
 			seOpen--
@@ -187,24 +172,34 @@ func seMonitor(quit <-chan bool, ok chan<- bool) {
 	ok <- true
 }
 
-func main() {
-	logI.Printf("booting %v monitored objects", len(cObj))
-	ctl := make(chan string, 4)
-	for n, o := range cObj {
-		go objManage(o, n, ctl)
+func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.HandlerFunc {
+	session := f()
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := <-seID
+		seB <- id
+		session(id, w, r)
+		seE <- id
 	}
-	for i := 0; i < len(cObj); i++ {
+}
+
+func main() {
+	logI.Printf("booting %v monitored objects", len(mObj))
+	ctl := make(chan string, 4)
+	for n, o := range mObj {
+		go objManager(o, n, ctl)
+	}
+	for i := 0; i < len(mObj); i++ {
 		n := <-ctl
-		o := cObj[n]
+		o := mObj[n]
 		o.stat = osINIT
 		logI.Printf("%q object booted", n)
 		go o.maint(n)
 	}
 
-	logI.Printf("listening on port %v for HTTP requests", srv.Addr[1:])
+	logI.Printf("listening on port %v for HTTP requests", port)
 	go func() {
 		quit, ok := make(chan bool), make(chan bool)
-		go seMonitor(quit, ok)
+		go seManager(quit, ok)
 		switch s := <-sig; s {
 		case syscall.SIGINT, syscall.SIGTERM:
 			logI.Printf("beginning signaled shutdown")
@@ -216,7 +211,7 @@ func main() {
 		quit <- true
 		<-ok
 		srv.Close()
-		for n, o := range cObj {
+		for n, o := range mObj {
 			go o.term(n, ctl)
 		}
 	}()
@@ -229,9 +224,9 @@ func main() {
 	}
 	sig <- nil
 
-	for i := 0; i < len(cObj); i++ {
+	for i := 0; i < len(mObj); i++ {
 		n := <-ctl
-		cObj[n].stat = osTERM
+		mObj[n].stat = osTERM
 		logI.Printf("%q object shutdown", n)
 	}
 	logI.Printf("shutdown complete with %v sessions handled", seSeq-seInit-int64(len(seID)))

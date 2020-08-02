@@ -4,101 +4,88 @@ import (
 	"time"
 )
 
-const (
-	s90 = 90 * time.Second
-	s6  = 6 * time.Second
+type (
+	ec2Inst struct {
+		Typ, OS string
+	}
+	objEC2 map[string]*ec2Inst
 )
 
-func (o *obj) boot(n string, ctl chan string) {
-	switch n {
-	case "ec2":
-		ec2Boot(o)
-	case "rds":
-		rdsBoot(o)
-	}
-	ctl <- n
-}
-func (o *obj) maint(n string) {
-	switch n {
-	case "ec2":
-		ec2Maint(o)
-	case "rds":
-		rdsMaint(o)
-	}
-	logE.Printf("%q object maintenance stopped", n)
-}
-func (o *obj) term(n string, ctl chan string) {
-	switch n {
-	case "ec2":
-		ec2Term(o)
-	case "rds":
-		rdsTerm(o)
-	}
-	ctl <- n
-}
-
-func ec2Boot(o *obj) {
+func ec2awsBoot(n string, ctl chan string) {
+	o := mObj[n]
 	// read/build object
-	o.data = nil
+	o.data = objEC2{
+		"i-dog": {"m5.2xlarge", "linux"},
+		"i-cat": {"m5.large", "DOS"},
+	}
+	ctl <- n
 }
-func ec2MaintS(o *obj, acc chan uint32) {
+func ec2awsMaintS(o *obj, acc chan uint32) {
 	o.req <- objRq{0, acc}
 	token := <-acc
 	// shared access maintenance
 	o.rel <- token
 }
-func ec2MaintX(o *obj, acc chan uint32) {
+func ec2awsMaintX(o *obj, acc chan uint32) {
 	o.req <- objRq{atEXCL, acc}
 	token := <-acc
 	// exclusive access maintenance
 	o.rel <- token
 }
-func ec2Maint(o *obj) {
-	for acc, st, xt := make(chan uint32, 1), time.NewTicker(s6), time.NewTicker(s90); ; {
+func ec2awsMaint(n string) {
+	for o, acc, st, xt := mObj[n], make(chan uint32, 1),
+		time.NewTicker(6*time.Second), time.NewTicker(90*time.Second); ; {
 		select {
 		case <-st.C:
-			ec2MaintS(o, acc)
+			ec2awsMaintS(o, acc)
 		case <-xt.C:
-			ec2MaintX(o, acc)
+			ec2awsMaintX(o, acc)
 		}
 	}
 }
-func ec2Term(o *obj) {
+func ec2awsTerm(n string, ctl chan string) {
+	o := mObj[n]
 	or := objRq{atEXCL, make(chan uint32, 1)}
 	o.req <- or
 	<-or.acc
 	// persist object for shutdown; term accessors don't release object
+	ctl <- n
 }
 
-func rdsBoot(o *obj) {
+func rdsawsBoot(n string, ctl chan string) {
+	o := mObj[n]
 	// read/build object
 	o.data = nil
+	ctl <- n
 }
-func rdsMaintS(o *obj, acc chan uint32) {
+func rdsawsMaintS(o *obj, acc chan uint32) {
 	o.req <- objRq{0, acc}
 	token := <-acc
 	// shared access maintenance
 	o.rel <- token
 }
-func rdsMaintX(o *obj, acc chan uint32) {
+func rdsawsMaintX(o *obj, acc chan uint32) {
 	o.req <- objRq{atEXCL, acc}
 	token := <-acc
 	// exclusive access maintenance
 	o.rel <- token
 }
-func rdsMaint(o *obj) {
-	for acc, st, xt := make(chan uint32, 1), time.NewTicker(s6), time.NewTicker(s90); ; {
+func rdsawsMaint(n string) {
+	for o, acc, st, xt := mObj[n], make(chan uint32, 1),
+		time.NewTicker(6*time.Second), time.NewTicker(90*time.Second); ; {
 		select {
 		case <-st.C:
-			rdsMaintS(o, acc)
+			rdsawsMaintS(o, acc)
 		case <-xt.C:
-			rdsMaintX(o, acc)
+			rdsawsMaintX(o, acc)
 		}
 	}
 }
-func rdsTerm(o *obj) {
+func rdsawsTerm(n string, ctl chan string) {
+	o := mObj[n]
 	or := objRq{atEXCL, make(chan uint32, 1)}
 	o.req <- or
 	<-or.acc
 	// persist object for shutdown; term accessors don't release object
+	ctl <- n
 }
