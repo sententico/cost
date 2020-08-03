@@ -24,7 +24,7 @@ func api0VMs() func(int64, http.ResponseWriter, *http.Request) {
 		m, c := v.Get("method"), 0
 		om, ok := mm[m]
 		if !ok {
-			w.Write([]byte(fmt.Sprintf("APIv0 VMs stub response (no method)")))
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		res := make(chan interface{}, 8)
@@ -36,12 +36,13 @@ func api0VMs() func(int64, http.ResponseWriter, *http.Request) {
 				c += len(al)
 			}
 		}
+		ar := ""
 		for ; c > 0; c-- {
-			/* ar := */ <-res
+			ar += (<-res).(string)
 			// select on res & http.CloseNotifier?
 			// incrementally build response per accessor result
 		}
-		w.Write([]byte(fmt.Sprintf("APIv0 VMs stub response (om=%v id=%v)", om, id)))
+		w.Write([]byte(fmt.Sprintf("APIv0 VMs stub response (ae=%q id=%v)", ar, id)))
 	}
 }
 
