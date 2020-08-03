@@ -15,10 +15,10 @@ import (
 
 type (
 	ObjSettings struct {
-		Token string
+		AccessID, AccessKey string
 	}
 	MonSettings struct {
-		User, Port string
+		Unit, Port string
 		Objects    map[string]ObjSettings
 	}
 	objSt  uint8

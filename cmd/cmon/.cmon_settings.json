@@ -1,12 +1,14 @@
 {
-    "User": "aspect",
+    "Unit": "cmon-aspect",
     "Port": "4414",
     "Objects": {
         "ec2.aws": {
-            "Token": "ec2 access token"
+            "AccessID": "...",
+            "AccessKey": "..."
         },
         "rds.aws": {
-            "Token": "rds access token"
+            "AccessID": "...",
+            "AccessKey": "..."
         }
     }
 }
