@@ -6,7 +6,7 @@ import (
 )
 
 // Nil concurrent filter; CSV/fixed-field input pass-through for aggregation
-func Nil(fin chan<- interface{}, in <-chan map[string]string, dig csv.Digest) {
+func Nil(fin chan<- interface{}, in <-chan map[string]string, res csv.Resource) {
 	for row := range in {
 		fin <- row
 	}

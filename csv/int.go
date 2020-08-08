@@ -1,51 +1,326 @@
 package csv
 
 import (
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"unsafe"
+
+	"github.com/sententico/cost/internal/io"
 )
 
-const (
-	previewRows = 16       // number of preview rows returned by Peek (must be >2)
-	sepSet      = ",\t|;:" // priority of separator runes automatically checked if none specified
-	maxFieldLen = 256      // maximum field size allowed for Peek to qualify a separator
-	bigFieldLen = 36       // mean field length above which CSV column-density is suspiciously low
-)
+type (
+	// resStat Resource state (see const)
+	resStat uint8
 
-type cmapEntry struct {
-	col, begin      int      // column reference (paired with begin column for fixed-field files)
-	skip, inclusive bool     // skip: filter-only columns; inclusive: prefix op (exclusive default)
-	prefix          []string // prefix operands
-}
-
-var commentSet = [...]string{"#", "//", "'"}
-
-// atoi is a helper string-to-int function with selectable default value on error
-func atoi(s string, d int) int {
-	i, e := strconv.Atoi(s)
-	if e != nil {
-		return d
+	// cmapEntry ...
+	cmapEntry struct {
+		col, begin      int      // column reference (paired with begin column for fixed-field files)
+		skip, inclusive bool     // skip: filter-only columns; inclusive: prefix op (exclusive default)
+		prefix          []string // prefix operands
 	}
-	return i
+
+	// settingsCache for settings file mapping format info by signature (specifier or heading
+	// MD5 hash)
+	settingsCache struct {
+		writable bool
+		path     string
+		mutex    sync.Mutex
+		cache    map[string]SettingsEntry
+	}
+)
+
+// Resource states
+const (
+	rsNIL    resStat = iota // initial state
+	rsOPEN                  // resource opened, peek-ahead completed
+	rsGET                   // channels opened to get resource contents
+	rsCLOSED                // resource closed (cannot be re-opened)
+)
+
+// general package constants
+const (
+	previewLines = 24       // maximum preview lines returned in Resource on Open (must be >2)
+	sepSet       = ",\t|;:" // priority of separator runes automatically checked if none specified
+	maxFieldLen  = 256      // maximum field size allowed for Peek to qualify a separator
+	bigFieldLen  = 36       // mean field length above which CSV column-density is suspiciously low
+)
+
+var (
+	// Settings global holds setting cache from settings file
+	Settings   *settingsCache = &settingsCache{}
+	commentSet                = [...]string{"#", "//", "'"}
+)
+
+// peekAhead reads initial lines of an opened resource, populating its identification fields. These
+// include a preview slice of raw data rows (excluding blank and comment lines), a total resource
+// row estimate, an indicator whether the first row is a heading, the comment prefix used (if any),
+// and if a CSV type, the field separator with trimmed fields of the preview data rows split by it.
+// A format signature (specifier or heading MD5 hash, as available) with any settings info mapped
+// to it (like file application type, version and default column selector-map) are also provided.
+func (res *Resource) peekAhead() {
+	row, fix, tlen, max, hash := -1, 0, 0, 1, ""
+nextLine:
+	for ln := range res.peek {
+		switch {
+		case len(strings.TrimSpace(ln)) == 0:
+		case res.Comment != "" && strings.HasPrefix(ln, res.Comment):
+		case row < 0:
+			row = 0
+			for _, p := range commentSet {
+				if strings.HasPrefix(ln, p) {
+					res.Comment = p
+					continue nextLine
+				}
+			}
+			fallthrough
+		default:
+			switch row++; {
+			case row == 2:
+				fix = len(ln)
+			case len(ln) != fix:
+				fix = 0
+			}
+			tlen += len(ln)
+			res.Preview = append(res.Preview, ln)
+		}
+	}
+	switch {
+	case len(res.ierr) > 0:
+		panic(fmt.Errorf("problem peeking ahead on resource (%v)", <-res.ierr))
+	case row < 1:
+		panic(fmt.Errorf("at least 1 data row required to characterize resource"))
+	case len(res.in) < cap(res.in): // race: potential inaccuracy
+		res.Rows = len(res.in)
+	case res.finfo != nil:
+		res.Rows = int(float64(res.finfo.Size())/float64(tlen-len(res.Preview[0])+row-1)*0.995+0.5) * (row - 1)
+	default:
+		res.Rows = -1
+	}
+
+nextSep:
+	for _, r := range sepSet {
+		c, sl, sh := 0, []string{}, []string{}
+		for i, ln := range res.Preview {
+			if sl = io.SplitCSV(ln, r); len(sl) <= max || c > 0 && len(sl) != c {
+				continue nextSep
+			}
+			for _, f := range sl {
+				if len(f) > maxFieldLen {
+					continue nextSep
+				}
+			}
+			if i == 0 {
+				sh, c = sl, len(sl)
+			}
+		}
+		if res.Sep, max, hash = r, c, fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r))))); Settings.Find(hash) {
+			break
+		}
+		qh := make(map[string]int, c)
+		for _, h := range sh {
+			h = strings.TrimSpace(h)
+			if _, e := strconv.ParseFloat(h, 64); e != nil && len(h) > 0 {
+				qh[h]++
+			}
+		}
+		if len(qh) != c {
+			hash = ""
+		}
+	}
+
+	switch {
+	case res.Sep == '\x00' && fix == 0:
+	case hash == "" && (fix > 132 && max < 4 || fix/max > bigFieldLen):
+		// conspicuously low-density columns; ambigious type resource
+		res.Heading = len(res.Preview[0]) != fix
+	case res.Sep == '\x00':
+		// fixed-field type resource
+		res.Typ, res.Heading = RTfixed, len(res.Preview[0]) != fix
+		res.Sig, res.Heading = res.findFSpec()
+	default:
+		// CSV type resource
+		for _, r := range res.Preview {
+			res.Split = append(res.Split, io.SplitCSV(r, res.Sep))
+		}
+		if res.Typ, res.Sig, res.Heading = RTcsv, hash, hash != ""; !Settings.Find(res.Sig) {
+			if spec := res.findSpec(); spec != "" {
+				res.Sig, res.Heading = spec, spec[2] == '{'
+			}
+		}
+	}
+	if res.Settings = Settings.Get(res.Sig); res.Cols == "" {
+		res.Cols = res.Settings.Cols
+	}
 }
 
-// getSpec method on Digest scans file-type cache for CSV file specifier signature matching
-// digest, returning specifier if found
-//   CSV file-type specifier syntax:
+// getCSV method on Resource gets...
+func (res *Resource) getCSV() {
+	vcols, wid, line, algn, skip := make(map[string]cmapEntry, 32), 0, 0, 0, false
+	head := res.Heading
+	for ln := range res.in {
+		for line++; ; {
+			switch {
+			case len(strings.TrimSpace(ln)) == 0:
+			case res.Comment != "" && strings.HasPrefix(ln, res.Comment):
+			case len(vcols) == 0:
+				sl, uc, vs := io.SplitCSV(ln, res.Sep), make(map[int]int), 0
+				wid = len(sl)
+				pc, ps := parseCMap(res.Cols, false, wid)
+				for _, c := range pc {
+					uc[c.col]++
+				}
+				for i, h := range sl {
+					if h != "" && (ps == 0 || pc[h].col > 0) {
+						c := pc[h]
+						c.col = i + 1
+						vcols[h] = c
+					}
+				}
+				for _, c := range vcols {
+					if !c.skip {
+						vs++
+					}
+				}
+				switch {
+				case ps == 0 && (!head || len(vcols) != wid):
+					panic(fmt.Errorf("can't read CSV resource without internal column heads or map"))
+				case ps == 0 && vs == 0:
+					panic(fmt.Errorf("column map skips all columns in CSV resource"))
+				case ps == 0:
+				case vs == ps:
+				case vs > 0:
+					panic(fmt.Errorf("missing %d column(s) in CSV resource", ps-vs))
+				case head:
+					panic(fmt.Errorf("column map incompatible with CSV resource"))
+				case len(uc) < len(pc):
+					panic(fmt.Errorf("%d conflicting column(s) in map provided for CSV resource", len(pc)-len(uc)))
+				default:
+					vcols = pc
+					continue
+				}
+
+			default:
+				if b, sl := io.SliceCSV(ln, res.Sep, wid); len(sl)-1 == wid {
+					m := make(map[string]string, len(vcols))
+					skip, head = false, true
+					for h, c := range vcols {
+						fs := b[sl[c.col-1]:sl[c.col]]
+						f := *(*string)(unsafe.Pointer(&fs)) // avoid new string for ~8% perf gain
+						if len(c.prefix) > 0 {
+							for _, p := range c.prefix {
+								if skip = strings.HasPrefix(f, p) == !c.inclusive; skip == !c.inclusive {
+									break
+								}
+							}
+							if skip {
+								break
+							} else if c.skip {
+								continue
+							}
+						}
+						if len(f) > 0 {
+							m[h], head = f, head && f == h
+						} else {
+							head = false
+						}
+					}
+					if !skip && !head && len(m) > 0 {
+						m["~line"] = strconv.Itoa(line)
+						select {
+						case res.out <- m:
+						case <-res.sig:
+							return
+						}
+					}
+				} else if algn++; line > 200 && float64(algn)/float64(line) > 0.02 {
+					panic(fmt.Errorf("excessive column misalignment in CSV resource (>%d rows)", algn))
+				}
+			}
+			break
+		}
+	}
+}
+
+// getFixed method on Resource gets...
+func (res *Resource) getFixed() {
+	head, cols, sel, wid, line, algn := res.Heading, map[string]cmapEntry{}, 0, 0, 0, 0
+	for ln := range res.in {
+		for line++; ; {
+			switch {
+			case len(strings.TrimLeft(ln, " ")) == 0:
+			case res.Comment != "" && strings.HasPrefix(ln, res.Comment):
+			case head:
+				head = false
+			case wid == 0:
+				wid = len(ln)
+				if cols, sel = parseCMap(res.Cols, true, wid); sel == 0 {
+					panic(fmt.Errorf("no columns selected by map provided for fixed-field resource"))
+				}
+				continue
+
+			case len(ln) != wid:
+				if algn++; line > 200 && float64(algn)/float64(line) > 0.02 {
+					panic(fmt.Errorf("excessive column misalignment in fixed-field resource (>%d rows)", algn))
+				}
+			default:
+				m, skip := make(map[string]string, len(cols)), false
+				for h, c := range cols {
+					f := strings.TrimSpace(ln[c.begin-1 : c.col])
+					if len(c.prefix) > 0 {
+						for _, p := range c.prefix {
+							if skip = strings.HasPrefix(f, p) == !c.inclusive; skip == !c.inclusive {
+								break
+							}
+						}
+						if skip {
+							break
+						} else if c.skip {
+							continue
+						}
+					}
+					if len(f) > 0 {
+						m[h] = f
+					}
+				}
+				if !skip && len(m) > 0 {
+					m["~line"] = strconv.Itoa(line)
+					select {
+					case res.out <- m:
+					case <-res.sig:
+						return
+					}
+				}
+			}
+			break
+		}
+	}
+}
+
+// findSpec method on Resource scans format cache for CSV resource specifier signature matching
+// resource, returning specifier if found
+//   CSV resource type format specifier syntax:
 // 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>]...]]..." (column lengths/prefixes)
-//		"=<sep>{<head>[,<head>]...}" (column heads uniquely identifying file-type)
+//		"=<sep>{<head>[,<head>]...}" (column heads uniquely identifying format)
 //   examples:
 // 		"=|35,7:INTL:DOM,12$13:20,21$3"
 //		"=,120,102$16,17$3:Mon:Tue:Wed:Thu:Fri:Sat:Sun,62$5:S :M :L :XL"
 //		"=,{name,age,account number}"
-func (dig *Digest) getSpec() (spec string) {
-	head := make(map[string]int, len(dig.Split[0]))
-	for _, c := range dig.Split[0] {
+func (res *Resource) findSpec() (spec string) {
+	head := make(map[string]int, len(res.Split[0]))
+	for _, c := range res.Split[0] {
 		head[c]++
 	}
 nextSpec:
 	for _, spec = range Settings.GetSpecs() {
-		if !strings.HasPrefix(spec, "="+string(dig.Sep)) {
+		if !strings.HasPrefix(spec, "="+string(res.Sep)) {
 			continue nextSpec
 		}
 		switch spec[2] {
@@ -57,7 +332,7 @@ nextSpec:
 			}
 			return
 		default:
-			for _, s := range dig.Split {
+			for _, s := range res.Split {
 			nextTerm:
 				for i, t := range strings.Split(spec[2:], ",") {
 					v, c1, c2 := strings.Split(t, ":"), -1, -1
@@ -92,20 +367,20 @@ nextSpec:
 	return ""
 }
 
-// getFSpec method on Digest scans file-type cache for fixed-field file specifier signature
-// matching digest, returning specifier and heading indicator if found
-//   fixed-field TXT file type specifier syntax (heading/field lengths/prefixes):
+// findFSpec method on Resource scans format cache for fixed-field resource specifier signature
+// matching resource, returning specifier and heading indicator if found
+//   fixed-field TXT resource type specifier syntax (heading/field lengths/prefixes):
 // 		"=(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))[,(f|h)(<cols>|(<col>:<pfx>[:<pfx>]...))]..."
 //   examples:
 //		"=h80,h1:HEAD01,f132,f52:20,f126:S :M :L :XL" (heading & field row lengths/prefixes)
 //		"=f72,f72:T:F,f20:SKU" (field row length/prefixes only)
-func (dig *Digest) getFSpec() (spec string, head bool) {
+func (res *Resource) findFSpec() (spec string, head bool) {
 nextSpec:
 	for _, spec := range Settings.GetSpecs() {
 		if !strings.HasPrefix(spec, "=h") && !strings.HasPrefix(spec, "=f") {
 			continue nextSpec
 		}
-		for i, p := range dig.Preview {
+		for i, p := range res.Preview {
 		nextTerm:
 			for _, t := range strings.Split(spec[1:], ",") {
 				v := strings.Split(strings.TrimLeft(t, " "), ":")
@@ -126,17 +401,103 @@ nextSpec:
 				continue nextSpec
 			}
 		}
-		return spec, dig.Heading || strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
+		return spec, res.Heading || strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
 	}
-	return "", dig.Heading
+	return "", res.Heading
 }
 
-// parseCMap parses a column-map string for CSV or fixed-field file types of specified width,
+// Cache method on SettingsCache reads JSON format settings file into cache
+func (settings *settingsCache) Cache(path string) (err error) {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	var b []byte
+
+	if strings.HasPrefix(path, "~/") {
+		var u *user.User
+		if u, err = user.Current(); err != nil {
+			return
+		}
+		if settings.path, err = filepath.Abs(u.HomeDir + path[1:]); err != nil {
+			return
+		}
+	} else if settings.path, err = filepath.Abs(path); err != nil {
+		return
+	}
+
+	switch b, err = ioutil.ReadFile(settings.path); err {
+	case nil:
+		if err = json.Unmarshal(b, &settings.cache); err != nil {
+			settings.cache = make(map[string]SettingsEntry)
+		}
+		settings.writable = err == nil
+	default:
+		settings.cache = make(map[string]SettingsEntry)
+		settings.writable = os.IsNotExist(err)
+	}
+	return
+}
+
+// Write method on SettingsCache writes (potentially modified) cached format settings back to
+// the JSON settings file
+func (settings *settingsCache) Write() error {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+
+	if !settings.writable {
+		return fmt.Errorf("can't write to %q", settings.path)
+	}
+	b, err := json.MarshalIndent(settings.cache, "", "    ")
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(settings.path, b, 0644)
+}
+
+// Find method on SettingsCache returns true if format signature exists in the settings cache
+func (settings *settingsCache) Find(sig string) bool {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	_, found := settings.cache[sig]
+	return found
+}
+
+// Get method on SettingsCache returns cache entry under format signature
+func (settings *settingsCache) Get(sig string) SettingsEntry {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+	return settings.cache[sig]
+}
+
+// GetSpecs method on SettingsCache returns list of format specifications in the settings cache
+func (settings *settingsCache) GetSpecs() (specs []string) {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+
+	for sig := range settings.cache {
+		if strings.HasPrefix(sig, "=") && len(sig) > 2 {
+			specs = append(specs, sig)
+		}
+	}
+	return
+}
+
+// Set method on SettingsCache returns entry set in settings cache under format signature
+func (settings *settingsCache) Set(sig string, entry SettingsEntry) SettingsEntry {
+	settings.mutex.Lock()
+	defer settings.mutex.Unlock()
+
+	if sig != "" {
+		settings.cache[sig] = entry
+	}
+	return entry
+}
+
+// parseCMap parses a column-map string for CSV or fixed-field resource types of specified width,
 // returning map with selected column count
-//   column-map syntax for CSV files:
+//   column-map syntax for CSV resource types:
 //		"[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]
 //		 [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<col>]]..."
-//   column-map syntax for fixed-field TXT files:
+//   column-map syntax for fixed-field TXT resource types:
 //		"[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<bcol>]:<ecol>
 //		 [,[!]<head>[:(=|!){<pfx>[:<pfx>]...}][:<bcol>]:<ecol>]..."
 //   examples (in shell use, enclose in single-quotes):
@@ -213,4 +574,13 @@ func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapEntry, select
 		}
 	}
 	return
+}
+
+// atoi is a helper string-to-int function with selectable default value on error
+func atoi(s string, d int) int {
+	i, e := strconv.Atoi(s)
+	if e != nil {
+		return d
+	}
+	return i
 }

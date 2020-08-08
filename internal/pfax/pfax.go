@@ -8,7 +8,7 @@ import (
 
 // Fentry ...
 type Fentry struct {
-	Flt  func(chan<- interface{}, <-chan map[string]string, csv.Digest)
+	Flt  func(chan<- interface{}, <-chan map[string]string, csv.Resource)
 	Cols string
 }
 

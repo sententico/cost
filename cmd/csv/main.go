@@ -34,47 +34,37 @@ func init() {
 	}
 }
 
-func updateSettings(dig *csv.Digest, path, cflag string, force bool) (cols string) {
+func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 	switch cflag {
 	case "":
-		cols = dig.Settings.Cols
+		cols = res.Settings.Cols
 	case "*":
 	default:
-		if cols = cflag; dig.Settings.Cols != cols {
-			dig.Settings.Cols, dig.Settings.Date = cols, time.Now()
+		if cols = cflag; res.Settings.Cols != cols {
+			res.Settings.Cols, res.Settings.Date = cols, time.Now()
 		}
 	}
 
-	switch dig.Sep { // these initial settings should be manually updated
-	case '\x00':
-		if force && dig.Sig == "" {
-			dig.Sig, dig.Settings.Date = fmt.Sprintf("=h%d,f%d", len(dig.Preview[0]), len(dig.Preview[1])), time.Now()
+	switch res.Typ { // these initial settings should be manually updated
+	case csv.RTcsv:
+		if force && res.Sig == "" {
+			res.Sig, res.Settings.Date = fmt.Sprintf("=%s%d", string(res.Sep), len(res.Split[0])), time.Now()
 		}
-		if dig.Settings.Type == "" && dig.Settings.Ver == "" {
-			dig.Settings.Type, dig.Settings.Ver, dig.Settings.Date = "unspecified fixed-field", path, time.Now()
+		if res.Settings.Format == "" && res.Settings.Ver == "" {
+			res.Settings.Format, res.Settings.Ver, res.Settings.Date = "unspecified CSV", res.Name, time.Now()
 		}
-	default:
-		if force && dig.Sig == "" {
-			dig.Sig, dig.Settings.Date = fmt.Sprintf("=%s%d", string(dig.Sep), len(dig.Split[0])), time.Now()
+	case csv.RTfixed:
+		if force && res.Sig == "" {
+			res.Sig, res.Settings.Date = fmt.Sprintf("=h%d,f%d", len(res.Preview[0]), len(res.Preview[1])), time.Now()
 		}
-		if dig.Settings.Type == "" && dig.Settings.Ver == "" {
-			dig.Settings.Type, dig.Settings.Ver, dig.Settings.Date = "unspecified CSV", path, time.Now()
+		if res.Settings.Format == "" && res.Settings.Ver == "" {
+			res.Settings.Format, res.Settings.Ver, res.Settings.Date = "unspecified fixed-field", res.Name, time.Now()
 		}
 	}
-	if force || !dig.Settings.Lock && dig.Settings.Cols != "" {
-		csv.Settings.Set(dig.Sig, dig.Settings)
+	if force || !res.Settings.Lock && res.Settings.Cols != "" {
+		csv.Settings.Set(res.Sig, res.Settings)
 	}
 	return
-}
-
-func peekOpen(path string, dig *csv.Digest) (<-chan map[string]string, <-chan error, chan<- int) {
-	var e error
-	if *dig, e = csv.Peek(path); e != nil {
-		panic(fmt.Errorf("%v", e))
-	} else if dig.Sep == '\x00' {
-		return csv.ReadFixed(path, updateSettings(dig, path, colsFlag, forceFlag), dig.Comment, dig.Heading)
-	}
-	return csv.Read(path, updateSettings(dig, path, colsFlag, forceFlag), dig.Comment, dig.Heading, dig.Sep)
 }
 
 func main() {
@@ -97,9 +87,13 @@ func main() {
 					}
 					wg.Done()
 				}()
-				dig, rows := csv.Digest{}, 0
-				in, err, sig := peekOpen(f, &dig)
-				defer close(sig)
+				res, rows := csv.Resource{Name: f}, 0
+				if e := res.Open(nil); e != nil {
+					panic(fmt.Errorf("error opening %q: %v", f, e))
+				}
+				defer res.Close()
+				updateSettings(&res, colsFlag, forceFlag)
+				in, err := res.Get()
 
 				for row := range in {
 					if rows++; detailFlag {
@@ -107,9 +101,9 @@ func main() {
 					}
 				}
 				if e := <-err; e != nil {
-					panic(fmt.Errorf("%v", e))
+					panic(fmt.Errorf("error reading %q: %v", f, e))
 				}
-				fmt.Printf("read %d rows from [%s %s] file %q\n", rows, dig.Settings.Type, dig.Settings.Ver, f)
+				fmt.Printf("read %d rows from [%s %s] file %q\n", rows, res.Settings.Format, res.Settings.Ver, f)
 			}(file)
 		}
 	}

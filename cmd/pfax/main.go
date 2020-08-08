@@ -57,33 +57,28 @@ func main() {
 					wg.Done()
 				}()
 				var (
-					dig  csv.Digest
+					res  = csv.Resource{Name: fn}
 					e    error
 					fe   pfax.Fentry
 					ok   bool
 					cols string
 					in   <-chan map[string]string
 					err  <-chan error
-					sig  chan<- int
 				)
-				if dig, e = csv.Peek(fn); e != nil {
-					panic(fmt.Errorf("%v", e))
-				} else if fe, ok = x.Fm[dig.Settings.Type]; !ok {
+				if e = res.Open(nil); e != nil {
+					panic(fmt.Errorf("error opening %q: %v", fn, e))
+				} else if fe, ok = x.Fm[res.Settings.Format]; !ok {
 					if fe, ok = x.Fm["*"]; !ok {
-						panic(fmt.Errorf("no filter defined for %q [%v]", fn, dig.Settings.Type))
+						panic(fmt.Errorf("no filter defined for %q [%v]", fn, res.Settings.Format))
 					}
 				}
 				if cols = fe.Cols; cols == "" {
-					cols = dig.Settings.Cols
+					cols = res.Settings.Cols
 				}
-				if dig.Sep == '\x00' {
-					in, err, sig = csv.ReadFixed(fn, cols, dig.Comment, dig.Heading)
-				} else {
-					in, err, sig = csv.Read(fn, cols, dig.Comment, dig.Heading, dig.Sep)
-				}
-				defer close(sig)
+				in, err = res.Get()
+				defer res.Close()
 
-				fe.Flt(fin, in, dig)
+				fe.Flt(fin, in, res)
 				if e := <-err; e != nil {
 					panic(fmt.Errorf("%v", e))
 				}

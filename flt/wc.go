@@ -8,7 +8,7 @@ import (
 )
 
 // WC concurrent filter; counts CSV/fixed-field values per column
-func WC(fin chan<- interface{}, in <-chan map[string]string, dig csv.Digest) {
+func WC(fin chan<- interface{}, in <-chan map[string]string, res csv.Resource) {
 	var ke map[string]int
 	km, ok := make(map[string]map[string]int), false
 	for row := range in {
