@@ -81,6 +81,7 @@ func (res *Resource) Open(r io.Reader) (e error) {
 	defer func() {
 		if i := recover(); i != nil {
 			e = i.(error)
+			res.file.Close()
 			if res.isig != nil {
 				close(res.isig)
 				res.isig = nil
@@ -93,7 +94,6 @@ func (res *Resource) Open(r io.Reader) (e error) {
 		if res.file, e = os.Open(res.Name); e != nil {
 			panic(e)
 		}
-		defer res.file.Close()
 		if res.finfo, e = res.file.Stat(); e != nil {
 			panic(e)
 		}

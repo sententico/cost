@@ -123,9 +123,10 @@ nextSep:
 
 	switch {
 	case res.Sep == '\x00' && fix == 0:
+		// unknown type resource
 	case hash == "" && (fix > 132 && max < 4 || fix/max > bigFieldLen):
-		// conspicuously low-density columns; ambigious type resource
-		res.Heading = len(res.Preview[0]) != fix
+		// ambigious type resource; conspicuously low-density columns
+		fallthrough
 	case res.Sep == '\x00':
 		// fixed-field type resource
 		res.Typ, res.Heading = RTfixed, len(res.Preview[0]) != fix
