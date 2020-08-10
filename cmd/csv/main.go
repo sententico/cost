@@ -62,15 +62,16 @@ func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 		}
 	}
 	if force || !res.Settings.Lock && res.Settings.Cols != "" {
-		csv.Settings.Set(res.Sig, res.Settings)
+		res.SettingsCache.Set(res.Sig, &res.Settings)
 	}
 	return
 }
 
 func main() {
 	flag.Parse()
-	csv.Settings.Cache(settingsFlag)
-	defer csv.Settings.Write()
+	settings := csv.Settings{Name: settingsFlag}
+	defer settings.Sync()
+	settings.Cache(nil)
 
 	for _, arg := range flag.Args() {
 		files, _ := filepath.Glob(arg)
@@ -87,7 +88,7 @@ func main() {
 					}
 					wg.Done()
 				}()
-				res, rows := csv.Resource{Name: f}, 0
+				res, rows := csv.Resource{Name: f, SettingsCache: &settings}, 0
 				if e := res.Open(nil); e != nil {
 					panic(fmt.Errorf("error opening %q: %v", f, e))
 				}

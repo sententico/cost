@@ -38,7 +38,8 @@ func init() {
 
 func main() {
 	flag.Parse()
-	csv.Settings.Cache(pfax.Args.SettingsFlag)
+	settings := csv.Settings{Name: pfax.Args.SettingsFlag}
+	settings.Cache(nil)
 	x, fin := pfax.Xm[string(pfax.Args.XfmFlag)], make(chan interface{}, 64)
 
 	for _, arg := range flag.Args() {
@@ -57,26 +58,26 @@ func main() {
 					wg.Done()
 				}()
 				var (
-					res  = csv.Resource{Name: fn}
-					e    error
-					fe   pfax.Fentry
-					ok   bool
-					cols string
-					in   <-chan map[string]string
-					err  <-chan error
+					res = csv.Resource{Name: fn, SettingsCache: &settings}
+					e   error
+					fe  pfax.Fentry
+					ok  bool
+					in  <-chan map[string]string
+					err <-chan error
 				)
 				if e = res.Open(nil); e != nil {
 					panic(fmt.Errorf("error opening %q: %v", fn, e))
-				} else if fe, ok = x.Fm[res.Settings.Format]; !ok {
+				}
+				defer res.Close()
+				if fe, ok = x.Fm[res.Settings.Format]; !ok {
 					if fe, ok = x.Fm["*"]; !ok {
 						panic(fmt.Errorf("no filter defined for %q [%v]", fn, res.Settings.Format))
 					}
 				}
-				if cols = fe.Cols; cols == "" {
-					cols = res.Settings.Cols
+				if fe.Cols != "" {
+					res.Cols = fe.Cols
 				}
 				in, err = res.Get()
-				defer res.Close()
 
 				fe.Flt(fin, in, res)
 				if e := <-err; e != nil {

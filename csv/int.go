@@ -2,15 +2,11 @@ package csv
 
 import (
 	"crypto/md5"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"unsafe"
 
 	"github.com/sententico/cost/internal/io"
@@ -25,15 +21,6 @@ type (
 		col, begin      int      // column reference (paired with begin column for fixed-field files)
 		skip, inclusive bool     // skip: filter-only columns; inclusive: prefix op (exclusive default)
 		prefix          []string // prefix operands
-	}
-
-	// settingsCache for settings file mapping format info by signature (specifier or heading
-	// MD5 hash)
-	settingsCache struct {
-		writable bool
-		path     string
-		mutex    sync.Mutex
-		cache    map[string]SettingsEntry
 	}
 )
 
@@ -54,9 +41,7 @@ const (
 )
 
 var (
-	// Settings global holds setting cache from settings file
-	Settings   *settingsCache = &settingsCache{}
-	commentSet                = [...]string{"#", "//", "'"}
+	commentSet = [...]string{"#", "//", "'"}
 )
 
 // peekAhead reads initial lines of an opened resource, populating its identification fields. These
@@ -121,7 +106,7 @@ nextSep:
 				sh, c = sl, len(sl)
 			}
 		}
-		if res.Sep, max, hash = r, c, fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r))))); Settings.Find(hash) {
+		if res.Sep, max, hash = r, c, fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r))))); res.SettingsCache.Find(hash) {
 			break
 		}
 		qh := make(map[string]int, c)
@@ -150,18 +135,21 @@ nextSep:
 		for _, r := range res.Preview {
 			res.Split = append(res.Split, io.SplitCSV(r, res.Sep))
 		}
-		if res.Typ, res.Sig, res.Heading = RTcsv, hash, hash != ""; !Settings.Find(res.Sig) {
+		if res.Typ, res.Sig, res.Heading = RTcsv, hash, hash != ""; !res.SettingsCache.Find(res.Sig) {
 			if spec := res.findSpec(); spec != "" {
 				res.Sig, res.Heading = spec, spec[2] == '{'
 			}
 		}
 	}
-	if res.Settings = Settings.Get(res.Sig); res.Cols == "" {
-		res.Cols = res.Settings.Cols
+	if res.SettingsCache != nil {
+		if res.Settings = res.SettingsCache.Get(res.Sig); res.Cols == "" {
+			res.Cols = res.Settings.Cols
+		}
 	}
 }
 
-// getCSV method on Resource gets...
+// getCSV method on Resource reads CSV rows, writing them to "out" channel once converted into
+// key-value maps as specified in Cols until CSV input is exhausted or "sig" indicates a halt
 func (res *Resource) getCSV() {
 	vcols, wid, line, algn, skip := make(map[string]cmapEntry, 32), 0, 0, 0, false
 	head := res.Heading
@@ -249,7 +237,9 @@ func (res *Resource) getCSV() {
 	}
 }
 
-// getFixed method on Resource gets...
+// getFixed method on Resource reads fixed-field rows, writing them to "out" channel once converted
+// into key-value maps as specified in Cols until fixed-field input is exhausted or "sig" indicates
+// a halt
 func (res *Resource) getFixed() {
 	head, cols, sel, wid, line, algn := res.Heading, map[string]cmapEntry{}, 0, 0, 0, 0
 	for ln := range res.in {
@@ -304,7 +294,7 @@ func (res *Resource) getFixed() {
 	}
 }
 
-// findSpec method on Resource scans format cache for CSV resource specifier signature matching
+// findSpec method on Resource scans settings cache for CSV resource specifier signature matching
 // resource, returning specifier if found
 //   CSV resource type format specifier syntax:
 // 		"=<sep><cols>[,<col>[$<len>][:<pfx>[:<pfx>]...]]..." (column lengths/prefixes)
@@ -319,7 +309,7 @@ func (res *Resource) findSpec() (spec string) {
 		head[c]++
 	}
 nextSpec:
-	for _, spec = range Settings.GetSpecs() {
+	for _, spec = range res.SettingsCache.GetSpecs() {
 		if !strings.HasPrefix(spec, "="+string(res.Sep)) {
 			continue nextSpec
 		}
@@ -376,7 +366,7 @@ nextSpec:
 //		"=f72,f72:T:F,f20:SKU" (field row length/prefixes only)
 func (res *Resource) findFSpec() (spec string, head bool) {
 nextSpec:
-	for _, spec := range Settings.GetSpecs() {
+	for _, spec := range res.SettingsCache.GetSpecs() {
 		if !strings.HasPrefix(spec, "=h") && !strings.HasPrefix(spec, "=f") {
 			continue nextSpec
 		}
@@ -404,92 +394,6 @@ nextSpec:
 		return spec, res.Heading || strings.HasPrefix(spec, "=h") || strings.Contains(spec, ",h")
 	}
 	return "", res.Heading
-}
-
-// Cache method on SettingsCache reads JSON format settings file into cache
-func (settings *settingsCache) Cache(path string) (err error) {
-	settings.mutex.Lock()
-	defer settings.mutex.Unlock()
-	var b []byte
-
-	if strings.HasPrefix(path, "~/") {
-		var u *user.User
-		if u, err = user.Current(); err != nil {
-			return
-		}
-		if settings.path, err = filepath.Abs(u.HomeDir + path[1:]); err != nil {
-			return
-		}
-	} else if settings.path, err = filepath.Abs(path); err != nil {
-		return
-	}
-
-	switch b, err = ioutil.ReadFile(settings.path); err {
-	case nil:
-		if err = json.Unmarshal(b, &settings.cache); err != nil {
-			settings.cache = make(map[string]SettingsEntry)
-		}
-		settings.writable = err == nil
-	default:
-		settings.cache = make(map[string]SettingsEntry)
-		settings.writable = os.IsNotExist(err)
-	}
-	return
-}
-
-// Write method on SettingsCache writes (potentially modified) cached format settings back to
-// the JSON settings file
-func (settings *settingsCache) Write() error {
-	settings.mutex.Lock()
-	defer settings.mutex.Unlock()
-
-	if !settings.writable {
-		return fmt.Errorf("can't write to %q", settings.path)
-	}
-	b, err := json.MarshalIndent(settings.cache, "", "    ")
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(settings.path, b, 0644)
-}
-
-// Find method on SettingsCache returns true if format signature exists in the settings cache
-func (settings *settingsCache) Find(sig string) bool {
-	settings.mutex.Lock()
-	defer settings.mutex.Unlock()
-	_, found := settings.cache[sig]
-	return found
-}
-
-// Get method on SettingsCache returns cache entry under format signature
-func (settings *settingsCache) Get(sig string) SettingsEntry {
-	settings.mutex.Lock()
-	defer settings.mutex.Unlock()
-	return settings.cache[sig]
-}
-
-// GetSpecs method on SettingsCache returns list of format specifications in the settings cache
-func (settings *settingsCache) GetSpecs() (specs []string) {
-	settings.mutex.Lock()
-	defer settings.mutex.Unlock()
-
-	for sig := range settings.cache {
-		if strings.HasPrefix(sig, "=") && len(sig) > 2 {
-			specs = append(specs, sig)
-		}
-	}
-	return
-}
-
-// Set method on SettingsCache returns entry set in settings cache under format signature
-func (settings *settingsCache) Set(sig string, entry SettingsEntry) SettingsEntry {
-	settings.mutex.Lock()
-	defer settings.mutex.Unlock()
-
-	if sig != "" {
-		settings.cache[sig] = entry
-	}
-	return entry
 }
 
 // parseCMap parses a column-map string for CSV or fixed-field resource types of specified width,
@@ -574,6 +478,20 @@ func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapEntry, select
 		}
 	}
 	return
+}
+
+// resolveName is a helper function that resolves resource names (pathnames, ...)
+func resolveName(n string) string {
+	if strings.HasPrefix(n, "~/") {
+		if u, e := user.Current(); e == nil {
+			if rn, e := filepath.Abs(u.HomeDir + n[1:]); e == nil {
+				return rn
+			}
+		}
+	} else if rn, e := filepath.Abs(n); e == nil {
+		return rn
+	}
+	return n
 }
 
 // atoi is a helper string-to-int function with selectable default value on error
