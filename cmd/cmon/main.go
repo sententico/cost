@@ -14,22 +14,26 @@ import (
 )
 
 type (
-	ObjSettings struct {
+	// ModSettings are settings for a monitored object model
+	ModSettings struct {
 		AccessID, AccessKey string
 	}
+
+	// MonSettings are composite settings for the cloud monitor
 	MonSettings struct {
 		Unit, Port string
-		Objects    map[string]ObjSettings
+		Models     map[string]ModSettings
 	}
-	objSt  uint8
+
+	modSt  uint8
 	accTyp uint8
-	objRq  struct {
+	modRq  struct {
 		typ accTyp
 		acc chan uint32
 	}
-	obj struct {
-		stat       objSt
-		req        chan objRq
+	model struct {
+		stat       modSt
+		req        chan modRq
 		rel        chan uint32
 		boot, term func(string, chan string)
 		maint      func(string)
@@ -37,27 +41,30 @@ type (
 	}
 )
 
-const ( // object states
-	osNIL objSt = iota
-	osINIT
-	osTERM
+const (
+	// model states
+	msNIL modSt = iota
+	msINIT
+	msTERM
 )
-const ( // object access types
+const (
+	// model access types
 	atEXCL accTyp = 1 << iota
 	atLONG
 	atPRI
 )
 
 var (
-	sig                    chan os.Signal
-	seID, seB, seE         chan int64
-	sfile, port            string
-	srv                    *http.Server
-	mObj                   map[string]*obj
-	logD, logI, logW, logE *log.Logger
-	seOpen, exit           int
-	seInit, seSeq          int64
-	settings               MonSettings
+	// cloud monitor globals
+	sig                    chan os.Signal    // termination signal channel
+	seID, seB, seE         chan int64        // session counters
+	sfile, port            string            // ...
+	srv                    *http.Server      // HTTP server
+	mMod                   map[string]*model // monitored object models
+	logD, logI, logW, logE *log.Logger       // ...
+	seOpen, exit           int               // ...
+	seInit, seSeq          int64             // ...
+	settings               MonSettings       // ...
 )
 
 func init() {
@@ -70,7 +77,7 @@ func init() {
 	logW = log.New(os.Stderr, "WARNING ", log.Lshortfile)
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
-	o, val := map[string]*obj{
+	m, val := map[string]*model{
 		"ec2.aws": {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
 		"rds.aws": {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
 	}, func(pri string, dflt string) string {
@@ -89,12 +96,12 @@ func init() {
 	} else if err = json.Unmarshal(b, &settings); err != nil {
 		logE.Fatalf("%q is invalid JSON settings file (%v)", sfile, err)
 	}
-	for n := range o {
-		if _, ok := settings.Objects[n]; !ok {
-			delete(o, n)
+	for n := range m {
+		if _, ok := settings.Models[n]; !ok {
+			delete(m, n)
 		}
 	}
-	if mObj, port = o, val(strings.TrimLeft(settings.Port, ":"), "4404"); len(o) == 0 {
+	if mMod, port = m, val(strings.TrimLeft(settings.Port, ":"), "4404"); len(m) == 0 {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 
@@ -116,30 +123,30 @@ func init() {
 	}
 }
 
-func objManager(o *obj, n string, ctl chan string) {
-	var or objRq
+func modManager(m *model, n string, ctl chan string) {
+	var mr modRq
 	var accessors, token uint32
-	o.req = make(chan objRq, 16)
-	o.rel = make(chan uint32, 16)
-	o.boot(n, ctl)
+	m.req = make(chan modRq, 16)
+	m.rel = make(chan uint32, 16)
+	m.boot(n, ctl)
 
-	for ; ; token++ { // loop indefinitely as object access manager when boot complete
+	for ; ; token++ { // loop indefinitely as model access manager when boot complete
 	nextRequest:
-		for or = <-o.req; or.typ&atEXCL == 0; token++ {
-			or.acc <- token
+		for mr = <-m.req; mr.typ&atEXCL == 0; token++ {
+			mr.acc <- token
 			for accessors++; ; accessors-- {
 				select {
-				case or = <-o.req:
+				case mr = <-m.req:
 					continue nextRequest
-				case <-o.rel:
+				case <-m.rel:
 				}
 			}
 		}
 		for ; accessors > 0; accessors-- {
-			<-o.rel
+			<-m.rel
 		}
-		or.acc <- token
-		<-o.rel
+		mr.acc <- token
+		<-m.rel
 	}
 }
 
@@ -183,16 +190,16 @@ func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.H
 }
 
 func main() {
-	logI.Printf("booting %v monitored objects", len(mObj))
+	logI.Printf("booting %v monitored object model", len(mMod))
 	ctl := make(chan string, 4)
-	for n, o := range mObj {
-		go objManager(o, n, ctl)
+	for n, m := range mMod {
+		go modManager(m, n, ctl)
 	}
-	for i := 0; i < len(mObj); i++ {
+	for i := 0; i < len(mMod); i++ {
 		n := <-ctl
-		o := mObj[n]
-		o.stat = osINIT
-		logI.Printf("%q object booted", n)
+		o := mMod[n]
+		o.stat = msINIT
+		logI.Printf("%q object model booted", n)
 		go o.maint(n)
 	}
 
@@ -211,7 +218,7 @@ func main() {
 		quit <- true
 		<-ok
 		srv.Close()
-		for n, o := range mObj {
+		for n, o := range mMod {
 			go o.term(n, ctl)
 		}
 	}()
@@ -224,10 +231,10 @@ func main() {
 	}
 	sig <- nil
 
-	for i := 0; i < len(mObj); i++ {
+	for i := 0; i < len(mMod); i++ {
 		n := <-ctl
-		mObj[n].stat = osTERM
-		logI.Printf("%q object shutdown", n)
+		mMod[n].stat = msTERM
+		logI.Printf("%q object model shutdown", n)
 	}
 	logI.Printf("shutdown complete with %v sessions handled", seSeq-seInit-int64(len(seID)))
 	os.Exit(exit)

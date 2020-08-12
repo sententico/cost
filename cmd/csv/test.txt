@@ -11,7 +11,7 @@ bird           1              10
 mouse          0.5             5
 squirrel       0.5            10
   
-// weird animal section
-//
+////
+//!weird animal section
 wombat         40             10
 weasel         8              10

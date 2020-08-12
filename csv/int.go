@@ -56,12 +56,15 @@ nextLine:
 	for ln := range res.peek {
 		switch {
 		case len(strings.TrimSpace(ln)) == 0:
-		case res.Comment != "" && strings.HasPrefix(ln, res.Comment):
+		case res.Shebang != "" && strings.HasPrefix(ln, res.Shebang) || res.Comment != "" && strings.HasPrefix(ln, res.Comment):
+			if row < 0 {
+				row = 0
+			}
 		case row < 0:
 			row = 0
 			for _, p := range commentSet {
 				if strings.HasPrefix(ln, p) {
-					res.Comment = p
+					res.Comment, res.Shebang = p, p+"!"
 					continue nextLine
 				}
 			}
@@ -158,6 +161,12 @@ func (res *Resource) getCSV() {
 		for line++; ; {
 			switch {
 			case len(strings.TrimSpace(ln)) == 0:
+			case res.Shebang != "" && strings.HasPrefix(ln, res.Shebang):
+				select {
+				case res.out <- map[string]string{"~meta": ln[len(res.Shebang):], "~line": strconv.Itoa(line)}:
+				case <-res.sig:
+					return
+				}
 			case res.Comment != "" && strings.HasPrefix(ln, res.Comment):
 			case len(vcols) == 0:
 				sl, uc, vs := io.SplitCSV(ln, res.Sep), make(map[int]int), 0
@@ -247,6 +256,12 @@ func (res *Resource) getFixed() {
 		for line++; ; {
 			switch {
 			case len(strings.TrimLeft(ln, " ")) == 0:
+			case res.Shebang != "" && strings.HasPrefix(ln, res.Shebang):
+				select {
+				case res.out <- map[string]string{"~meta": ln[len(res.Shebang):], "~line": strconv.Itoa(line)}:
+				case <-res.sig:
+					return
+				}
 			case res.Comment != "" && strings.HasPrefix(ln, res.Comment):
 			case head:
 				head = false

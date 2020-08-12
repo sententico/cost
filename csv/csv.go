@@ -25,6 +25,7 @@ type (
 		Preview       []string      // preview rows (excluding blank & comment lines)
 		Rows          int           // estimated total resource rows (-1 if unknown)
 		Comment       string        // comment line prefix
+		Shebang       string        // metadata line prefix (Comment + "!" default)
 		Sep           rune          // field separator rune (for CSV resources)
 		Split         [][]string    // trimmed fields of Preview rows split by Sep (if CSV)
 		Heading       bool          // first row is a heading

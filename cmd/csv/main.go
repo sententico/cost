@@ -88,7 +88,7 @@ func main() {
 					}
 					wg.Done()
 				}()
-				res, rows := csv.Resource{Name: f, SettingsCache: &settings}, 0
+				res, rows := csv.Resource{Name: f, Comment: "#", Shebang: "#!", SettingsCache: &settings}, 0
 				if e := res.Open(nil); e != nil {
 					panic(fmt.Errorf("error opening %q: %v", f, e))
 				}
