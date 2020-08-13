@@ -3,19 +3,12 @@
 import  sys
 import  os
 import  argparse
-import  pickle
-import  time
 from    datetime                import  datetime,timedelta
-import  random
 import  signal
-import  socket
-import  ssl
 import  json
-import  subprocess
 import  boto3
 from    botocore.exceptions     import  ProfileNotFound,ClientError,EndpointConnectionError,ConnectionClosedError
-import  datadog
-import  awslib.patterns         as      aws
+#import  datadog
 
 class GError(Exception):
     '''Module exception'''
@@ -50,55 +43,71 @@ def overrideKVP(overrides):
                 raise GError('{} cannot be set ({})'.format(k, e))
         KVP[k] = v
 
-def getSettings():
-    pass
+def terminate(sig, frame):
+    raise KeyboardInterrupt
+def ex(err, code):
+    if err: sys.stderr.write(err)
+    sys.exit(code)
 
-def gophEC2AWS():
-    pass
+def csvWriter(m, cols):
+    section = ''
+    def csvWrite(s, row):
+        nonlocal m, cols, section
+        if not section:     sys.stdout.write('#!id {} results from gopher\n{}\n'.format(m, '\t'.join(cols)))
+        if section != s:    sys.stdout.write('\n#!section {}\n'.format(s)); section = s
+        sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'') for n in cols])))
+    return csvWrite
 
-def gophRDSAWS():
-    pass
+def gophEC2AWS(cmon, model):
+    csv = csvWriter(model, ['acct', 'type', 'plat', 'az', 'ami', 'state', 'spot', 'tags'])
+    for a in ['927185244192']:
+        session = boto3.Session(profile_name=a)
+        for r in ['us-east-1']:
+            ec2, s = session.resource('ec2', region_name=r), a+':'+r
+            for i in ec2.instances.all():
+                csv(s, {'acct': a,
+                        'type': i.instance_type,
+                        'plat': i.platform,
+                        'az':   i.placement.get('AvailabilityZone'),
+                        'ami':  i.image_id,
+                        'state':i.state.get('Name'),
+                        'spot': i.spot_instance_request_id,
+                        #'tags': {t['Key']:t['Value'] for t in i.tags if t['Value'] not in
+                        #        {'','--','unknown','Unknown'}} if i.tags else {}}
+                        })
+
+def gophRDSAWS(cmon, model):
+    sys.stdout.write('gopher getting rds.aws data: {}\n'.format(cmon))
 
 def main():
-    '''Parse command line args and run command'''
-    gophModels =   {                    # gopher model map
-                    'ec2.aws':  [gophEC2AWS,        'description'],
-                    'rds.aws':  [gophRDSAWS,        'description'],
-                   }
-
-    # define and parse command line parameters
+    '''Parse command line args and run gopher command'''
+    gophModels = {                      # gopher model map
+        'ec2.aws':      [gophEC2AWS,    'fetch EC2 resources from AWS'],
+        'rds.aws':      [gophRDSAWS,    'fetch RDS resources from AWS'],
+    }
+                                        # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
-    parser.add_argument('models',        nargs='+', metavar='model',
+    parser.add_argument('models',           nargs='+', choices=gophModels, metavar='model',
                         help='''cmon object model; {} are supported'''.format(', '.join(gophModels)))
+    parser.add_argument('-k',   '--key',    action='append', metavar='kvp', default=[],
+                        help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
+                             ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
+                             if not k.startswith('_')])))
     args = parser.parse_args()
 
-    # run command
-    try:                                # initialize, process arguments
-        sf,kvd = {}, statXforms[args.xform][2] if args.xform else {}
-        kvd.update({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
-        overrideKVP(kvd)
-        try:                            # open AWS stats DB
-            with open(KVP['db'], 'rb') as p: sd = pickle.load(p)
-        except  KeyboardInterrupt: raise
-        except: sd = {'useq':0, 'update':{}, 'accts':{},
-                      'ec2':{}, 'ebs':{}, 'rds':{},
-                      '.ec2':{},'.ebs':{},'.rds':{}}
- 
-        if args.update or args.all:     # update stats DB as requested
-            statUpdate(sd, args)
-            try:
-                with open(KVP['db'], 'wb') as p: pickle.dump(sd, p)
-            except  KeyboardInterrupt: raise
-            except: raise SError('unable to update stats DB')
-        if args.xform:                  # filter and transform stats as requested
-            for f in [preFilter,    statFilters[args.filter][0] if args.filter else statXforms[args.xform][1],
-                      postFilter,   statXforms[args.xform][0]]:
-                f(sd, sf, args)
+    try:                                # run gopher command
+        signal.signal(signal.SIGTERM, terminate)
+        overrideKVP({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
+        cmon = json.load(sys.stdin)
+
+        for model in args.models:
+            gophModels[model][0](cmon, model)
                                         # handle exceptions; broken pipe exit avoids console errors
+    except  json.JSONDecodeError:       ex('** invalid settings file **\n', 1)
     except  BrokenPipeError:            os._exit(0)
-    except  KeyboardInterrupt:          sys.stderr.write('\n** command interrupted **\n')
-    except (AssertionError, IOError,
-            GError) as e:               sys.stderr.write('** {} **\n'.format(e if e else 'unknown exception'))
+    except  KeyboardInterrupt:          ex('\n** command interrupted **\n', 10)
+    except (AssertionError, IOError, RuntimeError,
+            GError) as e:               ex('** {} **\n'.format(e if e else 'unknown exception'), 10)
 
 if __name__ == '__main__':  main()      # called as script
 else:                       pass        # loaded as module
