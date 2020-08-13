@@ -58,26 +58,48 @@ def csvWriter(m, cols):
         sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'') for n in cols])))
     return csvWrite
 
-def gophEC2AWS(cmon, model):
-    csv = csvWriter(model, ['acct', 'type', 'plat', 'az', 'ami', 'state', 'spot', 'tags'])
+def gophEC2AWS(cmon, m):
+    csv = csvWriter(m, ['acct','type','plat','az','ami','state','spot','tags'])
+    flt = str.maketrans('','','"=\t')
     for a in ['927185244192']:
         session = boto3.Session(profile_name=a)
-        for r in ['us-east-1']:
+        for r in ['us-east-1', 'us-east-2']:
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
-                csv(s, {'acct': a,
-                        'type': i.instance_type,
-                        'plat': i.platform,
-                        'az':   i.placement.get('AvailabilityZone'),
-                        'ami':  i.image_id,
-                        'state':i.state.get('Name'),
-                        'spot': i.spot_instance_request_id,
-                        #'tags': {t['Key']:t['Value'] for t in i.tags if t['Value'] not in
-                        #        {'','--','unknown','Unknown'}} if i.tags else {}}
+                csv(s, {'acct':     a,
+                        'type':     i.instance_type,
+                        'plat':     i.platform,
+                        'az':       i.placement.get('AvailabilityZone',r),
+                        'ami':      '' if not i.image_id else i.image_id,
+                        'state':    i.state.get('Name',''),
+                        'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
+                        'tags':     '' if not i.tags else '{}'.format('\t'.join([
+                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
+                                    for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'}])),
                         })
 
-def gophRDSAWS(cmon, model):
-    sys.stdout.write('gopher getting rds.aws data: {}\n'.format(cmon))
+def gophRDSAWS(cmon, m):
+    sys.stdout.write('gopher getting {} data: {}\n'.format(m, cmon))
+    csv, csvWriter(m, ['acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
+    flt = str.maketrans('','','"=\t')
+    for a in ['927185244192']:
+        session = boto3.Session(profile_name=a)
+        for r in ['us-east-1', 'us-east-2']:
+            rds, s = session.client('rds', region_name=r), a+':'+r
+            for d in rds.describe_db_instances().get('DBInstances',[]):
+                csv(s, {'acct':     a,
+                        'type':     d.get('DBInstanceClass'),
+                        'stype':    d.get('StorageType'),
+                        'size':     d.get('AllocatedStorage'),
+                        'engine':   d.get('Engine',''),
+                        'ver':      d.get('EngineVersion',''),
+                        'lic':      d.get('LicenseModel',''),
+                        'az':       d.get('AvailabilityZone',r),
+                        'multiaz':  d.get('MultiAZ',''),
+                        'create':   d.get('InstanceCreateTime'),
+                        'state':    d.get('DBInstanceStatus'),
+                        #'tags':    ...
+                       })
 
 def main():
     '''Parse command line args and run gopher command'''
