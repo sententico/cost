@@ -66,7 +66,8 @@ def gophEC2AWS(cmon, m):
         for r in ['us-east-1', 'us-east-2']:
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
-                csv(s, {'acct':     a,
+                csv(s, {'id':       i.id,
+                        'acct':     a,
                         'type':     i.instance_type,
                         'plat':     '' if not i.platform else i.platform,
                         'az':       i.placement.get('AvailabilityZone',r),
@@ -75,9 +76,8 @@ def gophEC2AWS(cmon, m):
                         'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
                         'tags':     '' if not i.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
-                                    for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'}
-                                                       and not t['Key'].startswith(('SCRM'))
-                                                       ])),
+                                    for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'} and not
+                                    t['Key'].startswith(('SCRM','k8s','OS','Name','Owner','Kub','aws:','Team'))])),
                         })
 
 def gophEBSAWS(cmon, m):
@@ -88,7 +88,8 @@ def gophEBSAWS(cmon, m):
         for r in ['us-east-1', 'us-east-2']:
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for v in ec2.volumes.all():
-                csv(s, {'acct':     a,
+                csv(s, {'id',       v.id,
+                        'acct':     a,
                         'type':     v.volume_type,
                         'size':     str(v.size),
                         'iops':     str(v.iops),
@@ -100,13 +101,11 @@ def gophEBSAWS(cmon, m):
                                     '{} attachments'.format(len(v.attachments)),
                         'tags':     '' if not v.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
-                                    for t in v.tags if t['Value'] not in {'','--','unknown','Unknown'}
-                                                       and not t['Key'].startswith(('SCRM'))
-                                                       ])),
+                                    for t in v.tags if t['Value'] not in {'','--','unknown','Unknown'} and not
+                                    t['Key'].startswith(('SCRM','k8s','OS','Name','Owner','Kub','aws:','Team'))])),
                         })
 
 def gophRDSAWS(cmon, m):
-    sys.stdout.write('gopher getting {} data: {}\n'.format(m, cmon))
     csv = csvWriter(m, ['acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
     flt = str.maketrans('','','"=\t')
     for a in ['927185244192']:
@@ -114,7 +113,8 @@ def gophRDSAWS(cmon, m):
         for r in ['us-east-1', 'us-east-2']:
             rds, s = session.client('rds', region_name=r), a+':'+r
             for d in rds.describe_db_instances().get('DBInstances',[]):
-                csv(s, {'acct':     a,
+                csv(s, {'id':       d.get('DBInstanceArn'),
+                        'acct':     a,
                         'type':     d.get('DBInstanceClass'),
                         'stype':    d.get('StorageType'),
                         'size':     str(d.get('AllocatedStorage')),
