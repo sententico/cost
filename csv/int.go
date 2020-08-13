@@ -36,7 +36,7 @@ const (
 const (
 	previewLines = 24       // maximum preview lines returned in Resource on Open (must be >2)
 	sepSet       = ",\t|;:" // priority of separator runes automatically checked if none specified
-	maxFieldLen  = 256      // maximum field size allowed for Peek to qualify a separator
+	maxFieldLen  = 1024     // maximum field size allowed for Peek to qualify a separator
 	bigFieldLen  = 36       // mean field length above which CSV column-density is suspiciously low
 )
 
@@ -85,8 +85,6 @@ nextLine:
 		panic(fmt.Errorf("problem peeking ahead on resource (%v)", <-res.ierr))
 	case row < 1:
 		panic(fmt.Errorf("at least 1 data row required to characterize resource"))
-	case len(res.in) < cap(res.in): // race: potential inaccuracy
-		res.Rows = len(res.in)
 	case res.finfo != nil:
 		res.Rows = int(float64(res.finfo.Size())/float64(tlen-len(res.Preview[0])+row-1)*0.995+0.5) * (row - 1)
 	default:

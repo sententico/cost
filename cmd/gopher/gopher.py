@@ -77,7 +77,7 @@ def gophEC2AWS(cmon, m):
                         'tags':     '' if not i.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
                                     for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'} and not
-                                    t['Key'].startswith(('SCRM','k8s','OS','Name','Owner','Kub','aws:','Team'))])),
+                                    t['Key'].startswith(('aws:','SCRM','k8s','Kub','kub','OS','Name','Owner','Team'))])),
                         })
 
 def gophEBSAWS(cmon, m):
@@ -102,7 +102,7 @@ def gophEBSAWS(cmon, m):
                         'tags':     '' if not v.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
                                     for t in v.tags if t['Value'] not in {'','--','unknown','Unknown'} and not
-                                    t['Key'].startswith(('SCRM','k8s','OS','Name','Owner','Kub','aws:','Team'))])),
+                                    t['Key'].startswith(('aws:','SCRM','k8s','Kub','kub','OS','Name','Owner','Team'))])),
                         })
 
 def gophRDSAWS(cmon, m):
