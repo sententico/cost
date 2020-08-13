@@ -68,19 +68,20 @@ def gophEC2AWS(cmon, m):
             for i in ec2.instances.all():
                 csv(s, {'acct':     a,
                         'type':     i.instance_type,
-                        'plat':     i.platform,
+                        'plat':     '' if not i.platform else i.platform,
                         'az':       i.placement.get('AvailabilityZone',r),
                         'ami':      '' if not i.image_id else i.image_id,
                         'state':    i.state.get('Name',''),
                         'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
                         'tags':     '' if not i.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
-                                    for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'}])),
+                                    for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'} and
+                                                       not t['Key'].startswith(('SCRM'))])),
                         })
 
 def gophRDSAWS(cmon, m):
     sys.stdout.write('gopher getting {} data: {}\n'.format(m, cmon))
-    csv, csvWriter(m, ['acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
+    csv = csvWriter(m, ['acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
     flt = str.maketrans('','','"=\t')
     for a in ['927185244192']:
         session = boto3.Session(profile_name=a)
@@ -90,15 +91,15 @@ def gophRDSAWS(cmon, m):
                 csv(s, {'acct':     a,
                         'type':     d.get('DBInstanceClass'),
                         'stype':    d.get('StorageType'),
-                        'size':     d.get('AllocatedStorage'),
+                        'size':     str(d.get('AllocatedStorage')),
                         'engine':   d.get('Engine',''),
                         'ver':      d.get('EngineVersion',''),
                         'lic':      d.get('LicenseModel',''),
                         'az':       d.get('AvailabilityZone',r),
-                        'multiaz':  d.get('MultiAZ',''),
-                        'create':   d.get('InstanceCreateTime'),
-                        'state':    d.get('DBInstanceStatus'),
-                        #'tags':    ...
+                        'multiaz':  str(d.get('MultiAZ')),
+                        'create':   d.get('InstanceCreateTime').isoformat(),
+                        'state':    d.get('DBInstanceStatus',''),
+                        #'tags':    ...,
                        })
 
 def main():
