@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -67,46 +69,56 @@ func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 	return
 }
 
+func getRes(scache *csv.Settings, rn string) {
+	defer func() {
+		if e := recover(); e != nil {
+			fmt.Printf("%v\n", e)
+		}
+		wg.Done()
+	}()
+	var r io.Reader
+	if rn == "" {
+		rn, r = "stdin", os.Stdin
+	}
+	res, rows := csv.Resource{Name: rn, Comment: "#", Shebang: "#!", SettingsCache: scache}, 0
+	if e := res.Open(r); e != nil {
+		panic(fmt.Errorf("error opening %q: %v", rn, e))
+	}
+	defer res.Close()
+	updateSettings(&res, colsFlag, forceFlag)
+	in, err := res.Get()
+
+	for row := range in {
+		if rows++; detailFlag {
+			fmt.Println(row)
+		}
+	}
+	if e := <-err; e != nil {
+		panic(fmt.Errorf("error reading %q: %v", rn, e))
+	}
+	fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, rn)
+}
+
 func main() {
 	flag.Parse()
 	settings := csv.Settings{Name: settingsFlag}
 	defer settings.Sync()
 	settings.Cache(nil)
 
-	for _, arg := range flag.Args() {
-		files, _ := filepath.Glob(arg)
-		if len(files) == 0 {
-			files = []string{arg}
+	if len(flag.Args()) > 0 {
+		for _, arg := range flag.Args() {
+			files, _ := filepath.Glob(arg)
+			if len(files) == 0 {
+				files = []string{arg}
+			}
+			for _, file := range files {
+				wg.Add(1)
+				go getRes(&settings, file)
+			}
 		}
-		for _, file := range files {
-			wg.Add(1)
-
-			go func(f string) { // one go routine started per file
-				defer func() {
-					if e := recover(); e != nil {
-						fmt.Printf("%v\n", e)
-					}
-					wg.Done()
-				}()
-				res, rows := csv.Resource{Name: f, Comment: "#", Shebang: "#!", SettingsCache: &settings}, 0
-				if e := res.Open(nil); e != nil {
-					panic(fmt.Errorf("error opening %q: %v", f, e))
-				}
-				defer res.Close()
-				updateSettings(&res, colsFlag, forceFlag)
-				in, err := res.Get()
-
-				for row := range in {
-					if rows++; detailFlag {
-						fmt.Println(row)
-					}
-				}
-				if e := <-err; e != nil {
-					panic(fmt.Errorf("error reading %q: %v", f, e))
-				}
-				fmt.Printf("read %d rows from [%s %s] file %q\n", rows, res.Settings.Format, res.Settings.Ver, f)
-			}(file)
-		}
+	} else {
+		wg.Add(1)
+		go getRes(&settings, "")
 	}
 	wg.Wait()
 }
