@@ -75,8 +75,34 @@ def gophEC2AWS(cmon, m):
                         'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
                         'tags':     '' if not i.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
-                                    for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'} and
-                                                       not t['Key'].startswith(('SCRM'))])),
+                                    for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'}
+                                                       and not t['Key'].startswith(('SCRM'))
+                                                       ])),
+                        })
+
+def gophEBSAWS(cmon, m):
+    csv = csvWriter(m, ['acct','type','size','iops','az','create','state','attm','tags'])
+    flt = str.maketrans('','','"=\t')
+    for a in ['927185244192']:
+        session = boto3.Session(profile_name=a)
+        for r in ['us-east-1', 'us-east-2']:
+            ec2, s = session.resource('ec2', region_name=r), a+':'+r
+            for v in ec2.volumes.all():
+                csv(s, {'acct':     a,
+                        'type':     v.volume_type,
+                        'size':     str(v.size),
+                        'iops':     str(v.iops),
+                        'az':       v.availability_zone,
+                        'create':   v.create_time.isoformat(),
+                        'state':    v.state,
+                        'attm':     '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
+                                    v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
+                                    '{} attachments'.format(len(v.attachments)),
+                        'tags':     '' if not v.tags else '{}'.format('\t'.join([
+                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt))
+                                    for t in v.tags if t['Value'] not in {'','--','unknown','Unknown'}
+                                                       and not t['Key'].startswith(('SCRM'))
+                                                       ])),
                         })
 
 def gophRDSAWS(cmon, m):
@@ -105,8 +131,9 @@ def gophRDSAWS(cmon, m):
 def main():
     '''Parse command line args and run gopher command'''
     gophModels = {                      # gopher model map
-        'ec2.aws':      [gophEC2AWS,    'fetch EC2 resources from AWS'],
-        'rds.aws':      [gophRDSAWS,    'fetch RDS resources from AWS'],
+        'ec2.aws':      [gophEC2AWS,    'fetch EC2 instances from AWS'],
+        'ebs.aws':      [gophEBSAWS,    'fetch EBS volumes from AWS'],
+        'rds.aws':      [gophRDSAWS,    'fetch RDS databases from AWS'],
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
