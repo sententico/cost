@@ -1,14 +1,24 @@
 {
-    "Unit": "cmon-aspect",
-    "Port": "4414",
-    "Objects": {
-        "ec2.aws": {
-            "AccessID": "...",
-            "AccessKey": "..."
-        },
-        "rds.aws": {
-            "AccessID": "...",
-            "AccessKey": "..."
-        }
-    }
+	"Unit": "cmon-aspect",
+	"Port": "4414",
+	"Models": {
+		"ec2.aws": "<placeholder>",
+		"rds.aws": "<placeholder>"
+	},
+	"AWS": {
+		"Options": "<placeholder>",
+		"Accounts": {
+			"927185244192": [
+				"us-east-1",
+				"us-west-1"
+			],
+			"<placeholder>": [
+				"us-west-1"
+			]
+		}
+	},
+	"Datadog": {
+		"APIKey": "dd605d1d620eb2fb227812efe05cb44d",
+		"AppKey": "01688890ef0439d7530098a54c89821eca0396f5"
+	}
 }

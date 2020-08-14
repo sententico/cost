@@ -14,15 +14,22 @@ import (
 )
 
 type (
-	// ModSettings are settings for a monitored object model
-	ModSettings struct {
-		AccessID, AccessKey string
+	// AWSService settings
+	AWSService struct {
+		Options  string
+		Accounts map[string][]string
+	}
+	// DatadogService settings
+	DatadogService struct {
+		APIKey, AppKey string
 	}
 
 	// MonSettings are composite settings for the cloud monitor
 	MonSettings struct {
 		Unit, Port string
-		Models     map[string]ModSettings
+		Models     map[string]string
+		AWS        AWSService
+		Datadog    DatadogService
 	}
 
 	modSt  uint8
@@ -190,7 +197,7 @@ func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.H
 }
 
 func main() {
-	logI.Printf("booting %v monitored object model", len(mMod))
+	logI.Printf("booting %v monitored object models", len(mMod))
 	ctl := make(chan string, 4)
 	for n, m := range mMod {
 		go modManager(m, n, ctl)
