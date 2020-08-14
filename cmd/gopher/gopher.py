@@ -57,7 +57,7 @@ def csvWriter(m, cols):
             sys.stdout.write('#!begin gopher {} # at {}\n{}\n'.format(m,
                              datetime.now().isoformat(), '\t'.join(cols)))
             section = ''
-        if cols:
+        if row:
             if s and s != section:
                 sys.stdout.write('\n#!section {}\n'.format(s))
                 section = s
