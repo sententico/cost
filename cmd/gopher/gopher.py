@@ -113,7 +113,7 @@ def gophEBSAWS(cmon, m):
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
                         'tags':     '' if not v.tags else '{}'.format('\t'.join([
-                                    '{}={}'.format(t['Key'], t['Value'].translate(flt)) for t in i.tags if
+                                    '{}={}'.format(t['Key'], t['Value'].translate(flt)) for t in v.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'}])),
