@@ -50,14 +50,21 @@ def ex(err, code):
     sys.exit(code)
 
 def csvWriter(m, cols):
-    section, flt = '', str.maketrans('\n',' ','\r')
+    section, flt = None, str.maketrans('\n',' ','\r')
     def csvWrite(s, row):
         nonlocal m, cols, section, flt
-        if not section:     sys.stdout.write('#!id gopher {} # results from {}\n{}\n'.format(m,
-                                             datetime.now().isoformat(), '\t'.join(cols)))
-        if section != s:    sys.stdout.write('\n#!section {}\n'.format(s)); section = s
-        sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
-                                                      for n in cols])))
+        if section is None:
+            sys.stdout.write('#!begin gopher {} # at {}\n{}\n'.format(m,
+                             datetime.now().isoformat(), '\t'.join(cols)))
+            section = ''
+        if cols:
+            if s and s != section:
+                sys.stdout.write('\n#!section {}\n'.format(s))
+                section = s
+            sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
+                                                          for n in cols])))
+        else:
+            sys.stdout.write('#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
 def gophEC2AWS(cmon, m):
@@ -82,6 +89,7 @@ def gophEC2AWS(cmon, m):
                                     for t in i.tags if t['Value'] not in {'','--','unknown','Unknown'} and not
                                     t['Key'].startswith(('aws:','SCRM','k8s','Kub','kub','OS','Name','Owner','Team'))])),
                         })
+    csv(None, None)
 
 def gophEBSAWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','size','iops','az','create','state','attm','tags'])
@@ -108,6 +116,7 @@ def gophEBSAWS(cmon, m):
                                     for t in v.tags if t['Value'] not in {'','--','unknown','Unknown'} and not
                                     t['Key'].startswith(('aws:','SCRM','k8s','Kub','kub','OS','Name','Owner','Team'))])),
                         })
+    csv(None, None)
 
 def gophRDSAWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
@@ -132,6 +141,7 @@ def gophRDSAWS(cmon, m):
                         'state':    d.get('DBInstanceStatus',''),
                         'tags':     'placeholder="value"'.translate(flt),
                        })
+    csv(None, None)
 
 def main():
     '''Parse command line args and run gopher command'''
@@ -162,6 +172,7 @@ def main():
     except  BrokenPipeError:            os._exit(0)
     except  KeyboardInterrupt:          ex('\n** command interrupted **\n', 10)
     except (AssertionError, IOError, RuntimeError,
+            ProfileNotFound, ClientError, EndpointConnectionError, ConnectionClosedError,
             GError) as e:               ex('** {} **\n'.format(e if e else 'unknown exception'), 10)
 
 if __name__ == '__main__':  main()      # called as script
