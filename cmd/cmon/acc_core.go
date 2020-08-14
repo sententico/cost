@@ -37,9 +37,9 @@ func ec2awsMaint(n string) {
 		time.NewTicker(6*time.Second), time.NewTicker(90*time.Second); ; {
 		select {
 		case <-st.C:
-			ec2awsMaintS(m, acc)
+			go ec2awsMaintS(m, acc)
 		case <-xt.C:
-			ec2awsMaintX(m, acc)
+			go ec2awsMaintX(m, acc)
 		}
 	}
 }
@@ -75,9 +75,9 @@ func rdsawsMaint(n string) {
 		time.NewTicker(6*time.Second), time.NewTicker(90*time.Second); ; {
 		select {
 		case <-st.C:
-			rdsawsMaintS(m, acc)
+			go rdsawsMaintS(m, acc)
 		case <-xt.C:
-			rdsawsMaintX(m, acc)
+			go rdsawsMaintX(m, acc)
 		}
 	}
 }
