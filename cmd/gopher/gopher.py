@@ -50,18 +50,19 @@ def ex(err, code):
     sys.exit(code)
 
 def csvWriter(m, cols):
-    section = ''
+    section, flt = '', str.maketrans('\n',' ','\r')
     def csvWrite(s, row):
-        nonlocal m, cols, section
+        nonlocal m, cols, section, flt
         if not section:     sys.stdout.write('#!id gopher {} # results from {}\n{}\n'.format(m,
                                              datetime.now().isoformat(), '\t'.join(cols)))
         if section != s:    sys.stdout.write('\n#!section {}\n'.format(s)); section = s
-        sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'').replace('"','""') for n in cols])))
+        sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
+                                                      for n in cols])))
     return csvWrite
 
 def gophEC2AWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tags'])
-    flt = str.maketrans('','','=\t')
+    flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
         for r,u in ar.items():
@@ -84,7 +85,7 @@ def gophEC2AWS(cmon, m):
 
 def gophEBSAWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','size','iops','az','create','state','attm','tags'])
-    flt = str.maketrans('','','=\t')
+    flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
         for r,u in ar.items():
@@ -110,7 +111,7 @@ def gophEBSAWS(cmon, m):
 
 def gophRDSAWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
-    flt = str.maketrans('','','=\t')
+    flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
         for r,u in ar.items():
@@ -129,7 +130,7 @@ def gophRDSAWS(cmon, m):
                         'multiaz':  str(d.get('MultiAZ')),
                         'create':   d.get('InstanceCreateTime').isoformat(),
                         'state':    d.get('DBInstanceStatus',''),
-                        'tags':     'placeholder="value"',
+                        'tags':     'placeholder="value"'.translate(flt),
                        })
 
 def main():

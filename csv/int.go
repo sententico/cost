@@ -86,6 +86,7 @@ nextLine:
 	case len(res.ierr) > 0:
 		panic(fmt.Errorf("problem peeking ahead on resource (%v)", <-res.ierr))
 	case row < 1:
+		// TODO: silently suppress...empty resource (reflect in Resource fields?)
 		panic(fmt.Errorf("at least 1 data row required to characterize resource"))
 	case res.finfo != nil:
 		res.Rows = int(float64(res.finfo.Size())/float64(tlen-len(res.Preview[0])+row-1)*0.995+0.5) * (row - 1)
