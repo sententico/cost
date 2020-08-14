@@ -61,9 +61,10 @@ def csvWriter(m, cols):
 def gophEC2AWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tags'])
     flt = str.maketrans('','','"=\t')
-    for a,rl in cmon['AWS']['Accounts'].items():
+    for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
-        for r in rl:
+        for r,u in ar.items():
+            if u < 0: continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
                 csv(s, {'id':       i.id,
@@ -83,9 +84,10 @@ def gophEC2AWS(cmon, m):
 def gophEBSAWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','size','iops','az','create','state','attm','tags'])
     flt = str.maketrans('','','"=\t')
-    for a,rl in cmon['AWS']['Accounts'].items():
+    for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
-        for r in rl:
+        for r,u in ar.items():
+            if u < 0: continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for v in ec2.volumes.all():
                 csv(s, {'id':       v.id,
@@ -108,9 +110,10 @@ def gophEBSAWS(cmon, m):
 def gophRDSAWS(cmon, m):
     csv = csvWriter(m, ['id','acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
     flt = str.maketrans('','','"=\t')
-    for a,rl in cmon['AWS']['Accounts'].items():
+    for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
-        for r in rl:
+        for r,u in ar.items():
+            if u < 0: continue
             rds, s = session.client('rds', region_name=r), a+':'+r
             for d in rds.describe_db_instances().get('DBInstances',[]):
                 csv(s, {'id':       d.get('DBInstanceArn'),

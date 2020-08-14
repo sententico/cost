@@ -17,7 +17,7 @@ type (
 	// AWSService settings
 	AWSService struct {
 		Options  string
-		Accounts map[string][]string
+		Accounts map[string]map[string]int
 	}
 	// DatadogService settings
 	DatadogService struct {

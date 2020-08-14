@@ -8,17 +8,17 @@
 	"AWS": {
 		"Options": "<placeholder>",
 		"Accounts": {
-			"927185244192": [
-				"us-east-1",
-				"us-west-1"
-			],
-			"<placeholder>": [
-				"us-west-1"
-			]
+			"927185244192": {
+				"us-east-1": 0,
+				"us-west-1": 0
+            },
+			"<placeholder>": {
+				"us-west-1": 0
+            }
 		}
 	},
 	"Datadog": {
-		"APIKey": "dd605d1d620eb2fb227812efe05cb44d",
-		"AppKey": "01688890ef0439d7530098a54c89821eca0396f5"
+		"APIKey": "dd605d1d620eb2fb227812efe0xxxxxx",
+		"AppKey": "01688890ef0439d7530098a54c89821ecaxxxxxx"
 	}
 }
