@@ -64,7 +64,7 @@ def csvWriter(m, cols):
             sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
                                                           for n in cols])))
         else:
-            sys.stdout.write('#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
+            sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
 def gophEC2AWS(cmon, m):
