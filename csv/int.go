@@ -51,6 +51,8 @@ var (
 // A format signature (specifier or heading MD5 hash, as available) with any settings info mapped
 // to it (like file application type, version and default column selector-map) are also provided.
 func (res *Resource) peekAhead() {
+	// TODO: improve override handling (Typ, Sep, Cols, Comment, Shebang)
+	// comment/shebang may not have (") prefix
 	row, fix, tlen, max, hash := -1, 0, 0, 1, ""
 nextLine:
 	for ln := range res.peek {
