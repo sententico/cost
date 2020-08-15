@@ -57,11 +57,11 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 	pygo, items := exec.Command("python", fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/")), src), 0
 	defer func() {
 		if e, x := recover(), pygo.Wait(); e != nil {
-			logE.Printf("gopher error fetching from %v: %v", src, e.(error))
+			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
 		} else if x != nil {
-			logE.Printf("gopher errors fetching from %v: %v", src, x.(*exec.ExitError).Stderr)
+			logE.Printf("gopher errors fetching from %q: %v", src, x.(*exec.ExitError).Stderr)
 		} else {
-			logI.Printf("gopher fetched %v items from %v", items, src)
+			logI.Printf("gopher fetched %v items from %q", items, src)
 		}
 	}()
 	sb, e := json.MarshalIndent(settings, "", "\t")
@@ -109,11 +109,11 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 }
 
 func ec2awsBoot(n string, ctl chan string) {
-	m := make(ec2Model)
-	if b, err := ioutil.ReadFile(settings.Models[n]); err != nil {
-		logE.Fatalf("cannot read %v state from %q: %v", n, sfile, err)
+	m, f := make(ec2Model), settings.Models[n]
+	if b, err := ioutil.ReadFile(f); err != nil {
+		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, &m); err != nil {
-		logE.Fatalf("%v state resource %q is invalid JSON: %v", n, sfile, err)
+		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	mMod[n].data = m
 	ctl <- n
@@ -157,19 +157,19 @@ func ec2awsTerm(n string, ctl chan string) {
 
 	// persist object model state for shutdown; term accessors don't release object
 	if b, e := json.MarshalIndent(m.data, "", "\t"); e != nil {
-		logE.Printf("can't encode %v state to JSON: %v", n, e)
+		logE.Printf("can't encode %q state to JSON: %v", n, e)
 	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
-		logE.Printf("can't persist %v state to %q: %v", n, settings.Models[n], e)
+		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], e)
 	}
 	ctl <- n
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	m := make(rdsModel)
-	if b, err := ioutil.ReadFile(settings.Models[n]); err != nil {
-		logE.Fatalf("cannot read %v state from %q: %v", n, sfile, err)
+	m, f := make(rdsModel), settings.Models[n]
+	if b, err := ioutil.ReadFile(f); err != nil {
+		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, &m); err != nil {
-		logE.Fatalf("%v state resource %q is invalid JSON: %v", n, sfile, err)
+		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	mMod[n].data = m
 	ctl <- n
@@ -213,9 +213,9 @@ func rdsawsTerm(n string, ctl chan string) {
 
 	// persist object model state for shutdown; term accessors don't release object
 	if b, e := json.MarshalIndent(m.data, "", "\t"); e != nil {
-		logE.Printf("can't encode %v state to JSON: %v", n, e)
+		logE.Printf("can't encode %q state to JSON: %v", n, e)
 	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
-		logE.Printf("can't persist %v state to %q: %v", n, settings.Models[n], e)
+		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], e)
 	}
 	ctl <- n
 }

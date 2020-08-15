@@ -3,7 +3,7 @@
 		"Acct": "1001",
 		"Type": "db.m5.xlarge",
 		"SType": "gp2",
-		"Size": "500",
+		"Size": 500,
 		"Engine": "postgres",
 		"Ver": "12.3",
 		"Lic": "postgresql-license",
