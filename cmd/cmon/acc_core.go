@@ -30,9 +30,9 @@ type (
 		State   string
 		Updated int
 		Active  []int
-		Stats   map[string]*statItem
+		Stats   map[string]statItem
 	}
-	ec2Model map[string]*ec2Item
+	ec2Model map[string]ec2Item
 
 	rdsItem struct {
 		Acct    string
@@ -49,9 +49,9 @@ type (
 		Created int
 		Updated int
 		Active  []int
-		Stats   map[string]*statItem
+		Stats   map[string]statItem
 	}
-	rdsModel map[string]*rdsItem
+	rdsModel map[string]rdsItem
 )
 
 func gopher(src string, m *model, at accTyp, update func(*model, map[string]string, string, int)) {
