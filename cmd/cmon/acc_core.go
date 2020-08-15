@@ -59,10 +59,12 @@ func gopher(n string, m *model, at accTyp, update func(*model, map[string]string
 			}
 			select {
 			case row = <-in:
-				continue
+				if row != nil {
+					continue
+				}
 			default:
-				m.rel <- token
 			}
+			m.rel <- token
 			break
 		}
 	}
