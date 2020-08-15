@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"strings"
 	"time"
@@ -12,22 +13,55 @@ import (
 )
 
 type (
-	ec2Inst struct {
-		Typ, OS string
+	statItem struct {
+		Periods []int
+		Values  []float32
 	}
-	modEC2 map[string]*ec2Inst
+
+	ec2Item struct {
+		Acct    string
+		Type    string
+		Plat    string
+		AZ      string
+		AMI     string
+		Spot    string
+		Tags    map[string]string
+		State   string
+		Updated int
+		Active  []int
+		Stats   map[string]*statItem
+	}
+	ec2Model map[string]*ec2Item
+
+	rdsItem struct {
+		Acct    string
+		Type    string
+		SType   string
+		Size    int
+		Engine  string
+		Ver     string
+		Lic     string
+		AZ      string
+		MultiAZ bool
+		Tags    map[string]string
+		State   string
+		Created int
+		Updated int
+		Active  []int
+		Stats   map[string]*statItem
+	}
+	rdsModel map[string]*rdsItem
 )
 
-func gopher(n string, m *model, at accTyp, update func(*model, map[string]string)) {
-	gpath := fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/"))
-	pygo, rows := exec.Command("python", gpath, n), 0
+func gopher(src string, m *model, at accTyp, update func(*model, map[string]string, string, int)) {
+	pygo, items := exec.Command("python", fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/")), src), 0
 	defer func() {
 		if e, x := recover(), pygo.Wait(); e != nil {
-			logE.Printf("gopher error fetching %v: %v", n, e.(error))
+			logE.Printf("gopher error fetching from %v: %v", src, e.(error))
 		} else if x != nil {
-			logE.Printf("gopher errors: %v", x.(*exec.ExitError).Stderr)
+			logE.Printf("gopher errors fetching from %v: %v", src, x.(*exec.ExitError).Stderr)
 		} else {
-			logI.Printf("gopher fetched %v rows from %v", rows, n)
+			logI.Printf("gopher fetched %v items from %v", items, src)
 		}
 	}()
 	sb, e := json.MarshalIndent(settings, "", "\t")
@@ -38,8 +72,7 @@ func gopher(n string, m *model, at accTyp, update func(*model, map[string]string
 	pipe, e := pygo.StdoutPipe()
 	if e != nil {
 		panic(e)
-	}
-	if e = pygo.Start(); e != nil {
+	} else if e = pygo.Start(); e != nil {
 		panic(e)
 	}
 
@@ -48,18 +81,19 @@ func gopher(n string, m *model, at accTyp, update func(*model, map[string]string
 		panic(e)
 	}
 	in, err := res.Get()
-	acc, meta, token := make(chan uint32, 1), false, uint32(0)
-	for row := range in {
+	acc, meta, now, token := make(chan uint32, 1), false, 0, uint32(0)
+	for item := range in {
+		now = int(time.Now().Unix())
 		m.req <- modRq{at, acc}
 		token = <-acc
 		for {
-			if _, meta = row["~meta"]; !meta {
-				update(m, row)
-				rows++
+			if _, meta = item["~meta"]; !meta {
+				update(m, item, src, now)
+				items++
 			}
 			select {
-			case row = <-in:
-				if row != nil {
+			case item = <-in:
+				if item != nil {
 					continue
 				}
 			default:
@@ -75,16 +109,15 @@ func gopher(n string, m *model, at accTyp, update func(*model, map[string]string
 }
 
 func ec2awsBoot(n string, ctl chan string) {
-	m := mMod[n]
-	// read/build object model
-	m.data = modEC2{
-		"i-dog": {"m5.2xlarge", "linux"},
-		"i-cat": {"m5.large", "DOS"},
+	if b, err := ioutil.ReadFile(settings.Models[n]); err != nil {
+		logE.Fatalf("cannot read %v state from %q: %v", n, sfile, err)
+	} else if err = json.Unmarshal(b, mMod[n].data.(*ec2Model)); err != nil {
+		logE.Fatalf("%v state resource %q is invalid JSON: %v", n, sfile, err)
 	}
 	ctl <- n
 }
-func ec2awsGopher(m *model, row map[string]string) {
-	// directly insert row data into pre-aquired model
+func ec2awsGopher(m *model, item map[string]string, src string, now int) {
+	// directly insert item into pre-aquired model
 }
 func ec2awsMaintS(m *model) {
 	acc := make(chan uint32, 1)
@@ -101,8 +134,8 @@ func ec2awsMaintX(m *model) {
 	m.rel <- token
 }
 func ec2awsMaint(n string) {
-	for m, st, xt, gt := mMod[n], time.NewTicker(6*time.Second), time.NewTicker(90*time.Second),
-		time.NewTicker(600*time.Second); ; {
+	for m, st, xt, gt, gtalt := mMod[n], time.NewTicker(6*time.Second), time.NewTicker(90*time.Second),
+		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second); ; {
 		select {
 		case <-st.C:
 			go ec2awsMaintS(m)
@@ -110,26 +143,35 @@ func ec2awsMaint(n string) {
 			go ec2awsMaintX(m)
 		case <-gt.C:
 			go gopher(n, m, atEXCL, ec2awsGopher)
+		case <-gtalt.C:
+			//go gopher(n+"/stats", m, atEXCL, ec2awsGopher)
 		}
 	}
 }
 func ec2awsTerm(n string, ctl chan string) {
-	m := mMod[n]
-	mr := modRq{atEXCL, make(chan uint32, 1)}
-	m.req <- mr
-	<-mr.acc
-	// persist object model for shutdown; term accessors don't release object
+	m, acc := mMod[n], make(chan uint32, 1)
+	m.req <- modRq{atEXCL, acc}
+	<-acc
+
+	// persist object model state for shutdown; term accessors don't release object
+	if b, e := json.MarshalIndent(m.data.(ec2Model), "", "\t"); e != nil {
+		logE.Printf("can't encode %v state to JSON: %v", n, e)
+	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
+		logE.Printf("can't persist %v state to %q: %v", n, settings.Models[n], e)
+	}
 	ctl <- n
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	m := mMod[n]
-	// read/build object model
-	m.data = nil
+	if b, err := ioutil.ReadFile(settings.Models[n]); err != nil {
+		logE.Fatalf("cannot read %v state from %q: %v", n, sfile, err)
+	} else if err = json.Unmarshal(b, mMod[n].data.(*rdsModel)); err != nil {
+		logE.Fatalf("%v state resource %q is invalid JSON: %v", n, sfile, err)
+	}
 	ctl <- n
 }
-func rdsawsGopher(m *model, row map[string]string) {
-	// directly insert row data into pre-aquired model
+func rdsawsGopher(m *model, item map[string]string, src string, now int) {
+	// directly insert item into pre-aquired model
 }
 func rdsawsMaintS(m *model) {
 	acc := make(chan uint32, 1)
@@ -146,8 +188,8 @@ func rdsawsMaintX(m *model) {
 	m.rel <- token
 }
 func rdsawsMaint(n string) {
-	for m, st, xt, gt := mMod[n], time.NewTicker(6*time.Second), time.NewTicker(90*time.Second),
-		time.NewTicker(1200*time.Second); ; {
+	for m, st, xt, gt, gtalt := mMod[n], time.NewTicker(6*time.Second), time.NewTicker(90*time.Second),
+		time.NewTicker(1200*time.Second), time.NewTicker(3600*time.Second); ; {
 		select {
 		case <-st.C:
 			go rdsawsMaintS(m)
@@ -155,14 +197,21 @@ func rdsawsMaint(n string) {
 			go rdsawsMaintX(m)
 		case <-gt.C:
 			go gopher(n, m, atEXCL, rdsawsGopher)
+		case <-gtalt.C:
+			//go gopher(n+"/stats", m, atEXCL, rdsawsGopher)
 		}
 	}
 }
 func rdsawsTerm(n string, ctl chan string) {
-	m := mMod[n]
-	mr := modRq{atEXCL, make(chan uint32, 1)}
-	m.req <- mr
-	<-mr.acc
-	// persist object model for shutdown; term accessors don't release object
+	m, acc := mMod[n], make(chan uint32, 1)
+	m.req <- modRq{atEXCL, acc}
+	<-acc
+
+	// persist object model state for shutdown; term accessors don't release object
+	if b, e := json.MarshalIndent(m.data.(rdsModel), "", "\t"); e != nil {
+		logE.Printf("can't encode %v state to JSON: %v", n, e)
+	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
+		logE.Printf("can't persist %v state to %q: %v", n, settings.Models[n], e)
+	}
 	ctl <- n
 }

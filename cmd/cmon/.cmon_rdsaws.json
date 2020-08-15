@@ -1,0 +1,36 @@
+{
+	"arn:aws:rds:us-east-1:1001:db:name": {
+		"Acct": "1001",
+        "Type": "db.m5.xlarge",
+        "SType": "gp2",
+        "Size": "500",
+        "Engine": "postgres",
+        "Ver": "12.3",
+        "Lic": "postgresql-license",
+        "AZ": "us-east-1d",
+        "MultiAZ": true,
+		"Tags": {
+			"dc": "iad",
+			"env": "dev"
+		},
+        "State": "available",
+        "Created": 1220400190,
+		"Updated": 1250600250,
+		"Active": [
+			1220400190,
+			1250600250
+		],
+		"Stats": {
+			"conn": {
+				"Periods": [
+					1220420740,
+					1240620710
+				],
+				"Values": [
+					100,
+					120
+				]
+			}
+		}
+    }
+}

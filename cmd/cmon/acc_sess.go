@@ -13,7 +13,7 @@ func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
 	token := <-acc
 
 	// perform shared access EC2 lookup
-	i, _ := m.data.(modEC2)[id]
+	i, _ := m.data.(ec2Model)[id]
 	s := fmt.Sprintf("%v", i)
 
 	m.rel <- token
