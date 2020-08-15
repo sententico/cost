@@ -205,7 +205,7 @@ func (set *Settings) Sync() error {
 	defer set.mutex.Unlock()
 	set.mutex.Lock()
 
-	b, e := json.MarshalIndent(set.cache, "", "    ")
+	b, e := json.MarshalIndent(set.cache, "", "\t")
 	if e != nil {
 		return fmt.Errorf("can't write settings cache to %q (%v)", set.Name, e)
 	}

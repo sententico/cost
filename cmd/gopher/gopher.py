@@ -67,7 +67,8 @@ def csvWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
-def gophEC2AWS(cmon, m):
+def gophEC2AWS(m, cmon, args):
+    if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
     csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tags'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
@@ -92,7 +93,8 @@ def gophEC2AWS(cmon, m):
                         })
     csv(None, None)
 
-def gophEBSAWS(cmon, m):
+def gophEBSAWS(m, cmon, args):
+    if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
     csv = csvWriter(m, ['id','acct','type','size','iops','az','create','state','attm','tags'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
@@ -120,7 +122,8 @@ def gophEBSAWS(cmon, m):
                         })
     csv(None, None)
 
-def gophRDSAWS(cmon, m):
+def gophRDSAWS(m, cmon, args):
+    if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
     csv = csvWriter(m, ['id','acct','type','stype','size','engine','ver','lic','az','multiaz','create','state','tags'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
@@ -156,6 +159,8 @@ def main():
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
     parser.add_argument('models',           nargs='+', choices=gophModels, metavar='model',
                         help='''cmon object model; {} are supported'''.format(', '.join(gophModels)))
+    parser.add_argument('-o',   '--opt',    action='append', metavar='option', default=[],
+                        help='''command option''')
     parser.add_argument('-k',   '--key',    action='append', metavar='kvp', default=[],
                         help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
                              ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
@@ -168,7 +173,7 @@ def main():
         cmon = json.load(sys.stdin)
 
         for model in args.models:
-            gophModels[model][0](cmon, model)
+            gophModels[model][0](model, cmon, args)
                                         # handle exceptions; broken pipe exit avoids console errors
     except  json.JSONDecodeError:       ex('** invalid settings file **\n', 1)
     except  BrokenPipeError:            os._exit(0)
