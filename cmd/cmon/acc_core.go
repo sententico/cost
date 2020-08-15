@@ -32,7 +32,7 @@ type (
 		Active  []int
 		Stats   map[string]statItem
 	}
-	ec2Model map[string]ec2Item
+	ec2Model map[string]*ec2Item
 
 	rdsItem struct {
 		Acct    string
@@ -51,7 +51,7 @@ type (
 		Active  []int
 		Stats   map[string]statItem
 	}
-	rdsModel map[string]rdsItem
+	rdsModel map[string]*rdsItem
 )
 
 func gopher(src string, m *model, at accTyp, update func(*model, map[string]string, string, int)) {
@@ -82,7 +82,7 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 		panic(e)
 	}
 	in, err := res.Get()
-	acc, meta, now, token := make(chan uint32, 1), false, 0, uint32(0)
+	acc, meta, now, token := make(chan accTok, 1), false, 0, accTok(0)
 	for item := range in {
 		now = int(time.Now().Unix())
 		m.req <- modRq{at, acc}
@@ -121,25 +121,27 @@ func ec2awsBoot(n string, ctl chan string) {
 }
 func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
-	ec2 := m.data.(ec2Model)[item["id"]]
-	ec2.Acct = item["acct"]
-	ec2.Type = item["type"]
-	ec2.Plat = item["plat"]
-	ec2.AZ = item["az"]
-	ec2.AMI = item["ami"]
-	ec2.Spot = item["spot"]
-	ec2.State = item["state"]
-	ec2.Updated = now
+	i := ec2Item{
+		Acct:    item["acct"],
+		Type:    item["type"],
+		Plat:    item["plat"],
+		AZ:      item["az"],
+		AMI:     item["ami"],
+		Spot:    item["spot"],
+		State:   item["state"],
+		Updated: now,
+	}
+	m.data.(ec2Model)[item["id"]] = &i
 }
 func ec2awsMaintS(m *model) {
-	acc := make(chan uint32, 1)
+	acc := make(chan accTok, 1)
 	m.req <- modRq{0, acc}
 	token := <-acc
 	// shared access maintenance
 	m.rel <- token
 }
 func ec2awsMaintX(m *model) {
-	acc := make(chan uint32, 1)
+	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 	// exclusive access maintenance
@@ -161,7 +163,7 @@ func ec2awsMaint(n string) {
 	}
 }
 func ec2awsTerm(n string, ctl chan string) {
-	m, acc := mMod[n], make(chan uint32, 1)
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	<-acc
 
@@ -186,29 +188,31 @@ func rdsawsBoot(n string, ctl chan string) {
 }
 func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
-	rds := m.data.(rdsModel)[item["id"]]
-	rds.Acct = item["acct"]
-	rds.Type = item["type"]
-	rds.SType = item["stype"]
-	rds.Size = atoi(item["size"], -1)
-	rds.Engine = item["engine"]
-	rds.Ver = item["ver"]
-	rds.Lic = item["lic"]
-	rds.AZ = item["az"]
-	rds.MultiAZ = item["multiaz"] == "True"
 	t, _ := time.Parse(time.RFC3339, item["create"])
-	rds.Created = int(t.Unix())
-	rds.Updated = now
+	i := rdsItem{
+		Acct:    item["acct"],
+		Type:    item["type"],
+		SType:   item["stype"],
+		Size:    atoi(item["size"], -1),
+		Engine:  item["engine"],
+		Ver:     item["ver"],
+		Lic:     item["lic"],
+		AZ:      item["az"],
+		MultiAZ: item["multiaz"] == "True",
+		Created: int(t.Unix()),
+		Updated: now,
+	}
+	m.data.(rdsModel)[item["id"]] = &i
 }
 func rdsawsMaintS(m *model) {
-	acc := make(chan uint32, 1)
+	acc := make(chan accTok, 1)
 	m.req <- modRq{0, acc}
 	token := <-acc
 	// shared access maintenance
 	m.rel <- token
 }
 func rdsawsMaintX(m *model) {
-	acc := make(chan uint32, 1)
+	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 	// exclusive access maintenance
@@ -230,7 +234,7 @@ func rdsawsMaint(n string) {
 	}
 }
 func rdsawsTerm(n string, ctl chan string) {
-	m, acc := mMod[n], make(chan uint32, 1)
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	<-acc
 

@@ -34,15 +34,16 @@ type (
 	}
 
 	modSt  uint8
+	accTok uint32
 	accTyp uint8
 	modRq  struct {
 		typ accTyp
-		acc chan uint32
+		acc chan accTok
 	}
 	model struct {
 		stat       modSt
 		req        chan modRq
-		rel        chan uint32
+		rel        chan accTok
 		boot, term func(string, chan string)
 		maint      func(string)
 		data       interface{}
@@ -133,9 +134,9 @@ func init() {
 
 func modManager(m *model, n string, ctl chan string) {
 	var mr modRq
-	var accessors, token uint32
+	var accessors, token accTok
 	m.req = make(chan modRq, 16)
-	m.rel = make(chan uint32, 16)
+	m.rel = make(chan accTok, 16)
 	m.boot(n, ctl)
 
 	for ; ; token++ { // loop indefinitely as model access manager when boot complete

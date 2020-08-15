@@ -8,7 +8,7 @@ import (
 func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
 	// prepare lookup and validate v; even on error return a result on res
 	id := v.Get("id")
-	acc := make(chan uint32, 1)
+	acc := make(chan accTok, 1)
 	m.req <- modRq{0, acc}
 	token := <-acc
 
