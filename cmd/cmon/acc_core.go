@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -120,6 +121,15 @@ func ec2awsBoot(n string, ctl chan string) {
 }
 func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
+	ec2 := m.data.(ec2Model)[item["id"]]
+	ec2.Acct = item["acct"]
+	ec2.Type = item["type"]
+	ec2.Plat = item["plat"]
+	ec2.AZ = item["az"]
+	ec2.AMI = item["ami"]
+	ec2.Spot = item["spot"]
+	ec2.State = item["state"]
+	ec2.Updated = now
 }
 func ec2awsMaintS(m *model) {
 	acc := make(chan uint32, 1)
@@ -176,6 +186,19 @@ func rdsawsBoot(n string, ctl chan string) {
 }
 func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
+	rds := m.data.(rdsModel)[item["id"]]
+	rds.Acct = item["acct"]
+	rds.Type = item["type"]
+	rds.SType = item["stype"]
+	rds.Size = atoi(item["size"], -1)
+	rds.Engine = item["engine"]
+	rds.Ver = item["ver"]
+	rds.Lic = item["lic"]
+	rds.AZ = item["az"]
+	rds.MultiAZ = item["multiaz"] == "True"
+	t, _ := time.Parse(time.RFC3339, item["create"])
+	rds.Created = int(t.Unix())
+	rds.Updated = now
 }
 func rdsawsMaintS(m *model) {
 	acc := make(chan uint32, 1)
@@ -218,4 +241,11 @@ func rdsawsTerm(n string, ctl chan string) {
 		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], e)
 	}
 	ctl <- n
+}
+
+func atoi(s string, d int) int {
+	if i, err := strconv.Atoi(s); err == nil {
+		return i
+	}
+	return d
 }
