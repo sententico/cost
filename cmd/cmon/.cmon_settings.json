@@ -1,6 +1,8 @@
 {
 	"Unit": "cmon-aspect",
 	"Port": "4414",
+	"WorkDir": "/var/opt/sententix/aspect",
+	"BinDir": "/opt/sententix/bin",
 	"Models": {
 		"ec2.aws": "<placeholder>",
 		"rds.aws": "<placeholder>"

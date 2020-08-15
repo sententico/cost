@@ -26,10 +26,11 @@ type (
 
 	// MonSettings are composite settings for the cloud monitor
 	MonSettings struct {
-		Unit, Port string
-		Models     map[string]string
-		AWS        AWSService
-		Datadog    DatadogService
+		Unit, Port      string
+		WorkDir, BinDir string
+		Models          map[string]string
+		AWS             AWSService
+		Datadog         DatadogService
 	}
 
 	modSt  uint8

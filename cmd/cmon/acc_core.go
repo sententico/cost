@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/sententico/cost/csv"
@@ -17,7 +19,8 @@ type (
 )
 
 func gopher(n string, m *model, at accTyp, update func(*model, map[string]string)) {
-	pygo, rows := exec.Command("python", "gopher", n), 0
+	gpath := fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/"))
+	pygo, rows := exec.Command("python", gpath, n), 0
 	defer func() {
 		if e, x := recover(), pygo.Wait(); e != nil {
 			logE.Printf("gopher error fetching %v: %v", n, e.(error))
