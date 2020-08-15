@@ -109,11 +109,13 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 }
 
 func ec2awsBoot(n string, ctl chan string) {
+	m := make(ec2Model)
 	if b, err := ioutil.ReadFile(settings.Models[n]); err != nil {
 		logE.Fatalf("cannot read %v state from %q: %v", n, sfile, err)
-	} else if err = json.Unmarshal(b, mMod[n].data.(*ec2Model)); err != nil {
+	} else if err = json.Unmarshal(b, &m); err != nil {
 		logE.Fatalf("%v state resource %q is invalid JSON: %v", n, sfile, err)
 	}
+	mMod[n].data = m
 	ctl <- n
 }
 func ec2awsGopher(m *model, item map[string]string, src string, now int) {
@@ -154,7 +156,7 @@ func ec2awsTerm(n string, ctl chan string) {
 	<-acc
 
 	// persist object model state for shutdown; term accessors don't release object
-	if b, e := json.MarshalIndent(m.data.(ec2Model), "", "\t"); e != nil {
+	if b, e := json.MarshalIndent(m.data, "", "\t"); e != nil {
 		logE.Printf("can't encode %v state to JSON: %v", n, e)
 	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
 		logE.Printf("can't persist %v state to %q: %v", n, settings.Models[n], e)
@@ -163,11 +165,13 @@ func ec2awsTerm(n string, ctl chan string) {
 }
 
 func rdsawsBoot(n string, ctl chan string) {
+	m := make(rdsModel)
 	if b, err := ioutil.ReadFile(settings.Models[n]); err != nil {
 		logE.Fatalf("cannot read %v state from %q: %v", n, sfile, err)
-	} else if err = json.Unmarshal(b, mMod[n].data.(*rdsModel)); err != nil {
+	} else if err = json.Unmarshal(b, &m); err != nil {
 		logE.Fatalf("%v state resource %q is invalid JSON: %v", n, sfile, err)
 	}
+	mMod[n].data = m
 	ctl <- n
 }
 func rdsawsGopher(m *model, item map[string]string, src string, now int) {
@@ -208,7 +212,7 @@ func rdsawsTerm(n string, ctl chan string) {
 	<-acc
 
 	// persist object model state for shutdown; term accessors don't release object
-	if b, e := json.MarshalIndent(m.data.(rdsModel), "", "\t"); e != nil {
+	if b, e := json.MarshalIndent(m.data, "", "\t"); e != nil {
 		logE.Printf("can't encode %v state to JSON: %v", n, e)
 	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
 		logE.Printf("can't persist %v state to %q: %v", n, settings.Models[n], e)
