@@ -14,23 +14,23 @@ import (
 )
 
 type (
-	// AWSService settings
-	AWSService struct {
+	// awsService settings
+	awsService struct {
 		Options  string
 		Accounts map[string]map[string]int
 	}
-	// DatadogService settings
-	DatadogService struct {
+	// datadogService settings
+	datadogService struct {
 		APIKey, AppKey string
 	}
 
-	// MonSettings are composite settings for the cloud monitor
-	MonSettings struct {
+	// monSettings are composite settings for the cloud monitor
+	monSettings struct {
 		Unit, Port      string
 		WorkDir, BinDir string
 		Models          map[string]string
-		AWS             AWSService
-		Datadog         DatadogService
+		AWS             awsService
+		Datadog         datadogService
 	}
 
 	modSt  uint8
@@ -46,7 +46,7 @@ type (
 		rel        chan accTok
 		boot, term func(string, chan string)
 		maint      func(string)
-		data       interface{}
+		data       []interface{}
 	}
 )
 
@@ -73,7 +73,7 @@ var (
 	logD, logI, logW, logE *log.Logger       // ...
 	seOpen, exit           int               // ...
 	seInit, seSeq          int64             // ...
-	settings               MonSettings       // ...
+	settings               monSettings       // ...
 )
 
 func init() {
@@ -88,6 +88,7 @@ func init() {
 
 	m, val := map[string]*model{
 		"ec2.aws": {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
+		"ebs.aws": {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
 		"rds.aws": {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
 	}, func(pri string, dflt string) string {
 		if strings.HasPrefix(pri, "CMON_") {
@@ -101,9 +102,9 @@ func init() {
 	flag.StringVar(&sfile, "settings", val("CMON_SETTINGS", ".cmon_settings.json"), "main settings file")
 	flag.Parse()
 	if b, err := ioutil.ReadFile(sfile); err != nil {
-		logE.Fatalf("cannot read settings file %q (%v)", sfile, err)
+		logE.Fatalf("cannot read settings file %q: %v", sfile, err)
 	} else if err = json.Unmarshal(b, &settings); err != nil {
-		logE.Fatalf("%q is invalid JSON settings file (%v)", sfile, err)
+		logE.Fatalf("%q is invalid JSON settings file: %v", sfile, err)
 	}
 	for n := range m {
 		if _, ok := settings.Models[n]; !ok {
@@ -235,7 +236,7 @@ func main() {
 	case nil, http.ErrServerClosed:
 		logI.Printf("stopped listening for HTTP requests (%v sessions open)", seOpen)
 	default:
-		logE.Printf("beginning shutdown on HTTP listener failure (%v)", err)
+		logE.Printf("beginning shutdown on HTTP listener failure: %v", err)
 		exit = 1
 	}
 	sig <- nil

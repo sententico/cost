@@ -5,6 +5,7 @@
 	"BinDir": "/opt/sententix/bin",
 	"Models": {
 		"ec2.aws": ".cmon_ec2aws.json",
+		"ebs.aws": ".cmon_ebsaws.json",
 		"rds.aws": ".cmon_rdsaws.json"
 	},
 	"AWS": {
