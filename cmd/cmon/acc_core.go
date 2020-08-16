@@ -121,25 +121,28 @@ func ec2awsBoot(n string, ctl chan string) {
 }
 func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
-	s := item["state"]
-	i := ec2Item{
-		Acct:    item["acct"],
-		Type:    item["type"],
-		Plat:    item["plat"],
-		AZ:      item["az"],
-		AMI:     item["ami"],
-		Spot:    item["spot"],
-		State:   s,
-		Updated: now,
+	ec2, id := m.data.(ec2Model), item["id"]
+	i, _ := ec2[id]
+	if i == nil {
+		i = &ec2Item{
+			Type: item["type"],
+			Plat: item["plat"],
+			AMI:  item["ami"],
+			Spot: item["spot"],
+		}
+		ec2[id] = i
 	}
-	if s == "running" {
+	i.Acct = item["acct"]
+	i.AZ = item["az"]
+	i.State = item["state"]
+	i.Updated = now
+	if i.State == "running" {
 		if len(i.Active) == 0 || now-i.Active[len(i.Active)-1] > 3600 {
 			i.Active = append(i.Active, now, now)
 		} else {
 			i.Active[len(i.Active)-1] = now
 		}
 	}
-	m.data.(ec2Model)[item["id"]] = &i
 }
 func ec2awsMaintS(m *model) {
 	acc := make(chan accTok, 1)
@@ -196,30 +199,33 @@ func rdsawsBoot(n string, ctl chan string) {
 }
 func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
-	s := item["state"]
-	t, _ := time.Parse(time.RFC3339, item["create"])
-	i := rdsItem{
-		Acct:    item["acct"],
-		Type:    item["type"],
-		SType:   item["stype"],
-		Size:    atoi(item["size"], -1),
-		Engine:  item["engine"],
-		Ver:     item["ver"],
-		Lic:     item["lic"],
-		AZ:      item["az"],
-		MultiAZ: item["multiaz"] == "True",
-		State:   s,
-		Created: int(t.Unix()),
-		Updated: now,
+	rds, id := m.data.(rdsModel), item["id"]
+	db, _ := rds[id]
+	if db == nil {
+		t, _ := time.Parse(time.RFC3339, item["create"])
+		db = &rdsItem{
+			Type:    item["type"],
+			SType:   item["stype"],
+			Engine:  item["engine"],
+			Created: int(t.Unix()),
+		}
+		rds[id] = db
 	}
-	if s == "available" {
-		if len(i.Active) == 0 || now-i.Active[len(i.Active)-1] > 3600 {
-			i.Active = append(i.Active, now, now)
+	db.Acct = item["acct"]
+	db.Size = atoi(item["size"], -1)
+	db.Ver = item["ver"]
+	db.AZ = item["az"]
+	db.Lic = item["lic"]
+	db.MultiAZ = item["multiaz"] == "True"
+	db.State = item["state"]
+	db.Updated = now
+	if db.State == "available" {
+		if len(db.Active) == 0 || now-db.Active[len(db.Active)-1] > 3600 {
+			db.Active = append(db.Active, now, now)
 		} else {
-			i.Active[len(i.Active)-1] = now
+			db.Active[len(db.Active)-1] = now
 		}
 	}
-	m.data.(rdsModel)[item["id"]] = &i
 }
 func rdsawsMaintS(m *model) {
 	acc := make(chan accTok, 1)
