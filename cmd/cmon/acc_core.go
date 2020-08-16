@@ -129,15 +129,15 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 }
 
 func ec2awsBoot(n string, ctl chan string) {
-	m, f, data := make(ec2Model), settings.Models[n], mMod[n].data
+	ec2, f, m := make(ec2Model), settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &m); err != nil {
+	} else if err = json.Unmarshal(b, &ec2); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
-	data = append(data, m)
+	m.data = append(m.data, ec2)
 	ctl <- n
 }
 func ec2awsGopher(m *model, item map[string]string, src string, now int) {
@@ -209,15 +209,15 @@ func ec2awsTerm(n string, ctl chan string) {
 }
 
 func ebsawsBoot(n string, ctl chan string) {
-	m, f, data := make(ebsModel), settings.Models[n], mMod[n].data
+	ebs, f, m := make(ebsModel), settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &m); err != nil {
+	} else if err = json.Unmarshal(b, &ebs); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
-	data = append(data, m)
+	m.data = append(m.data, ebs)
 	ctl <- n
 }
 func ebsawsGopher(m *model, item map[string]string, src string, now int) {
@@ -289,15 +289,15 @@ func ebsawsTerm(n string, ctl chan string) {
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	m, f, data := make(rdsModel), settings.Models[n], mMod[n].data
+	rds, f, m := make(rdsModel), settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &m); err != nil {
+	} else if err = json.Unmarshal(b, &rds); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
-	data = append(data, m)
+	m.data = append(m.data, rds)
 	ctl <- n
 }
 func rdsawsGopher(m *model, item map[string]string, src string, now int) {
