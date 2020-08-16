@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -111,7 +112,9 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 
 func ec2awsBoot(n string, ctl chan string) {
 	m, f := make(ec2Model), settings.Models[n]
-	if b, err := ioutil.ReadFile(f); err != nil {
+	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
+		logW.Printf("no %q state found at %q", n, f)
+	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, &m); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
@@ -179,17 +182,19 @@ func ec2awsTerm(n string, ctl chan string) {
 	<-acc
 
 	// persist object model state for shutdown; term accessors don't release object
-	if b, e := json.MarshalIndent(m.data, "", "\t"); e != nil {
-		logE.Printf("can't encode %q state to JSON: %v", n, e)
-	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
-		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], e)
+	if b, err := json.MarshalIndent(m.data, "", "\t"); err != nil {
+		logE.Printf("can't encode %q state to JSON: %v", n, err)
+	} else if err = ioutil.WriteFile(settings.Models[n], b, 0644); err != nil {
+		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], err)
 	}
 	ctl <- n
 }
 
 func rdsawsBoot(n string, ctl chan string) {
 	m, f := make(rdsModel), settings.Models[n]
-	if b, err := ioutil.ReadFile(f); err != nil {
+	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
+		logW.Printf("no %q state found at %q", n, f)
+	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, &m); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
