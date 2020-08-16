@@ -121,6 +121,7 @@ func ec2awsBoot(n string, ctl chan string) {
 }
 func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
+	s := item["state"]
 	i := ec2Item{
 		Acct:    item["acct"],
 		Type:    item["type"],
@@ -128,8 +129,15 @@ func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 		AZ:      item["az"],
 		AMI:     item["ami"],
 		Spot:    item["spot"],
-		State:   item["state"],
+		State:   s,
 		Updated: now,
+	}
+	if s == "running" {
+		if len(i.Active) == 0 || now-i.Active[len(i.Active)-1] > 3600 {
+			i.Active = append(i.Active, now, now)
+		} else {
+			i.Active[len(i.Active)-1] = now
+		}
 	}
 	m.data.(ec2Model)[item["id"]] = &i
 }
@@ -188,6 +196,7 @@ func rdsawsBoot(n string, ctl chan string) {
 }
 func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
+	s := item["state"]
 	t, _ := time.Parse(time.RFC3339, item["create"])
 	i := rdsItem{
 		Acct:    item["acct"],
@@ -199,8 +208,16 @@ func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 		Lic:     item["lic"],
 		AZ:      item["az"],
 		MultiAZ: item["multiaz"] == "True",
+		State:   s,
 		Created: int(t.Unix()),
 		Updated: now,
+	}
+	if s == "available" {
+		if len(i.Active) == 0 || now-i.Active[len(i.Active)-1] > 3600 {
+			i.Active = append(i.Active, now, now)
+		} else {
+			i.Active[len(i.Active)-1] = now
+		}
 	}
 	m.data.(rdsModel)[item["id"]] = &i
 }
