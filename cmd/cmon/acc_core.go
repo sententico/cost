@@ -21,34 +21,34 @@ type (
 	}
 
 	ec2Item struct {
-		Acct    string
-		Type    string
-		Plat    string
-		AZ      string
-		AMI     string
-		Spot    string
-		Tags    map[string]string
-		State   string
-		Since   int
-		Updated int
-		Active  []int
-		Stats   map[string]statItem
+		Acct   string
+		Type   string
+		Plat   string
+		AZ     string
+		AMI    string
+		Spot   string
+		Tags   map[string]string
+		State  string
+		Since  int
+		Last   int
+		Active []int
+		Stats  map[string]statItem
 	}
 	ec2Model map[string]*ec2Item
 
 	ebsItem struct {
-		Acct    string
-		Type    string
-		Size    int
-		IOPS    int
-		AZ      string
-		Mount   string
-		Tags    map[string]string
-		State   string
-		Since   int
-		Updated int
-		Active  []int
-		Stats   map[string]statItem
+		Acct   string
+		Type   string
+		Size   int
+		IOPS   int
+		AZ     string
+		Mount  string
+		Tags   map[string]string
+		State  string
+		Since  int
+		Last   int
+		Active []int
+		Stats  map[string]statItem
 	}
 	ebsModel map[string]*ebsItem
 
@@ -65,7 +65,7 @@ type (
 		Tags    map[string]string
 		State   string
 		Since   int
-		Updated int
+		Last    int
 		Active  []int
 		Stats   map[string]statItem
 	}
@@ -157,13 +157,13 @@ func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 	i.Acct = item["acct"]
 	i.AZ = item["az"]
 	if i.State = item["state"]; i.State == "running" {
-		if i.Active == nil || i.Updated > i.Active[len(i.Active)-1] {
+		if i.Active == nil || i.Last > i.Active[len(i.Active)-1] {
 			i.Active = append(i.Active, now, now)
 		} else {
 			i.Active[len(i.Active)-1] = now
 		}
 	}
-	i.Updated = now
+	i.Last = now
 }
 func ec2awsMaintS(m *model) {
 	acc := make(chan accTok, 1)
@@ -237,13 +237,13 @@ func ebsawsGopher(m *model, item map[string]string, src string, now int) {
 	v.AZ = item["az"]
 	v.Mount = item["mount"]
 	if v.State = item["state"]; v.State == "in-use" {
-		if v.Active == nil || v.Updated > v.Active[len(v.Active)-1] {
+		if v.Active == nil || v.Last > v.Active[len(v.Active)-1] {
 			v.Active = append(v.Active, now, now)
 		} else {
 			v.Active[len(v.Active)-1] = now
 		}
 	}
-	v.Updated = now
+	v.Last = now
 }
 func ebsawsMaintS(m *model) {
 	acc := make(chan accTok, 1)
@@ -320,13 +320,13 @@ func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 	db.Lic = item["lic"]
 	db.MultiAZ = item["multiaz"] == "True"
 	if db.State = item["state"]; db.State == "available" {
-		if db.Active == nil || db.Updated > db.Active[len(db.Active)-1] {
+		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {
 			db.Active = append(db.Active, now, now)
 		} else {
 			db.Active[len(db.Active)-1] = now
 		}
 	}
-	db.Updated = now
+	db.Last = now
 }
 func rdsawsMaintS(m *model) {
 	acc := make(chan accTok, 1)
