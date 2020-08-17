@@ -16,7 +16,7 @@ func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
 
 	// perform shared access EC2 lookup, copying results before release
 	var s string
-	if inst, _ := m.data[0].(*ec2Model).Inst[id]; inst != nil {
+	if inst := m.data[0].(*ec2Model).Inst[id]; inst != nil {
 		s = fmt.Sprintf("%v", *inst)
 	}
 	m.rel <- token
@@ -36,7 +36,7 @@ func ebsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 
 	// perform shared access EC2 lookup, copying results before release
 	var s string
-	if vol, _ := m.data[0].(*ebsModel).Vol[id]; vol != nil {
+	if vol := m.data[0].(*ebsModel).Vol[id]; vol != nil {
 		s = fmt.Sprintf("%v", *vol)
 	}
 	m.rel <- token
@@ -56,7 +56,7 @@ func rdsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 
 	// perform shared access EC2 lookup, copying results before release
 	var s string
-	if db, _ := m.data[0].(*rdsModel).DB[id]; db != nil {
+	if db := m.data[0].(*rdsModel).DB[id]; db != nil {
 		s = fmt.Sprintf("%v", *db)
 	}
 	m.rel <- token

@@ -81,7 +81,7 @@ type (
 	}
 )
 
-func gopher(src string, m *model, at accTyp, update func(*model, map[string]string, int)) {
+func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 	start, acc, token, pages, items, meta, now := int(time.Now().Unix()), make(chan accTok, 1), accTok(0), 0, 0, false, 0
 	pygo := exec.Command("python", fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/")), src)
 	defer func() {
@@ -91,7 +91,7 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 			logE.Printf("gopher errors fetching from %q: %v", src, x.(*exec.ExitError).Stderr)
 		} else {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
-			m.req <- modRq{at, acc}
+			m.req <- modRq{atEXCL, acc}
 			token = <-acc
 			update(m, nil, start) // TODO: should this be called even on errors?
 			m.rel <- token
@@ -117,7 +117,7 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 	for item := range in {
 		now = int(time.Now().Unix())
 		pages++
-		m.req <- modRq{at, acc}
+		m.req <- modRq{atEXCL, acc}
 		token = <-acc
 		for {
 			if _, meta = item["~meta"]; !meta {
@@ -141,6 +141,23 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 	}
 }
 
+func flush(n string, m *model, at accTyp, release bool) {
+	acc := make(chan accTok, 1)
+	m.req <- modRq{at, acc}
+	token := <-acc
+
+	// flush object model state
+	b, err := json.MarshalIndent(m.data[0], "", "\t")
+	if release {
+		m.rel <- token
+	}
+	if err != nil {
+		logE.Printf("can't encode %q state to JSON: %v", n, err)
+	} else if err = ioutil.WriteFile(settings.Models[n], b, 0644); err != nil {
+		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], err)
+	}
+}
+
 func ec2awsBoot(n string, ctl chan string) {
 	ec2, f, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
@@ -160,7 +177,7 @@ func ec2awsGopher(m *model, item map[string]string, now int) {
 		ec2.Current = now
 		return
 	}
-	inst, _ := ec2.Inst[item["id"]]
+	inst := ec2.Inst[item["id"]]
 	if inst == nil {
 		inst = &ec2Item{
 			Type:  item["type"],
@@ -191,46 +208,31 @@ func ec2awsGopher(m *model, item map[string]string, now int) {
 	}
 	inst.Last = now
 }
-func ec2awsMaintS(m *model) {
-	acc := make(chan accTok, 1)
-	m.req <- modRq{0, acc}
-	token := <-acc
-	// shared access maintenance
-	m.rel <- token
-}
-func ec2awsMaintX(m *model) {
+func ec2awsGarbage(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// exclusive access maintenance
+	// collect the garbage
 	m.rel <- token
 }
 func ec2awsMaint(n string) {
-	for m, st, xt, gt, gtalt := mMod[n], time.NewTicker(6*time.Second), time.NewTicker(90*time.Second),
-		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second); ; {
+	for m, g, sg, fl, gc := mMod[n],
+		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second),
+		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
-		case <-st.C:
-			go ec2awsMaintS(m)
-		case <-xt.C:
-			go ec2awsMaintX(m)
-		case <-gt.C:
-			go gopher(n, m, atEXCL, ec2awsGopher)
-		case <-gtalt.C:
-			//go gopher("stats."+n, m, atEXCL, statsec2awsGopher)
+		case <-g.C:
+			go gopher(n, m, ec2awsGopher)
+		case <-sg.C:
+			//go gopher("stats."+n, m, statsec2awsGopher)
+		case <-fl.C:
+			go flush(n, m, 0, true)
+		case <-gc.C:
+			go ec2awsGarbage(m)
 		}
 	}
 }
 func ec2awsTerm(n string, ctl chan string) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
-	<-acc
-
-	// persist object model state for shutdown; term accessors don't release object
-	if b, err := json.MarshalIndent(m.data[0], "", "\t"); err != nil {
-		logE.Printf("can't encode %q state to JSON: %v", n, err)
-	} else if err = ioutil.WriteFile(settings.Models[n], b, 0644); err != nil {
-		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], err)
-	}
+	flush(n, mMod[n], atEXCL, false)
 	ctl <- n
 }
 
@@ -253,7 +255,7 @@ func ebsawsGopher(m *model, item map[string]string, now int) {
 		ebs.Current = now
 		return
 	}
-	vol, _ := ebs.Vol[item["id"]]
+	vol := ebs.Vol[item["id"]]
 	if vol == nil {
 		vol = &ebsItem{
 			Type:  item["type"],
@@ -284,46 +286,31 @@ func ebsawsGopher(m *model, item map[string]string, now int) {
 	}
 	vol.Last = now
 }
-func ebsawsMaintS(m *model) {
-	acc := make(chan accTok, 1)
-	m.req <- modRq{0, acc}
-	token := <-acc
-	// shared access maintenance
-	m.rel <- token
-}
-func ebsawsMaintX(m *model) {
+func ebsawsGarbage(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// exclusive access maintenance
+	// collect the garbage
 	m.rel <- token
 }
 func ebsawsMaint(n string) {
-	for m, st, xt, gt, gtalt := mMod[n], time.NewTicker(6*time.Second), time.NewTicker(90*time.Second),
-		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second); ; {
+	for m, g, sg, fl, gc := mMod[n],
+		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second),
+		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
-		case <-st.C:
-			go ebsawsMaintS(m)
-		case <-xt.C:
-			go ebsawsMaintX(m)
-		case <-gt.C:
-			go gopher(n, m, atEXCL, ebsawsGopher)
-		case <-gtalt.C:
-			//go gopher("stats."+n, m, atEXCL, statsebsawsGopher)
+		case <-g.C:
+			go gopher(n, m, ebsawsGopher)
+		case <-sg.C:
+			//go gopher("stats."+n, m, statsebsawsGopher)
+		case <-fl.C:
+			go flush(n, m, 0, true)
+		case <-gc.C:
+			go ebsawsGarbage(m)
 		}
 	}
 }
 func ebsawsTerm(n string, ctl chan string) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
-	<-acc
-
-	// persist object model state for shutdown; term accessors don't release object
-	if b, err := json.MarshalIndent(m.data[0], "", "\t"); err != nil {
-		logE.Printf("can't encode %q state to JSON: %v", n, err)
-	} else if err = ioutil.WriteFile(settings.Models[n], b, 0644); err != nil {
-		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], err)
-	}
+	flush(n, mMod[n], atEXCL, false)
 	ctl <- n
 }
 
@@ -346,7 +333,7 @@ func rdsawsGopher(m *model, item map[string]string, now int) {
 		rds.Current = now
 		return
 	}
-	db, _ := rds.DB[item["id"]]
+	db := rds.DB[item["id"]]
 	if db == nil {
 		db = &rdsItem{
 			Type:   item["type"],
@@ -380,46 +367,31 @@ func rdsawsGopher(m *model, item map[string]string, now int) {
 	}
 	db.Last = now
 }
-func rdsawsMaintS(m *model) {
-	acc := make(chan accTok, 1)
-	m.req <- modRq{0, acc}
-	token := <-acc
-	// shared access maintenance
-	m.rel <- token
-}
-func rdsawsMaintX(m *model) {
+func rdsawsGarbage(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// exclusive access maintenance
+	// collect the garbage
 	m.rel <- token
 }
 func rdsawsMaint(n string) {
-	for m, st, xt, gt, gtalt := mMod[n], time.NewTicker(6*time.Second), time.NewTicker(90*time.Second),
-		time.NewTicker(1200*time.Second), time.NewTicker(3600*time.Second); ; {
+	for m, g, sg, fl, gc := mMod[n],
+		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second),
+		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
-		case <-st.C:
-			go rdsawsMaintS(m)
-		case <-xt.C:
-			go rdsawsMaintX(m)
-		case <-gt.C:
-			go gopher(n, m, atEXCL, rdsawsGopher)
-		case <-gtalt.C:
-			//go gopher("stats."+n, m, atEXCL, statsrdsawsGopher)
+		case <-g.C:
+			go gopher(n, m, rdsawsGopher)
+		case <-sg.C:
+			//go gopher("stats."+n, m, statsrdsawsGopher)
+		case <-fl.C:
+			go flush(n, m, 0, true)
+		case <-gc.C:
+			go ebsawsGarbage(m)
 		}
 	}
 }
 func rdsawsTerm(n string, ctl chan string) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
-	<-acc
-
-	// persist object model state for shutdown; term accessors don't release object
-	if b, e := json.MarshalIndent(m.data[0], "", "\t"); e != nil {
-		logE.Printf("can't encode %q state to JSON: %v", n, e)
-	} else if e = ioutil.WriteFile(settings.Models[n], b, 0644); e != nil {
-		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], e)
-	}
+	flush(n, mMod[n], atEXCL, false)
 	ctl <- n
 }
 
