@@ -34,7 +34,10 @@ type (
 		Active []int
 		Stats  map[string]statItem
 	}
-	ec2Model map[string]*ec2Item
+	ec2Model struct {
+		Current int
+		Inst    map[string]*ec2Item
+	}
 
 	ebsItem struct {
 		Acct   string
@@ -50,7 +53,10 @@ type (
 		Active []int
 		Stats  map[string]statItem
 	}
-	ebsModel map[string]*ebsItem
+	ebsModel struct {
+		Current int
+		Vol     map[string]*ebsItem
+	}
 
 	rdsItem struct {
 		Acct    string
@@ -69,19 +75,26 @@ type (
 		Active  []int
 		Stats   map[string]statItem
 	}
-	rdsModel map[string]*rdsItem
+	rdsModel struct {
+		Current int
+		DB      map[string]*rdsItem
+	}
 )
 
-func gopher(src string, m *model, at accTyp, update func(*model, map[string]string, string, int)) {
-	pygo, items := exec.Command("python", fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/")), src), 0
+func gopher(src string, m *model, at accTyp, update func(*model, map[string]string, int)) {
+	start, acc, token, pages, items, meta, now := int(time.Now().Unix()), make(chan accTok, 1), accTok(0), 0, 0, false, 0
+	pygo := exec.Command("python", fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/")), src)
 	defer func() {
 		if e, x := recover(), pygo.Wait(); e != nil {
-			// TODO: consider if access token can be released here
 			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
 		} else if x != nil {
 			logE.Printf("gopher errors fetching from %q: %v", src, x.(*exec.ExitError).Stderr)
 		} else {
-			logI.Printf("gopher fetched %v items from %q", items, src)
+			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
+			m.req <- modRq{at, acc}
+			token = <-acc
+			update(m, nil, start) // TODO: should this be called even on errors?
+			m.rel <- token
 		}
 	}()
 	sb, e := json.MarshalIndent(settings, "", "\t")
@@ -101,14 +114,14 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 		panic(e)
 	}
 	in, err := res.Get()
-	acc, meta, now, token := make(chan accTok, 1), false, 0, accTok(0)
 	for item := range in {
 		now = int(time.Now().Unix())
+		pages++
 		m.req <- modRq{at, acc}
 		token = <-acc
 		for {
 			if _, meta = item["~meta"]; !meta {
-				update(m, item, src, now)
+				update(m, item, now)
 				items++
 			}
 			select {
@@ -129,50 +142,54 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 }
 
 func ec2awsBoot(n string, ctl chan string) {
-	ec2, f, m := make(ec2Model), settings.Models[n], mMod[n]
+	ec2, f, m := &ec2Model{}, settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &ec2); err != nil {
+	} else if err = json.Unmarshal(b, ec2); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	m.data = append(m.data, ec2)
 	ctl <- n
 }
-func ec2awsGopher(m *model, item map[string]string, src string, now int) {
+func ec2awsGopher(m *model, item map[string]string, now int) {
 	// directly insert item into pre-aquired model
-	ec2, id := m.data[0].(ec2Model), item["id"]
-	i, _ := ec2[id]
-	if i == nil {
-		i = &ec2Item{
+	ec2 := m.data[0].(*ec2Model)
+	if item == nil {
+		ec2.Current = now
+		return
+	}
+	inst, _ := ec2.Inst[item["id"]]
+	if inst == nil {
+		inst = &ec2Item{
 			Type:  item["type"],
 			Plat:  item["plat"],
 			AMI:   item["ami"],
 			Spot:  item["spot"],
 			Since: now,
 		}
-		ec2[id] = i
+		ec2.Inst[item["id"]] = inst
 	}
-	i.Acct = item["acct"]
-	i.AZ = item["az"]
+	inst.Acct = item["acct"]
+	inst.AZ = item["az"]
 	if tags := item["tags"]; tags != "" {
-		i.Tags = make(map[string]string)
+		inst.Tags = make(map[string]string)
 		for _, kv := range strings.Split(tags, "\t") {
 			kvs := strings.Split(kv, "=")
-			i.Tags[kvs[0]] = kvs[1]
+			inst.Tags[kvs[0]] = kvs[1]
 		}
 	} else {
-		i.Tags = nil
+		inst.Tags = nil
 	}
-	if i.State = item["state"]; i.State == "running" {
-		if i.Active == nil || i.Last > i.Active[len(i.Active)-1] {
-			i.Active = append(i.Active, now, now)
+	if inst.State = item["state"]; inst.State == "running" {
+		if inst.Active == nil || inst.Last > inst.Active[len(inst.Active)-1] {
+			inst.Active = append(inst.Active, now, now)
 		} else {
-			i.Active[len(i.Active)-1] = now
+			inst.Active[len(inst.Active)-1] = now
 		}
 	}
-	i.Last = now
+	inst.Last = now
 }
 func ec2awsMaintS(m *model) {
 	acc := make(chan accTok, 1)
@@ -199,7 +216,7 @@ func ec2awsMaint(n string) {
 		case <-gt.C:
 			go gopher(n, m, atEXCL, ec2awsGopher)
 		case <-gtalt.C:
-			//go gopher(n+"/stats", m, atEXCL, ec2awsGopher)
+			//go gopher("stats."+n, m, atEXCL, statsec2awsGopher)
 		}
 	}
 }
@@ -218,27 +235,31 @@ func ec2awsTerm(n string, ctl chan string) {
 }
 
 func ebsawsBoot(n string, ctl chan string) {
-	ebs, f, m := make(ebsModel), settings.Models[n], mMod[n]
+	ebs, f, m := &ebsModel{}, settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &ebs); err != nil {
+	} else if err = json.Unmarshal(b, ebs); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	m.data = append(m.data, ebs)
 	ctl <- n
 }
-func ebsawsGopher(m *model, item map[string]string, src string, now int) {
+func ebsawsGopher(m *model, item map[string]string, now int) {
 	// directly insert item into pre-aquired model
-	ebs, id := m.data[0].(ebsModel), item["id"]
-	vol, _ := ebs[id]
+	ebs := m.data[0].(*ebsModel)
+	if item == nil {
+		ebs.Current = now
+		return
+	}
+	vol, _ := ebs.Vol[item["id"]]
 	if vol == nil {
 		vol = &ebsItem{
 			Type:  item["type"],
 			Since: now,
 		}
-		ebs[id] = vol
+		ebs.Vol[item["id"]] = vol
 	}
 	vol.Acct = item["acct"]
 	vol.Size = atoi(item["size"], -1)
@@ -288,7 +309,7 @@ func ebsawsMaint(n string) {
 		case <-gt.C:
 			go gopher(n, m, atEXCL, ebsawsGopher)
 		case <-gtalt.C:
-			//go gopher(n+"/stats", m, atEXCL, ebsawsGopher)
+			//go gopher("stats."+n, m, atEXCL, statsebsawsGopher)
 		}
 	}
 }
@@ -307,21 +328,25 @@ func ebsawsTerm(n string, ctl chan string) {
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	rds, f, m := make(rdsModel), settings.Models[n], mMod[n]
+	rds, f, m := &rdsModel{}, settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &rds); err != nil {
+	} else if err = json.Unmarshal(b, rds); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	m.data = append(m.data, rds)
 	ctl <- n
 }
-func rdsawsGopher(m *model, item map[string]string, src string, now int) {
+func rdsawsGopher(m *model, item map[string]string, now int) {
 	// directly insert item into pre-aquired model
-	rds, id := m.data[0].(rdsModel), item["id"]
-	db, _ := rds[id]
+	rds := m.data[0].(*rdsModel)
+	if item == nil {
+		rds.Current = now
+		return
+	}
+	db, _ := rds.DB[item["id"]]
 	if db == nil {
 		db = &rdsItem{
 			Type:   item["type"],
@@ -329,7 +354,7 @@ func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 			Engine: item["engine"],
 			Since:  now,
 		}
-		rds[id] = db
+		rds.DB[item["id"]] = db
 	}
 	db.Acct = item["acct"]
 	db.Size = atoi(item["size"], -1)
@@ -380,7 +405,7 @@ func rdsawsMaint(n string) {
 		case <-gt.C:
 			go gopher(n, m, atEXCL, rdsawsGopher)
 		case <-gtalt.C:
-			//go gopher(n+"/stats", m, atEXCL, rdsawsGopher)
+			//go gopher("stats."+n, m, atEXCL, statsrdsawsGopher)
 		}
 	}
 }

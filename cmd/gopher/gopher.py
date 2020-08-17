@@ -86,7 +86,7 @@ def gophEC2AWS(m, cmon, args):
                         'state':    i.state.get('Name',''),
                         'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
                         'tags':     '' if not i.tags else '{}'.format('\t'.join([
-                                    '{}={}'.format(t['Key'], t['Value'].translate(flt)) for t in i.tags if
+                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in i.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
@@ -114,7 +114,7 @@ def gophEBSAWS(m, cmon, args):
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
                         'tags':     '' if not v.tags else '{}'.format('\t'.join([
-                                    '{}={}'.format(t['Key'], t['Value'].translate(flt)) for t in v.tags if
+                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in v.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
@@ -131,7 +131,11 @@ def gophRDSAWS(m, cmon, args):
             if u < 0: continue
             rds, s = session.client('rds', region_name=r), a+':'+r
             for d in rds.describe_db_instances().get('DBInstances',[]):
-                csv(s, {'id':       d.get('DBInstanceArn'),
+                arn = d['DBInstanceArn']
+                try:    dtags = rds.list_tags_for_resource(ResourceName=arn)['TagList']
+                except  KeyboardInterrupt: raise
+                except: dtags = None
+                csv(s, {'id':       arn,
                         'acct':     a,
                         'type':     d.get('DBInstanceClass'),
                         'stype':    d.get('StorageType'),
@@ -142,7 +146,11 @@ def gophRDSAWS(m, cmon, args):
                         'az':       d.get('AvailabilityZone',r),
                         'multiaz':  str(d.get('MultiAZ')),
                         'state':    d.get('DBInstanceStatus',''),
-                        'tags':     'placeholder="value"'.translate(flt),
+                        'tags':     '' if not dtags else '{}'.format('\t'.join([
+                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in dtags if
+                                    t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
+                                    'role','cust','customer','team','group','alert','slack','version','release','build','stop',
+                                    'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                        })
     csv(None, None)
 

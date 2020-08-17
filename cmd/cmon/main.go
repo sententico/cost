@@ -41,7 +41,7 @@ type (
 		acc chan accTok
 	}
 	model struct {
-		stat       modSt
+		state      modSt
 		req        chan modRq
 		rel        chan accTok
 		boot, term func(string, chan string)
@@ -207,10 +207,10 @@ func main() {
 	}
 	for i := 0; i < len(mMod); i++ {
 		n := <-ctl
-		o := mMod[n]
-		o.stat = msINIT
+		m := mMod[n]
+		m.state = msINIT
 		logI.Printf("%q object model booted", n)
-		go o.maint(n)
+		go m.maint(n)
 	}
 
 	logI.Printf("listening on port %v for HTTP requests", port)
@@ -243,7 +243,7 @@ func main() {
 
 	for i := 0; i < len(mMod); i++ {
 		n := <-ctl
-		mMod[n].stat = msTERM
+		mMod[n].state = msTERM
 		logI.Printf("%q object model shutdown", n)
 	}
 	logI.Printf("shutdown complete with %v sessions handled", seSeq-seInit-int64(len(seID)))
