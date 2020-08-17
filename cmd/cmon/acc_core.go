@@ -150,6 +150,9 @@ func ec2awsBoot(n string, ctl chan string) {
 	} else if err = json.Unmarshal(b, ec2); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
+	if ec2.Inst == nil {
+		ec2.Inst = make(map[string]*ec2Item)
+	}
 	m.data = append(m.data, ec2)
 	ctl <- n
 }
@@ -243,6 +246,9 @@ func ebsawsBoot(n string, ctl chan string) {
 	} else if err = json.Unmarshal(b, ebs); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
+	if ebs.Vol == nil {
+		ebs.Vol = make(map[string]*ebsItem)
+	}
 	m.data = append(m.data, ebs)
 	ctl <- n
 }
@@ -335,6 +341,9 @@ func rdsawsBoot(n string, ctl chan string) {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, rds); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
+	}
+	if rds.DB == nil {
+		rds.DB = make(map[string]*rdsItem)
 	}
 	m.data = append(m.data, rds)
 	ctl <- n
