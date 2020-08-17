@@ -362,7 +362,7 @@ func rdsawsGopher(m *model, item map[string]string, now int) {
 	db.AZ = item["az"]
 	db.Lic = item["lic"]
 	db.MultiAZ = item["multiaz"] == "True"
-	if tag := item["tags"]; tag != "" {
+	if tag := item["tag"]; tag != "" {
 		db.Tag = make(map[string]string)
 		for _, kv := range strings.Split(tag, "\t") {
 			kvs := strings.Split(kv, "=")
