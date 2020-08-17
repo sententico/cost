@@ -11,7 +11,7 @@
 			"Lic": "postgresql-license",
 			"AZ": "us-east-1d",
 			"MultiAZ": true,
-			"Tags": {
+			"Tag": {
 				"dc": "iad",
 				"env": "dev"
 			},
@@ -24,11 +24,11 @@
 			],
 			"Stats": {
 				"conn": {
-					"Periods": [
+					"Period": [
 						1220420740,
 						1240620710
 					],
-					"Values": [
+					"Value": [
 						100,
 						120
 					]

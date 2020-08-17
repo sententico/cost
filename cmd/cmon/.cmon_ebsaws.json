@@ -8,7 +8,7 @@
 			"IOPS": 300,
 			"AZ": "us-east-1d",
 			"Mount": "i-234234:/dev/sda1:True",
-			"Tags": {
+			"Tag": {
 				"dc": "iad",
 				"env": "dev"
 			},
@@ -21,11 +21,11 @@
 			],
 			"Stats": {
 				"idle": {
-					"Periods": [
+					"Period": [
 						1220420740,
 						1240620710
 					],
-					"Values": [
+					"Value": [
 						85,
 						90
 					]

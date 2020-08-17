@@ -8,7 +8,7 @@
 			"AZ": "us-east-1c",
 			"AMI": "",
 			"Spot": "",
-			"Tags": {
+			"Tag": {
 				"dc": "iad",
 				"env": "dev"
 			},
@@ -21,21 +21,21 @@
 			],
 			"Stats": {
 				"cpu": {
-					"Periods": [
+					"Period": [
 						1220420740,
 						1240620710
 					],
-					"Values": [
+					"Value": [
 						0.25,
 						0.1
 					]
 				},
 				"dfr": {
-					"Periods": [
+					"Period": [
 						1220420740,
 						1240620710
 					],
-					"Values": [
+					"Value": [
 						0.45,
 						0.5
 					]

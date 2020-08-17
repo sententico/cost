@@ -16,8 +16,8 @@ import (
 
 type (
 	statItem struct {
-		Periods []int
-		Values  []float32
+		Period []int
+		Value  []float32
 	}
 
 	ec2Item struct {
@@ -27,7 +27,7 @@ type (
 		AZ     string
 		AMI    string
 		Spot   string
-		Tags   map[string]string
+		Tag    map[string]string
 		State  string
 		Since  int
 		Last   int
@@ -46,7 +46,7 @@ type (
 		IOPS   int
 		AZ     string
 		Mount  string
-		Tags   map[string]string
+		Tag    map[string]string
 		State  string
 		Since  int
 		Last   int
@@ -68,7 +68,7 @@ type (
 		Lic     string
 		AZ      string
 		MultiAZ bool
-		Tags    map[string]string
+		Tag     map[string]string
 		State   string
 		Since   int
 		Last    int
@@ -173,14 +173,14 @@ func ec2awsGopher(m *model, item map[string]string, now int) {
 	}
 	inst.Acct = item["acct"]
 	inst.AZ = item["az"]
-	if tags := item["tags"]; tags != "" {
-		inst.Tags = make(map[string]string)
-		for _, kv := range strings.Split(tags, "\t") {
+	if tag := item["tag"]; tag != "" {
+		inst.Tag = make(map[string]string)
+		for _, kv := range strings.Split(tag, "\t") {
 			kvs := strings.Split(kv, "=")
-			inst.Tags[kvs[0]] = kvs[1]
+			inst.Tag[kvs[0]] = kvs[1]
 		}
 	} else {
-		inst.Tags = nil
+		inst.Tag = nil
 	}
 	if inst.State = item["state"]; inst.State == "running" {
 		if inst.Active == nil || inst.Last > inst.Active[len(inst.Active)-1] {
@@ -266,14 +266,14 @@ func ebsawsGopher(m *model, item map[string]string, now int) {
 	vol.IOPS = atoi(item["iops"], -1)
 	vol.AZ = item["az"]
 	vol.Mount = item["mount"]
-	if tags := item["tags"]; tags != "" {
-		vol.Tags = make(map[string]string)
-		for _, kv := range strings.Split(tags, "\t") {
+	if tag := item["tag"]; tag != "" {
+		vol.Tag = make(map[string]string)
+		for _, kv := range strings.Split(tag, "\t") {
 			kvs := strings.Split(kv, "=")
-			vol.Tags[kvs[0]] = kvs[1]
+			vol.Tag[kvs[0]] = kvs[1]
 		}
 	} else {
-		vol.Tags = nil
+		vol.Tag = nil
 	}
 	if vol.State = item["state"]; vol.State == "in-use" {
 		if vol.Active == nil || vol.Last > vol.Active[len(vol.Active)-1] {
@@ -362,14 +362,14 @@ func rdsawsGopher(m *model, item map[string]string, now int) {
 	db.AZ = item["az"]
 	db.Lic = item["lic"]
 	db.MultiAZ = item["multiaz"] == "True"
-	if tags := item["tags"]; tags != "" {
-		db.Tags = make(map[string]string)
-		for _, kv := range strings.Split(tags, "\t") {
+	if tag := item["tags"]; tag != "" {
+		db.Tag = make(map[string]string)
+		for _, kv := range strings.Split(tag, "\t") {
 			kvs := strings.Split(kv, "=")
-			db.Tags[kvs[0]] = kvs[1]
+			db.Tag[kvs[0]] = kvs[1]
 		}
 	} else {
-		db.Tags = nil
+		db.Tag = nil
 	}
 	if db.State = item["state"]; db.State == "available" {
 		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {

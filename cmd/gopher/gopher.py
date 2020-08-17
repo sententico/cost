@@ -69,7 +69,7 @@ def csvWriter(m, cols):
 
 def gophEC2AWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tags'])
+    csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -85,7 +85,7 @@ def gophEC2AWS(m, cmon, args):
                         'ami':      '' if not i.image_id else i.image_id,
                         'state':    i.state.get('Name',''),
                         'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
-                        'tags':     '' if not i.tags else '{}'.format('\t'.join([
+                        'tag':      '' if not i.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in i.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
@@ -95,7 +95,7 @@ def gophEC2AWS(m, cmon, args):
 
 def gophEBSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','size','iops','az','state','mount','tags'])
+    csv = csvWriter(m, ['id','acct','type','size','iops','az','state','mount','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -113,7 +113,7 @@ def gophEBSAWS(m, cmon, args):
                         'mount':    '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
-                        'tags':     '' if not v.tags else '{}'.format('\t'.join([
+                        'tag':      '' if not v.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in v.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
@@ -123,7 +123,7 @@ def gophEBSAWS(m, cmon, args):
 
 def gophRDSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','stype','size','engine','ver','lic','az','multiaz','state','tags'])
+    csv = csvWriter(m, ['id','acct','type','stype','size','engine','ver','lic','az','multiaz','state','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -146,7 +146,7 @@ def gophRDSAWS(m, cmon, args):
                         'az':       d.get('AvailabilityZone',r),
                         'multiaz':  str(d.get('MultiAZ')),
                         'state':    d.get('DBInstanceStatus',''),
-                        'tags':     '' if not dtags else '{}'.format('\t'.join([
+                        'tag':      '' if not dtags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in dtags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
