@@ -42,7 +42,7 @@ func api0VMs() func(int64, http.ResponseWriter, *http.Request) {
 			// select on res & http.CloseNotifier?
 			// incrementally build response per accessor result
 		}
-		w.Write([]byte(fmt.Sprintf("APIv0 VMs stub response (ae=%q id=%v)\n", ar, id)))
+		w.Write([]byte(fmt.Sprintf("%d-> %v\n", id, ar)))
 	}
 }
 
@@ -75,7 +75,7 @@ func api0Disks() func(int64, http.ResponseWriter, *http.Request) {
 			// select on res & http.CloseNotifier?
 			// incrementally build response per accessor result
 		}
-		w.Write([]byte(fmt.Sprintf("APIv0 disks stub response (ae=%q id=%v)\n", ar, id)))
+		w.Write([]byte(fmt.Sprintf("%d-> %v\n", id, ar)))
 	}
 }
 
@@ -108,6 +108,6 @@ func api0DBs() func(int64, http.ResponseWriter, *http.Request) {
 			// select on res & http.CloseNotifier?
 			// incrementally build response per accessor result
 		}
-		w.Write([]byte(fmt.Sprintf("APIv0 DBs stub response (ar=%v id=%v)\n", ar, id)))
+		w.Write([]byte(fmt.Sprintf("%d-> %v\n", id, ar)))
 	}
 }
