@@ -15,10 +15,12 @@ func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
 	token := <-acc
 
 	// perform shared access EC2 lookup, copying results before release
-	inst, _ := m.data[0].(*ec2Model).Inst[id]
-	s := fmt.Sprintf("%v", *inst)
-
+	var s string
+	if inst, _ := m.data[0].(*ec2Model).Inst[id]; inst != nil {
+		s = fmt.Sprintf("%v", *inst)
+	}
 	m.rel <- token
+
 	// after releasing access to object model, create and send result
 	res <- s
 }
@@ -33,10 +35,12 @@ func ebsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 	token := <-acc
 
 	// perform shared access EC2 lookup, copying results before release
-	vol, _ := m.data[0].(*ebsModel).Vol[id]
-	s := fmt.Sprintf("%v", *vol)
-
+	var s string
+	if vol, _ := m.data[0].(*ebsModel).Vol[id]; vol != nil {
+		s = fmt.Sprintf("%v", *vol)
+	}
 	m.rel <- token
+
 	// after releasing access to object model, create and send result
 	res <- s
 }
@@ -51,10 +55,12 @@ func rdsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 	token := <-acc
 
 	// perform shared access EC2 lookup, copying results before release
-	db, _ := m.data[0].(*rdsModel).DB[id]
-	s := fmt.Sprintf("%v", *db)
-
+	var s string
+	if db, _ := m.data[0].(*rdsModel).DB[id]; db != nil {
+		s = fmt.Sprintf("%v", *db)
+	}
 	m.rel <- token
+
 	// after releasing access to object model, create and send result
 	res <- s
 }

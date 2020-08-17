@@ -1,32 +1,35 @@
 {
-	"vol-789789": {
-		"Acct": "1001",
-		"Type": "gp2",
-		"Size": 100,
-		"IOPS": 300,
-        "AZ": "us-east-1d",
-        "Mount": "i-234234:/dev/sda1:True",
-		"Tags": {
-			"dc": "iad",
-			"env": "dev"
-		},
-		"State": "in-use",
-		"Since": 1220400190,
-		"Last": 1250600250,
-		"Active": [
-			1220400190,
-			1250600250
-		],
-		"Stats": {
-			"idle": {
-				"Periods": [
-					1220420740,
-					1240620710
-				],
-				"Values": [
-					85,
-					90
-				]
+	"Current": 1250600250,
+	"Vol": {
+		"vol-789789": {
+			"Acct": "1001",
+			"Type": "gp2",
+			"Size": 100,
+			"IOPS": 300,
+			"AZ": "us-east-1d",
+			"Mount": "i-234234:/dev/sda1:True",
+			"Tags": {
+				"dc": "iad",
+				"env": "dev"
+			},
+			"State": "in-use",
+			"Since": 1220400190,
+			"Last": 1250600250,
+			"Active": [
+				1220400190,
+				1250600250
+			],
+			"Stats": {
+				"idle": {
+					"Periods": [
+						1220420740,
+						1240620710
+					],
+					"Values": [
+						85,
+						90
+					]
+				}
 			}
 		}
 	}

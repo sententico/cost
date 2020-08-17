@@ -142,16 +142,13 @@ func gopher(src string, m *model, at accTyp, update func(*model, map[string]stri
 }
 
 func ec2awsBoot(n string, ctl chan string) {
-	ec2, f, m := &ec2Model{}, settings.Models[n], mMod[n]
+	ec2, f, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, ec2); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
-	}
-	if ec2.Inst == nil {
-		ec2.Inst = make(map[string]*ec2Item)
 	}
 	m.data = append(m.data, ec2)
 	ctl <- n
@@ -238,16 +235,13 @@ func ec2awsTerm(n string, ctl chan string) {
 }
 
 func ebsawsBoot(n string, ctl chan string) {
-	ebs, f, m := &ebsModel{}, settings.Models[n], mMod[n]
+	ebs, f, m := &ebsModel{Vol: make(map[string]*ebsItem, 1024)}, settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, ebs); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
-	}
-	if ebs.Vol == nil {
-		ebs.Vol = make(map[string]*ebsItem)
 	}
 	m.data = append(m.data, ebs)
 	ctl <- n
@@ -334,16 +328,13 @@ func ebsawsTerm(n string, ctl chan string) {
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	rds, f, m := &rdsModel{}, settings.Models[n], mMod[n]
+	rds, f, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, settings.Models[n], mMod[n]
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
 	} else if err = json.Unmarshal(b, rds); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
-	}
-	if rds.DB == nil {
-		rds.DB = make(map[string]*rdsItem)
 	}
 	m.data = append(m.data, rds)
 	ctl <- n

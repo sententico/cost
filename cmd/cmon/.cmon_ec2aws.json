@@ -1,42 +1,45 @@
 {
-	"i-234234": {
-		"Acct": "1001",
-		"Type": "m5.large",
-		"Plat": "windows",
-		"AZ": "us-east-1c",
-		"AMI": "",
-		"Spot": "",
-		"Tags": {
-			"dc": "iad",
-			"env": "dev"
-		},
-		"State": "running",
-		"Since": 1220400190,
-		"Last": 1250600250,
-		"Active": [
-			1220400190,
-			1250600250
-		],
-		"Stats": {
-			"cpu": {
-				"Periods": [
-					1220420740,
-					1240620710
-				],
-				"Values": [
-					0.25,
-					0.1
-				]
+	"Current": 1250600250,
+	"Inst": {
+		"i-234234": {
+			"Acct": "1001",
+			"Type": "m5.large",
+			"Plat": "windows",
+			"AZ": "us-east-1c",
+			"AMI": "",
+			"Spot": "",
+			"Tags": {
+				"dc": "iad",
+				"env": "dev"
 			},
-			"dfr": {
-				"Periods": [
-					1220420740,
-					1240620710
-				],
-				"Values": [
-					0.45,
-					0.5
-				]
+			"State": "running",
+			"Since": 1220400190,
+			"Last": 1250600250,
+			"Active": [
+				1220400190,
+				1250600250
+			],
+			"Stats": {
+				"cpu": {
+					"Periods": [
+						1220420740,
+						1240620710
+					],
+					"Values": [
+						0.25,
+						0.1
+					]
+				},
+				"dfr": {
+					"Periods": [
+						1220420740,
+						1240620710
+					],
+					"Values": [
+						0.45,
+						0.5
+					]
+				}
 			}
 		}
 	}
