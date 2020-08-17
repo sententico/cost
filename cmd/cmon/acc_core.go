@@ -162,6 +162,8 @@ func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 			kvs := strings.Split(kv, "=")
 			i.Tags[kvs[0]] = kvs[1]
 		}
+	} else {
+		i.Tags = nil
 	}
 	if i.State = item["state"]; i.State == "running" {
 		if i.Active == nil || i.Last > i.Active[len(i.Active)-1] {
@@ -230,34 +232,36 @@ func ebsawsBoot(n string, ctl chan string) {
 func ebsawsGopher(m *model, item map[string]string, src string, now int) {
 	// directly insert item into pre-aquired model
 	ebs, id := m.data[0].(ebsModel), item["id"]
-	v, _ := ebs[id]
-	if v == nil {
-		v = &ebsItem{
+	vol, _ := ebs[id]
+	if vol == nil {
+		vol = &ebsItem{
 			Type:  item["type"],
 			Since: now,
 		}
-		ebs[id] = v
+		ebs[id] = vol
 	}
-	v.Acct = item["acct"]
-	v.Size = atoi(item["size"], -1)
-	v.IOPS = atoi(item["iops"], -1)
-	v.AZ = item["az"]
-	v.Mount = item["mount"]
+	vol.Acct = item["acct"]
+	vol.Size = atoi(item["size"], -1)
+	vol.IOPS = atoi(item["iops"], -1)
+	vol.AZ = item["az"]
+	vol.Mount = item["mount"]
 	if tags := item["tags"]; tags != "" {
-		v.Tags = make(map[string]string)
+		vol.Tags = make(map[string]string)
 		for _, kv := range strings.Split(tags, "\t") {
 			kvs := strings.Split(kv, "=")
-			v.Tags[kvs[0]] = kvs[1]
+			vol.Tags[kvs[0]] = kvs[1]
 		}
+	} else {
+		vol.Tags = nil
 	}
-	if v.State = item["state"]; v.State == "in-use" {
-		if v.Active == nil || v.Last > v.Active[len(v.Active)-1] {
-			v.Active = append(v.Active, now, now)
+	if vol.State = item["state"]; vol.State == "in-use" {
+		if vol.Active == nil || vol.Last > vol.Active[len(vol.Active)-1] {
+			vol.Active = append(vol.Active, now, now)
 		} else {
-			v.Active[len(v.Active)-1] = now
+			vol.Active[len(vol.Active)-1] = now
 		}
 	}
-	v.Last = now
+	vol.Last = now
 }
 func ebsawsMaintS(m *model) {
 	acc := make(chan accTok, 1)
@@ -333,6 +337,15 @@ func rdsawsGopher(m *model, item map[string]string, src string, now int) {
 	db.AZ = item["az"]
 	db.Lic = item["lic"]
 	db.MultiAZ = item["multiaz"] == "True"
+	if tags := item["tags"]; tags != "" {
+		db.Tags = make(map[string]string)
+		for _, kv := range strings.Split(tags, "\t") {
+			kvs := strings.Split(kv, "=")
+			db.Tags[kvs[0]] = kvs[1]
+		}
+	} else {
+		db.Tags = nil
+	}
 	if db.State = item["state"]; db.State == "available" {
 		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {
 			db.Active = append(db.Active, now, now)
