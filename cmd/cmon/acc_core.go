@@ -146,7 +146,6 @@ func flush(n string, m *model, at accTyp, release bool) {
 	m.req <- modRq{at, acc}
 	token := <-acc
 
-	// flush object model state
 	b, err := json.MarshalIndent(m.data[0], "", "\t")
 	if release {
 		m.rel <- token
@@ -171,7 +170,6 @@ func ec2awsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func ec2awsGopher(m *model, item map[string]string, now int) {
-	// directly insert item into pre-aquired model
 	ec2 := m.data[0].(*ec2Model)
 	if item == nil {
 		ec2.Current = now
@@ -217,7 +215,7 @@ func ec2awsGarbage(m *model) {
 }
 func ec2awsMaint(n string) {
 	for m, g, sg, fl, gc := mMod[n],
-		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second),
+		time.NewTicker(360*time.Second), time.NewTicker(3600*time.Second),
 		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
 		case <-g.C:
@@ -249,7 +247,6 @@ func ebsawsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func ebsawsGopher(m *model, item map[string]string, now int) {
-	// directly insert item into pre-aquired model
 	ebs := m.data[0].(*ebsModel)
 	if item == nil {
 		ebs.Current = now
@@ -295,7 +292,7 @@ func ebsawsGarbage(m *model) {
 }
 func ebsawsMaint(n string) {
 	for m, g, sg, fl, gc := mMod[n],
-		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second),
+		time.NewTicker(360*time.Second), time.NewTicker(3600*time.Second),
 		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
 		case <-g.C:
@@ -327,7 +324,6 @@ func rdsawsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func rdsawsGopher(m *model, item map[string]string, now int) {
-	// directly insert item into pre-aquired model
 	rds := m.data[0].(*rdsModel)
 	if item == nil {
 		rds.Current = now
@@ -376,7 +372,7 @@ func rdsawsGarbage(m *model) {
 }
 func rdsawsMaint(n string) {
 	for m, g, sg, fl, gc := mMod[n],
-		time.NewTicker(600*time.Second), time.NewTicker(3600*time.Second),
+		time.NewTicker(720*time.Second), time.NewTicker(3600*time.Second),
 		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
 		case <-g.C:
