@@ -156,6 +156,13 @@ func ec2awsGopher(m *model, item map[string]string, src string, now int) {
 	}
 	i.Acct = item["acct"]
 	i.AZ = item["az"]
+	if tags := item["tags"]; tags != "" {
+		i.Tags = make(map[string]string)
+		for _, kv := range strings.Split(tags, "\t") {
+			kvs := strings.Split(kv, "=")
+			i.Tags[kvs[0]] = kvs[1]
+		}
+	}
 	if i.State = item["state"]; i.State == "running" {
 		if i.Active == nil || i.Last > i.Active[len(i.Active)-1] {
 			i.Active = append(i.Active, now, now)
@@ -236,6 +243,13 @@ func ebsawsGopher(m *model, item map[string]string, src string, now int) {
 	v.IOPS = atoi(item["iops"], -1)
 	v.AZ = item["az"]
 	v.Mount = item["mount"]
+	if tags := item["tags"]; tags != "" {
+		v.Tags = make(map[string]string)
+		for _, kv := range strings.Split(tags, "\t") {
+			kvs := strings.Split(kv, "=")
+			v.Tags[kvs[0]] = kvs[1]
+		}
+	}
 	if v.State = item["state"]; v.State == "in-use" {
 		if v.Active == nil || v.Last > v.Active[len(v.Active)-1] {
 			v.Active = append(v.Active, now, now)
