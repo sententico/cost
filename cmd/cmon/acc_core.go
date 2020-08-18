@@ -173,7 +173,9 @@ func ec2awsBoot(n string, ctl chan string) {
 func ec2awsGopher(m *model, item map[string]string, now int) {
 	ec2 := m.data[0].(*ec2Model)
 	if item == nil {
-		ec2.Current = now
+		if now > ec2.Current {
+			ec2.Current = now
+		}
 		return
 	}
 	inst := ec2.Inst[item["id"]]
@@ -254,7 +256,9 @@ func ebsawsBoot(n string, ctl chan string) {
 func ebsawsGopher(m *model, item map[string]string, now int) {
 	ebs := m.data[0].(*ebsModel)
 	if item == nil {
-		ebs.Current = now
+		if now > ebs.Current {
+			ebs.Current = now
+		}
 		return
 	}
 	vol := ebs.Vol[item["id"]]
@@ -335,7 +339,9 @@ func rdsawsBoot(n string, ctl chan string) {
 func rdsawsGopher(m *model, item map[string]string, now int) {
 	rds := m.data[0].(*rdsModel)
 	if item == nil {
-		rds.Current = now
+		if now > rds.Current {
+			rds.Current = now
+		}
 		return
 	}
 	db := rds.DB[item["id"]]
