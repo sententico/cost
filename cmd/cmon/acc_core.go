@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"strconv"
@@ -214,18 +215,22 @@ func ec2awsGarbage(m *model) {
 	m.rel <- token
 }
 func ec2awsMaint(n string) {
-	for m, g, sg, fl, gc := mMod[n],
+	m := mMod[n]
+	goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsGopher) })
+	goAfter(240*time.Second, 270*time.Second, func() { ec2awsGarbage(m) })
+	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	for g, sg, fl, gc :=
 		time.NewTicker(360*time.Second), time.NewTicker(3600*time.Second),
-		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
+		time.NewTicker(28800*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
 		case <-g.C:
-			go gopher(n, m, ec2awsGopher)
+			goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsGopher) })
 		case <-sg.C:
-			//go gopher("stats."+n, m, statsec2awsGopher)
+			//goAfter(0, 60*time.Second, func() {gopher("stats."+n, m, statsec2awsGopher)})
 		case <-fl.C:
-			go flush(n, m, 0, true)
+			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 		case <-gc.C:
-			go ec2awsGarbage(m)
+			goAfter(240*time.Second, 270*time.Second, func() { ec2awsGarbage(m) })
 		}
 	}
 }
@@ -291,18 +296,22 @@ func ebsawsGarbage(m *model) {
 	m.rel <- token
 }
 func ebsawsMaint(n string) {
-	for m, g, sg, fl, gc := mMod[n],
+	m := mMod[n]
+	goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsGopher) })
+	goAfter(240*time.Second, 270*time.Second, func() { ebsawsGarbage(m) })
+	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	for g, sg, fl, gc :=
 		time.NewTicker(360*time.Second), time.NewTicker(3600*time.Second),
-		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
+		time.NewTicker(28800*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
 		case <-g.C:
-			go gopher(n, m, ebsawsGopher)
+			goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsGopher) })
 		case <-sg.C:
-			//go gopher("stats."+n, m, statsebsawsGopher)
+			//goAfter(0, 60*time.Second, func() {gopher("stats."+n, m, statsebsawsGopher)})
 		case <-fl.C:
-			go flush(n, m, 0, true)
+			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 		case <-gc.C:
-			go ebsawsGarbage(m)
+			goAfter(240*time.Second, 270*time.Second, func() { ebsawsGarbage(m) })
 		}
 	}
 }
@@ -371,18 +380,22 @@ func rdsawsGarbage(m *model) {
 	m.rel <- token
 }
 func rdsawsMaint(n string) {
-	for m, g, sg, fl, gc := mMod[n],
+	m := mMod[n]
+	goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsGopher) })
+	goAfter(240*time.Second, 300*time.Second, func() { rdsawsGarbage(m) })
+	goAfter(360*time.Second, 480*time.Second, func() { flush(n, m, 0, true) })
+	for g, sg, fl, gc :=
 		time.NewTicker(720*time.Second), time.NewTicker(3600*time.Second),
-		time.NewTicker(43200*time.Second), time.NewTicker(86400*time.Second); ; {
+		time.NewTicker(28800*time.Second), time.NewTicker(86400*time.Second); ; {
 		select {
 		case <-g.C:
-			go gopher(n, m, rdsawsGopher)
+			goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsGopher) })
 		case <-sg.C:
-			//go gopher("stats."+n, m, statsrdsawsGopher)
+			//goAfter(0, 60*time.Second, func() {gopher("stats."+n, m, statsrdsawsGopher)})
 		case <-fl.C:
-			go flush(n, m, 0, true)
+			goAfter(360*time.Second, 480*time.Second, func() { flush(n, m, 0, true) })
 		case <-gc.C:
-			go ebsawsGarbage(m)
+			goAfter(240*time.Second, 300*time.Second, func() { rdsawsGarbage(m) })
 		}
 	}
 }
@@ -396,4 +409,7 @@ func atoi(s string, d int) int {
 		return i
 	}
 	return d
+}
+func goAfter(a time.Duration, b time.Duration, f func()) {
+	time.AfterFunc(a+time.Duration(rand.Int63n(int64(b-a))), f)
 }
