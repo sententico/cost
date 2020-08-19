@@ -49,14 +49,14 @@ func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 
 	switch res.Typ { // these initial settings should be manually updated
 	case csv.RTcsv:
-		if force && res.Sig == "" {
+		if res.Sig == "" && force {
 			res.Sig, res.Settings.Date = fmt.Sprintf("=%s%d", string(res.Sep), len(res.Split[0])), time.Now()
 		}
 		if res.Settings.Format == "" && res.Settings.Ver == "" {
 			res.Settings.Format, res.Settings.Ver, res.Settings.Date = "unspecified CSV", res.Name, time.Now()
 		}
 	case csv.RTfixed:
-		if force && res.Sig == "" {
+		if res.Sig == "" && force {
 			res.Sig, res.Settings.Date = fmt.Sprintf("=h%d,f%d", len(res.Preview[0]), len(res.Preview[1])), time.Now()
 		}
 		if res.Settings.Format == "" && res.Settings.Ver == "" {
@@ -85,7 +85,7 @@ func getRes(scache *csv.Settings, rn string) {
 		panic(fmt.Errorf("error opening %q: %v", rn, e))
 	}
 	defer res.Close()
-	updateSettings(&res, colsFlag, forceFlag)
+	res.Cols = updateSettings(&res, colsFlag, forceFlag)
 	in, err := res.Get()
 
 	for row := range in {

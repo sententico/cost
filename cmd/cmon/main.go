@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -133,6 +134,14 @@ func init() {
 	}
 }
 
+func goAfter(a time.Duration, b time.Duration, f func()) {
+	if b > a {
+		time.AfterFunc(a+time.Duration(rand.Int63n(int64(b-a))), f)
+	} else {
+		time.AfterFunc(b+time.Duration(rand.Int63n(int64(a-b))), f)
+	}
+}
+
 func modManager(m *model, n string, ctl chan string) {
 	var mr modRq
 	var accessors, token accTok
@@ -205,12 +214,13 @@ func main() {
 	for n, m := range mMod {
 		go modManager(m, n, ctl)
 	}
-	for i := 0; i < len(mMod); i++ {
+	for i, d := 0, time.Duration(0); i < len(mMod); i++ {
 		n := <-ctl
 		m := mMod[n]
 		m.state = msINIT
+		d += 100 * time.Second
+		goAfter(d, d+20*time.Second, func() { m.maint(n) })
 		logI.Printf("%q object model booted", n)
-		go m.maint(n)
 	}
 
 	logI.Printf("listening on port %v for HTTP requests", port)

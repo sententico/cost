@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"strconv"
@@ -414,11 +413,4 @@ func atoi(s string, d int) int {
 		return i
 	}
 	return d
-}
-func goAfter(a time.Duration, b time.Duration, f func()) {
-	if b > a {
-		time.AfterFunc(a+time.Duration(rand.Int63n(int64(b-a))), f)
-	} else {
-		time.AfterFunc(b+time.Duration(rand.Int63n(int64(a-b))), f)
-	}
 }
