@@ -119,8 +119,7 @@ func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 		now = int(time.Now().Unix())
 		pages++
 		m.req <- modRq{atEXCL, acc}
-		token = <-acc
-		for {
+		for token = <-acc; ; {
 			if _, meta = item["~meta"]; !meta {
 				update(m, item, now)
 				items++
@@ -170,7 +169,7 @@ func ec2awsBoot(n string, ctl chan string) {
 	m.data = append(m.data, ec2)
 	ctl <- n
 }
-func ec2awsGopher(m *model, item map[string]string, now int) {
+func ec2awsUpdate(m *model, item map[string]string, now int) {
 	ec2 := m.data[0].(*ec2Model)
 	if item == nil {
 		if now > ec2.Current {
@@ -209,28 +208,28 @@ func ec2awsGopher(m *model, item map[string]string, now int) {
 	}
 	inst.Last = now
 }
-func ec2awsGarbage(m *model) {
+func ec2awsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// collect the garbage
+	// clean expired data
 	m.rel <- token
 }
 func ec2awsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsGopher) })
-	goAfter(240*time.Second, 270*time.Second, func() { ec2awsGarbage(m) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsUpdate) })
+	goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
-	for g, sg, gc, fl :=
+	for u, su, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
-		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsGopher) })
-		case <-sg.C:
-			//goAfter(0, 60*time.Second, func() {gopher("stats."+n, m, statsec2awsGopher)})
-		case <-gc.C:
-			goAfter(240*time.Second, 270*time.Second, func() { ec2awsGarbage(m) })
+		case <-u.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsUpdate) })
+		case <-su.C:
+			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ec2awsSUpdate)})
+		case <-cl.C:
+			goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 		}
@@ -253,7 +252,7 @@ func ebsawsBoot(n string, ctl chan string) {
 	m.data = append(m.data, ebs)
 	ctl <- n
 }
-func ebsawsGopher(m *model, item map[string]string, now int) {
+func ebsawsUpdate(m *model, item map[string]string, now int) {
 	ebs := m.data[0].(*ebsModel)
 	if item == nil {
 		if now > ebs.Current {
@@ -292,28 +291,28 @@ func ebsawsGopher(m *model, item map[string]string, now int) {
 	}
 	vol.Last = now
 }
-func ebsawsGarbage(m *model) {
+func ebsawsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// collect the garbage
+	// clean expired data
 	m.rel <- token
 }
 func ebsawsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsGopher) })
-	goAfter(240*time.Second, 270*time.Second, func() { ebsawsGarbage(m) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsUpdate) })
+	goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
-	for g, sg, gc, fl :=
+	for u, su, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
-		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsGopher) })
-		case <-sg.C:
-			//goAfter(0, 60*time.Second, func() {gopher("stats."+n, m, statsebsawsGopher)})
-		case <-gc.C:
-			goAfter(240*time.Second, 270*time.Second, func() { ebsawsGarbage(m) })
+		case <-u.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsUpdate) })
+		case <-su.C:
+			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ebsawsSUpdate)})
+		case <-cl.C:
+			goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 		}
@@ -336,7 +335,7 @@ func rdsawsBoot(n string, ctl chan string) {
 	m.data = append(m.data, rds)
 	ctl <- n
 }
-func rdsawsGopher(m *model, item map[string]string, now int) {
+func rdsawsUpdate(m *model, item map[string]string, now int) {
 	rds := m.data[0].(*rdsModel)
 	if item == nil {
 		if now > rds.Current {
@@ -378,28 +377,28 @@ func rdsawsGopher(m *model, item map[string]string, now int) {
 	}
 	db.Last = now
 }
-func rdsawsGarbage(m *model) {
+func rdsawsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// collect the garbage
+	// clean expired data
 	m.rel <- token
 }
 func rdsawsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsGopher) })
-	goAfter(240*time.Second, 270*time.Second, func() { rdsawsGarbage(m) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsUpdate) })
+	goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
-	for g, sg, gc, fl :=
+	for u, su, cl, fl :=
 		time.NewTicker(720*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
-		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsGopher) })
-		case <-sg.C:
-			//goAfter(0, 60*time.Second, func() {gopher("stats."+n, m, statsrdsawsGopher)})
-		case <-gc.C:
-			goAfter(240*time.Second, 270*time.Second, func() { rdsawsGarbage(m) })
+		case <-u.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsUpdate) })
+		case <-su.C:
+			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, rdsawsSUpdate)})
+		case <-cl.C:
+			goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 		}
@@ -417,5 +416,9 @@ func atoi(s string, d int) int {
 	return d
 }
 func goAfter(a time.Duration, b time.Duration, f func()) {
-	time.AfterFunc(a+time.Duration(rand.Int63n(int64(b-a))), f)
+	if b > a {
+		time.AfterFunc(a+time.Duration(rand.Int63n(int64(b-a))), f)
+	} else {
+		time.AfterFunc(b+time.Duration(rand.Int63n(int64(a-b))), f)
+	}
 }
