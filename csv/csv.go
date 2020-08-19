@@ -91,7 +91,7 @@ func (res *Resource) Open(r io.Reader) (e error) {
 	}()
 
 	if r == nil {
-		if res.file, e = os.Open(resolveName(res.Name)); e != nil {
+		if res.file, e = os.Open(iio.ResolveName(res.Name)); e != nil {
 			panic(e)
 		}
 		if res.finfo, e = res.file.Stat(); e != nil {
@@ -172,7 +172,7 @@ func (set *Settings) Cache(r io.Reader) {
 	}
 	defer set.mutex.Unlock()
 	if set.mutex.Lock(); r == nil {
-		switch file, e := os.Open(resolveName(set.Name)); e {
+		switch file, e := os.Open(iio.ResolveName(set.Name)); e {
 		case nil:
 			defer file.Close()
 			r = file
@@ -209,7 +209,7 @@ func (set *Settings) Sync() error {
 	if e != nil {
 		return fmt.Errorf("can't write settings cache to %q (%v)", set.Name, e)
 	}
-	return ioutil.WriteFile(resolveName(set.Name), b, 0644)
+	return ioutil.WriteFile(iio.ResolveName(set.Name), b, 0644)
 }
 
 // Find method on Settings returns true if format signature exists in the cache.

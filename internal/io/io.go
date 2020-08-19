@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os/user"
+	"path/filepath"
+	"strings"
 )
 
 // ReadLn returns a channel into which a goroutine writes text lines from an io.Reader (channels
@@ -36,4 +39,18 @@ func ReadLn(r io.Reader, peekLines int) (<-chan string, <-chan string, <-chan er
 		}
 	}()
 	return peek, out, err, sig
+}
+
+// ResolveName is a helper function that resolves resource names (pathnames, ...)
+func ResolveName(n string) string {
+	if strings.HasPrefix(n, "~/") {
+		if u, e := user.Current(); e == nil {
+			if rn, e := filepath.Abs(u.HomeDir + n[1:]); e == nil {
+				return rn
+			}
+		}
+	} else if rn, e := filepath.Abs(n); e == nil {
+		return rn
+	}
+	return n
 }

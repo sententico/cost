@@ -99,7 +99,7 @@ func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 	}()
 	sb, e := json.MarshalIndent(settings, "", "\t")
 	if e != nil {
-		panic(e)
+		panic(e) // TODO: test that panics here before Start() aren't a problem for deferred Wait()
 	}
 	pygo.Stdin = bytes.NewBuffer(sb)
 	pipe, e := pygo.StdoutPipe()

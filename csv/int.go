@@ -3,8 +3,6 @@ package csv
 import (
 	"crypto/md5"
 	"fmt"
-	"os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -495,20 +493,6 @@ func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapEntry, select
 		}
 	}
 	return
-}
-
-// resolveName is a helper function that resolves resource names (pathnames, ...)
-func resolveName(n string) string {
-	if strings.HasPrefix(n, "~/") {
-		if u, e := user.Current(); e == nil {
-			if rn, e := filepath.Abs(u.HomeDir + n[1:]); e == nil {
-				return rn
-			}
-		}
-	} else if rn, e := filepath.Abs(n); e == nil {
-		return rn
-	}
-	return n
 }
 
 // atoi is a helper string-to-int function with selectable default value on error
