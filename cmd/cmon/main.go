@@ -214,11 +214,11 @@ func main() {
 	for n, m := range mMod {
 		go modManager(m, n, ctl)
 	}
-	for i, d := 0, time.Duration(0); i < len(mMod); i++ {
+	for i := 0; i < len(mMod); i++ {
 		n := <-ctl
 		m := mMod[n]
 		m.state = msINIT
-		d += 100 * time.Second
+		d := time.Duration(i*100) * time.Second
 		goAfter(d, d+20*time.Second, func() { m.maint(n) })
 		logI.Printf("%q object model booted", n)
 	}
