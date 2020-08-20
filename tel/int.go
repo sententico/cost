@@ -1,31 +1,17 @@
 package tel
 
 type (
-	resRate struct {
-		Pre  []string
+	rateGrp struct {
 		Rate float32
+		Pre  []string
 	}
-	prefixGroup struct {
-		Group []resRate
-	}
-	rateRes struct {
-		CC map[string]prefixGroup
-	}
+	rateRes map[string][]rateGrp
 
-	prefixRate struct {
-		pre map[string]float32
-	}
+	prefixMap map[string]float32
 )
 
-const defaultRates = `{"CC": {
-	"1": {"Group":[
-	   {"Pre": ["402"],
-		"Rate": 0.0001}
-	   ]},
-	"44": {"Group":[
-	   {"Pre": ["723","741"],
-		"Rate":	0.042},
-	   {"Pre": ["766","75"],
-		"Rate":	0.039}
-	   ]}
-	}}`
+const defaultRates = `{
+	"1":[	{"Rate": 0.001, "Pre": ["402"]}],
+	"44":[	{"Rate": 0.042, "Pre": ["723","741","722"]},
+			{"Rate": 0.039, "Pre": ["760","788"]}]
+}`

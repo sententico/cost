@@ -3,6 +3,7 @@ package tel
 import (
 	"encoding/json"
 	"io"
+	"io/ioutil"
 
 	iio "github.com/sententico/cost/internal/io"
 )
@@ -11,7 +12,7 @@ type (
 	// Rate ...
 	Rate struct {
 		Name string
-		cc   map[string]prefixRate
+		ccm  map[string]prefixMap
 	}
 
 	// E164 ...
@@ -30,31 +31,55 @@ type (
 )
 
 // Load ...
-func (r *Rate) Load(rr *io.Reader) (err error) {
-	res := new(rateRes)
+func (r *Rate) Load(rr io.Reader) (err error) {
+	res, b := make(rateRes), []byte{}
 	if rr != nil {
-		// read rates from rr
+		b, err = ioutil.ReadAll(rr)
 	} else if r.Name != "" {
-		iio.ResolveName(r.Name)
-		// read rates from Name file
+		b, err = ioutil.ReadFile(iio.ResolveName(r.Name))
 	} else {
-		json.Unmarshal([]byte(defaultRates), res)
+		b = []byte(defaultRates)
+	}
+	if err != nil {
+		return
+	} else if err = json.Unmarshal(b, &res); err != nil {
+		return
 	}
 
-	// migrate res.CC map to r.cc map
-	r.cc = make(map[string]prefixRate)
+	r.ccm = make(map[string]prefixMap)
+	for cc, rgs := range res {
+		pm := r.ccm[cc]
+		if pm == nil {
+			pm = make(prefixMap)
+			r.ccm[cc] = pm
+		}
+		for _, rg := range rgs {
+			for _, pre := range rg.Pre {
+				pm[pre] = rg.Rate
+			}
+		}
+	}
 	return nil
 }
 
 // Lookup ...
 func (r *Rate) Lookup(tn *E164) float32 {
-	if r == nil || r.cc == nil || tn == nil || tn.CC == "" || tn.AC == "" || tn.Sub == "" {
+	if r == nil || r.ccm == nil || tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
 		return 0
 	}
-	return r.cc[tn.CC].pre[tn.AC] // placeholder
+	pm := r.ccm[tn.CC]
+	if pm == nil {
+		return 0
+	}
+	for match := tn.Num[len(tn.CC):]; len(match) > 0; match = match[:len(match)-1] {
+		if r := pm[match]; r > 0 {
+			return r
+		}
+	}
+	return 0
 }
 
 // Decode ...
-func (n *E164) Decode() string {
-	return ""
+func (tn *E164) Decode() string {
+	return tn.Num // placeholder
 }
