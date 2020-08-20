@@ -75,14 +75,14 @@ func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 
 func writeCSV(res *csv.Resource, row map[string]string) {
 	if !heading {
-		fmt.Printf("%q\n", strings.Join(res.Heads, `","`))
+		fmt.Println(`"` + strings.Join(res.Heads, `","`) + `"`)
 		heading = true
 	}
 	var col []string
 	for _, h := range res.Heads {
-		col = append(col, strings.ReplaceAll(row[h], `"`, `""`))
+		col = append(col, strings.Replace(row[h], `"`, `""`, -1))
 	}
-	fmt.Printf("%q\n", strings.Join(col, `","`))
+	fmt.Println(`"` + strings.Join(col, `","`) + `"`)
 }
 
 func getRes(scache *csv.Settings, rn string) {
