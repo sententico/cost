@@ -19,28 +19,31 @@ type (
 
 	// Resource contains data and metadata for supported package types (CSV, fixed-field, ...)
 	Resource struct {
-		Name          string        // resource name (pathname, ...)
-		Typ           ResTyp        // resource type
-		Cols          string        // resource column map
-		Preview       []string      // preview rows (excluding blank & comment lines)
-		Rows          int           // estimated total resource rows (-1 if unknown)
-		Comment       string        // comment line prefix
-		Shebang       string        // metadata line prefix (Comment + "!" default)
-		Sep           rune          // field separator rune (for CSV resources)
-		Split         [][]string    // trimmed fields of Preview rows split by Sep (if CSV)
-		Heading       bool          // first row is a heading
-		SettingsCache *Settings     // format Settings resource cache
-		Sig           string        // format signature (specifier or heading MD5 hash, if determined)
-		Settings      SettingsEntry // format settings located by Sig in Settings cache (if found)
-		stat          resStat
-		file          *os.File
-		finfo         os.FileInfo
-		peek, in      <-chan string
-		ierr          <-chan error
-		isig          chan<- int
-		out           chan map[string]string
-		err           chan error
-		sig           chan int
+		Name          string    // resource name (pathname, ...)
+		Typ           ResTyp    // resource type
+		Cols          string    // resource column map
+		Comment       string    // comment line prefix
+		Shebang       string    // metadata line prefix (Comment + "!" default)
+		Sep           rune      // field separator rune (for CSV resources)
+		SettingsCache *Settings // format Settings resource cache
+
+		Preview  []string      // preview rows (excluding blank & comment lines)
+		Split    [][]string    // trimmed fields of Preview rows split by Sep (if CSV)
+		Heads    []string      // column heads from column map
+		Heading  bool          // first row is a heading
+		Rows     int           // estimated total resource rows (-1 if unknown)
+		Sig      string        // format signature (specifier or heading MD5 hash, if determined)
+		Settings SettingsEntry // format settings located by Sig in Settings cache (if found)
+
+		stat     resStat
+		file     *os.File
+		finfo    os.FileInfo
+		peek, in <-chan string
+		ierr     <-chan error
+		isig     chan<- int
+		out      chan map[string]string
+		err      chan error
+		sig      chan int
 	}
 
 	// SettingsEntry contains Resource format information & settings retrieved by its signature
@@ -123,7 +126,8 @@ func (res *Resource) Get() (<-chan map[string]string, <-chan error) {
 		return res.out, res.err
 	}
 
-	res.stat, res.out, res.err, res.sig = rsGET, make(chan map[string]string, 64), make(chan error, 1), make(chan int)
+	res.stat, res.Heads = rsGET, res.getHeads()
+	res.out, res.err, res.sig = make(chan map[string]string, 64), make(chan error, 1), make(chan int)
 	go func() {
 		defer func() {
 			if e := recover(); e != nil {

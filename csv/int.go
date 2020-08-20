@@ -14,8 +14,8 @@ type (
 	// resStat Resource state (see const)
 	resStat uint8
 
-	// cmapEntry ...
-	cmapEntry struct {
+	// cmapItem ...
+	cmapItem struct {
 		col, begin      int      // column reference (paired with begin column for fixed-field files)
 		skip, inclusive bool     // skip: filter-only columns; inclusive: prefix op (exclusive default)
 		prefix          []string // prefix operands
@@ -34,7 +34,7 @@ const (
 const (
 	previewLines = 24       // maximum preview lines returned in Resource on Open (must be >2)
 	sepSet       = ",\t|;:" // priority of separator runes automatically checked if none specified
-	maxFieldLen  = 1024     // maximum field size allowed for Peek to qualify a separator
+	maxFieldLen  = 2048     // maximum field size allowed for Peek to qualify a separator
 	bigFieldLen  = 36       // mean field length above which CSV column-density is suspiciously low
 )
 
@@ -51,7 +51,7 @@ var (
 func (res *Resource) peekAhead() {
 	// TODO: improve override handling (Typ, Sep, Cols, Comment, Shebang)
 	// comment/shebang may not have (") prefix
-	row, fix, tlen, max, hash := -1, 0, 0, 1, ""
+	row, fix, tlen, sep, max, hash := -1, 0, 0, '\x00', 1, ""
 nextLine:
 	for ln := range res.peek {
 		switch {
@@ -93,7 +93,7 @@ nextLine:
 	}
 
 nextSep:
-	for _, r := range sepSet {
+	for _, r := range string(res.Sep) + sepSet {
 		c, sl, sh := 0, []string{}, []string{}
 		for i, ln := range res.Preview {
 			if sl = io.SplitCSV(ln, r); len(sl) <= max || c > 0 && len(sl) != c {
@@ -108,7 +108,7 @@ nextSep:
 				sh, c = sl, len(sl)
 			}
 		}
-		if res.Sep, max, hash = r, c, fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r))))); res.SettingsCache.Find(hash) {
+		if sep, max, hash = r, c, fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r))))); res.SettingsCache.Find(hash) {
 			break
 		}
 		qh := make(map[string]int, c)
@@ -121,20 +121,24 @@ nextSep:
 		if len(qh) != c {
 			hash = ""
 		}
+		if sep == res.Sep {
+			break
+		}
 	}
 
-	switch {
+	switch res.Sep = sep; {
 	case res.Sep == '\x00' && fix == 0:
-		// unknown type resource
-	case hash == "" && (fix > 132 && max < 4 || fix/max > bigFieldLen):
-		// ambigious type resource; conspicuously low-density columns
+		// unknown resource type
+		res.Typ = RTunk
+	case res.Sep != '\x00' && fix != 0 && (res.Typ == RTfixed || res.Typ == RTunk && hash == "" && fix/max > bigFieldLen):
+		// ambigious resource type, but evidence for CSV is weak
 		fallthrough
 	case res.Sep == '\x00':
-		// fixed-field type resource
+		// fixed-field resource type
 		res.Typ, res.Heading = RTfixed, len(res.Preview[0]) != fix
 		res.Sig, res.Heading = res.findFSpec()
 	default:
-		// CSV type resource
+		// CSV resource type
 		for _, r := range res.Preview {
 			res.Split = append(res.Split, io.SplitCSV(r, res.Sep))
 		}
@@ -149,12 +153,13 @@ nextSep:
 			res.Cols = res.Settings.Cols
 		}
 	}
+	res.Heads = res.getHeads()
 }
 
 // getCSV method on Resource reads CSV rows, writing them to "out" channel once converted into
 // key-value maps as specified in Cols until CSV input is exhausted or "sig" indicates a halt
 func (res *Resource) getCSV() {
-	vcols, wid, line, algn, skip := make(map[string]cmapEntry, 32), 0, 0, 0, false
+	vcols, wid, line, algn, skip := make(map[string]cmapItem, 32), 0, 0, 0, false
 	head := res.Heading
 	for ln := range res.in {
 		for line++; ; {
@@ -250,7 +255,7 @@ func (res *Resource) getCSV() {
 // into key-value maps as specified in Cols until fixed-field input is exhausted or "sig" indicates
 // a halt
 func (res *Resource) getFixed() {
-	head, cols, sel, wid, line, algn := res.Heading, map[string]cmapEntry{}, 0, 0, 0, 0
+	head, cols, sel, wid, line, algn := res.Heading, map[string]cmapItem{}, 0, 0, 0, 0
 	for ln := range res.in {
 		for line++; ; {
 			switch {
@@ -411,6 +416,31 @@ nextSpec:
 	return "", res.Heading
 }
 
+// getHeads method on Resource returns a column heads slice in lexical order from column map Col
+// or from the resource itself if a CSV type
+func (res *Resource) getHeads() (heads []string) {
+	var th []string
+	if res.Cols == "" && res.Typ == RTcsv && res.Heading {
+		th = res.Split[0]
+	} else if res.Cols == "" {
+		return
+	} else {
+		for _, t := range strings.Split(res.Cols, ",") {
+			if h := strings.Split(t, ":")[0]; !strings.HasPrefix(h, "!") {
+				th = append(th, h)
+			}
+		}
+	}
+	m := make(map[string]bool)
+	for _, h := range th {
+		if !m[h] {
+			heads = append(heads, h)
+			m[h] = true
+		}
+	}
+	return
+}
+
 // parseCMap parses a column-map string for CSV or fixed-field resource types of specified width,
 // returning map with selected column count
 //   column-map syntax for CSV resource types:
@@ -425,65 +455,65 @@ nextSpec:
 //		"name:={James:Mary},,,age,,acct num:!{N/A:00000}" (same with inclusive/exclusive filters)
 //		"name:20,:62,age:65,:122,acct num:127" (now in a fixed file with implicit begin columns)
 //		"name:1:20,age:63:65,!acct num:![N/A:00000:]:123:127" (same but explicit with skip/filter)
-func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapEntry, selected int) {
+func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapItem, selected int) {
 	switch {
 	case cmap == "" && fixed:
-		return map[string]cmapEntry{"~raw": {begin: 1, col: wid}}, 1
+		return map[string]cmapItem{"~raw": {begin: 1, col: wid}}, 1
 	case cmap == "":
 		return
 	}
-	m = make(map[string]cmapEntry, 32)
+	m = make(map[string]cmapItem, 32)
 	cursor := 0
 
 	for _, t := range strings.Split(cmap, ",") {
-		v, me, a, b, h := strings.Split(t, ":"), cmapEntry{}, 0, 0, ""
+		v, mi, a, b, h := strings.Split(t, ":"), cmapItem{}, 0, 0, ""
 
 		if len(v) > 2 && fixed {
-			if me.col, b = atoi(v[len(v)-1], 0), len(v)-1; me.col > 0 {
-				if me.begin, b = atoi(v[len(v)-2], 0), len(v)-3; me.begin == 0 || me.begin > me.col {
-					me.begin, b = 0, len(v)-2
+			if mi.col, b = atoi(v[len(v)-1], 0), len(v)-1; mi.col > 0 {
+				if mi.begin, b = atoi(v[len(v)-2], 0), len(v)-3; mi.begin == 0 || mi.begin > mi.col {
+					mi.begin, b = 0, len(v)-2
 				}
 			}
 		} else if len(v) > 1 {
-			if me.col, b = atoi(v[len(v)-1], 0), len(v)-2; me.col == 0 {
+			if mi.col, b = atoi(v[len(v)-1], 0), len(v)-2; mi.col == 0 {
 				b = len(v) - 1
 			}
 		}
 		for a = 1; a < len(v) && !strings.HasPrefix(v[a], "={") && !strings.HasPrefix(v[a], "!{"); a++ {
 		}
 		if a <= b && strings.HasSuffix(v[b], "}") {
-			me.skip, me.inclusive = strings.HasPrefix(v[0], "!"), v[a][0] == '='
+			mi.skip, mi.inclusive = strings.HasPrefix(v[0], "!"), v[a][0] == '='
 			v[a] = v[a][2:]
 			v[b] = v[b][:len(v[b])-1]
-			me.prefix = v[a : b+1]
+			mi.prefix = v[a : b+1]
 		} else if a < len(v) {
 			continue
 		}
 		switch {
 		case a <= b:
 			h = strings.Join(v[:a], ":")
-		case me.begin > 0:
+		case mi.begin > 0:
 			h = strings.Join(v[:len(v)-2], ":")
-		case me.col > 0:
+		case mi.col > 0:
 			h = strings.Join(v[:len(v)-1], ":")
 		default:
 			h = t
 		}
 		switch {
-		case fixed && me.col > cursor && me.begin == 0:
-			me.begin = cursor + 1
-		case !fixed && me.col == 0:
-			me.col = cursor + 1
+		case fixed && mi.col > cursor && mi.begin == 0:
+			mi.begin = cursor + 1
+		case !fixed && mi.col == 0:
+			mi.col = cursor + 1
 		}
 
 		switch th := strings.TrimLeft(h, "!"); {
-		case me.col == 0 || me.col > wid || me.begin == 0 && fixed:
+		case mi.col == 0 || mi.col > wid || mi.begin == 0 && fixed:
 			continue
-		case th != "" && (h[0] != '!' || me.skip):
-			m[th] = me
+		case th != "" && (h[0] != '!' || mi.skip):
+			m[th] = mi
 			fallthrough
 		default:
-			cursor = me.col
+			cursor = mi.col
 		}
 	}
 

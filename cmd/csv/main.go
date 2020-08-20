@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 
 var (
 	settingsFlag string
-	detailFlag   bool
+	debugFlag    bool
+	csvFlag      bool
 	forceFlag    bool
+	heading      bool
 	colsFlag     string
 	wg           sync.WaitGroup
 )
@@ -24,13 +27,14 @@ func init() {
 	// set up command-line flags
 	flag.StringVar(&settingsFlag, "s", "~/.csv_settings.json", fmt.Sprintf("file-type settings `file` containing column filter maps"))
 	flag.BoolVar(&forceFlag, "f", false, fmt.Sprintf("force file-type settings to settings file"))
-	flag.BoolVar(&detailFlag, "d", false, fmt.Sprintf("specify detailed output"))
+	flag.BoolVar(&csvFlag, "c", false, fmt.Sprintf("specify CSV output"))
+	flag.BoolVar(&debugFlag, "d", false, fmt.Sprintf("specify debug output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("column filter `map`: "+
 		"'[!]<head>[:(=|!){<pfx>[:<pfx>]...}][[:<bcol>]:<col>][,...]'  (ex. 'name,,!stat:={OK},age,acct:!{n/a:0000}:6')"))
 
 	// call on ErrHelp
 	flag.Usage = func() {
-		fmt.Printf("command usage: csv [-d] [-f] [-cols '<map>'] [-s <file>] <csvfile> [...]" +
+		fmt.Printf("command usage: csv [-c] [-d] [-f] [-cols '<map>'] [-s <file>] <csvfile> [...]" +
 			"\n\nThis command identifies and parses CSV and fixed-field TXT files using column filter maps.\n\n")
 		flag.PrintDefaults()
 	}
@@ -69,6 +73,18 @@ func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 	return
 }
 
+func writeCSV(res *csv.Resource, row map[string]string) {
+	if !heading {
+		fmt.Printf("%q\n", strings.Join(res.Heads, `","`))
+		heading = true
+	}
+	var col []string
+	for _, h := range res.Heads {
+		col = append(col, strings.ReplaceAll(row[h], `"`, `""`))
+	}
+	fmt.Printf("%q\n", strings.Join(col, `","`))
+}
+
 func getRes(scache *csv.Settings, rn string) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -78,7 +94,7 @@ func getRes(scache *csv.Settings, rn string) {
 	}()
 	var r io.Reader
 	if rn == "" {
-		rn, r = "stdin", os.Stdin
+		rn, r = "<stdin>", os.Stdin
 	}
 	res, rows := csv.Resource{Name: rn, Comment: "#", Shebang: "#!", SettingsCache: scache}, 0
 	if e := res.Open(r); e != nil {
@@ -89,14 +105,18 @@ func getRes(scache *csv.Settings, rn string) {
 	in, err := res.Get()
 
 	for row := range in {
-		if rows++; detailFlag {
+		if rows++; csvFlag {
+			writeCSV(&res, row)
+		} else if debugFlag {
 			fmt.Println(row)
 		}
 	}
 	if e := <-err; e != nil {
 		panic(fmt.Errorf("error reading %q: %v", rn, e))
 	}
-	fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, rn)
+	if !csvFlag {
+		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, rn)
+	}
 }
 
 func main() {
