@@ -32,7 +32,7 @@ func init() {
 	flag.BoolVar(&forceFlag, "f", false, fmt.Sprintf("force file-type settings to settings file"))
 	flag.BoolVar(&csvFlag, "c", false, fmt.Sprintf("specify CSV output"))
 	flag.BoolVar(&debugFlag, "d", false, fmt.Sprintf("specify debug output"))
-	flag.BoolVar(&rateFlag, "r", false, fmt.Sprintf(""))
+	flag.BoolVar(&rateFlag, "r", false, fmt.Sprintf("specify call rating output"))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("column filter `map`: "+
 		"'[!]<head>[:(=|!){<pfx>[:<pfx>]...}][[:<bcol>]:<col>][,...]'  (ex. 'name,,!stat:={OK},age,acct:!{n/a:0000}:6')"))
 
@@ -96,20 +96,14 @@ func getRes(scache *csv.Settings, fn string) {
 		}
 		wg.Done()
 	}()
-	var r io.Reader
+	var (
+		r       io.Reader
+		decoder tel.E164
+		rater   tel.Rate
+	)
 	if fn == "" {
 		fn, r = "<stdin>", os.Stdin
 	}
-	res, rows := csv.Resource{Location: fn, Comment: "#", Shebang: "#!", SettingsCache: scache}, 0
-	if e := res.Open(r); e != nil {
-		panic(fmt.Errorf("error opening %q: %v", fn, e))
-	}
-	defer res.Close()
-	res.Cols = updateSettings(&res, colsFlag, forceFlag)
-	in, err := res.Get()
-
-	var decoder tel.E164
-	var rater tel.Rate
 	if rateFlag {
 		if e := decoder.Load(nil); e != nil {
 			panic(fmt.Errorf("error loading E.164 decoder: %v", e))
@@ -118,14 +112,22 @@ func getRes(scache *csv.Settings, fn string) {
 		}
 	}
 
+	res, rows := csv.Resource{Location: fn, Comment: "#", Shebang: "#!", SettingsCache: scache}, 0
+	if e := res.Open(r); e != nil {
+		panic(fmt.Errorf("error opening %q: %v", fn, e))
+	}
+	defer res.Close()
+	res.Cols = updateSettings(&res, colsFlag, forceFlag)
+	in, err := res.Get()
+
 	for row := range in {
 		if rows++; csvFlag {
 			writeCSV(&res, row)
 		} else if rateFlag && row["callDirection"] == "PSTN_OUTBOUND" && decoder.Decode(row["toNumber"]) != "" {
 			d, _ := strconv.ParseFloat(row["rawDuration"], 32)
 			d /= 60000
-			fmt.Printf("rated %vs call to %v (+%v %v) at $%v (billed at $%v)\n",
-				d, row["toNumber"], decoder.CC, decoder.ISO3166, rater.Lookup(&decoder)*float32(d), row["charges"])
+			fmt.Printf("re-rated %.1fm call to +%v (+%v %v) at $%.3f (billed at $%v)\n",
+				d, decoder.Num, decoder.CC, decoder.ISO3166, rater.Lookup(&decoder)*float32(d), row["charges"])
 		} else if debugFlag {
 			fmt.Println(row)
 		}
