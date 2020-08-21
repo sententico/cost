@@ -180,7 +180,9 @@ func (tn *E164) Decode(n string) string {
 	xd := d
 	switch cc {
 	case "1":
-	case "44":
+		// NANPA exceptions
+	case "7":
+		// Russia/Kazakhstan exceptions
 	default:
 	}
 	return tn.set(n, cc, &xd)
