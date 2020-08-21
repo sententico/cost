@@ -120,20 +120,34 @@ func getRes(scache *csv.Settings, fn string) {
 	res.Cols = updateSettings(&res, colsFlag, forceFlag)
 	in, err := res.Get()
 
+	filtered, failed, charged, rated := 0, 0, 0.0, 0.0
 	for row := range in {
 		if rows++; csvFlag {
 			writeCSV(&res, row)
-		} else if rateFlag && row["callDirection"] == "PSTN_OUTBOUND" && decoder.Decode(row["toNumber"]) != "" {
+		} else if rateFlag && row["callDirection"] == "PSTN_OUTBOUND" {
+			filtered++
+			if n := decoder.Decode(row["toNumber"]); n == "" {
+				failed++
+				fmt.Println(row)
+				continue
+			}
 			d, _ := strconv.ParseFloat(row["rawDuration"], 32)
 			d /= 60000
-			fmt.Printf("re-rated %.1fm call to +%v (+%v %v) at $%.3f (billed at $%v)\n",
-				d, decoder.Num, decoder.CC, decoder.ISO3166, rater.Lookup(&decoder)*float32(d), row["charges"])
+			c, _ := strconv.ParseFloat(row["charges"], 32)
+			r := float64(rater.Lookup(&decoder)) * d
+			charged += c
+			rated += r
+			fmt.Printf("re-rated %.1fm call to +%v (+%v %v) at $%.3f (billed at $%.3f)\n",
+				d, decoder.Num, decoder.CC, decoder.ISO3166, r, c)
 		} else if debugFlag {
 			fmt.Println(row)
 		}
 	}
 	if e := <-err; e != nil {
 		panic(fmt.Errorf("error reading %q: %v", fn, e))
+	} else if rateFlag {
+		fmt.Printf("filtered %d records (%d failed); $%.2f charged -- rerated to $%.2f",
+			filtered, failed, charged, rated)
 	} else if !csvFlag {
 		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, fn)
 	}
