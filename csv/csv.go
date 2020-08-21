@@ -94,7 +94,7 @@ func (res *Resource) Open(r io.Reader) (e error) {
 	}()
 
 	if r == nil {
-		if res.file, e = os.Open(iio.ResolveName(res.Name)); e != nil {
+		if res.file, e = os.Open(iio.ResolveName(res.Location)); e != nil {
 			panic(e)
 		}
 		if res.finfo, e = res.file.Stat(); e != nil {
