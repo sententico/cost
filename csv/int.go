@@ -426,7 +426,7 @@ func (res *Resource) getHeads() (heads []string) {
 		return
 	} else {
 		for _, t := range strings.Split(res.Cols, ",") {
-			if h := strings.Split(t, ":")[0]; !strings.HasPrefix(h, "!") {
+			if h := strings.Split(t, ":")[0]; h != "" && !strings.HasPrefix(h, "!") {
 				th = append(th, h)
 			}
 		}

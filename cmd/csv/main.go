@@ -57,14 +57,14 @@ func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 			res.Sig, res.Settings.Date = fmt.Sprintf("=%s%d", string(res.Sep), len(res.Split[0])), time.Now()
 		}
 		if res.Settings.Format == "" && res.Settings.Ver == "" {
-			res.Settings.Format, res.Settings.Ver, res.Settings.Date = "unspecified CSV", res.Name, time.Now()
+			res.Settings.Format, res.Settings.Ver, res.Settings.Date = "unspecified CSV", res.Location, time.Now()
 		}
 	case csv.RTfixed:
 		if res.Sig == "" && force {
 			res.Sig, res.Settings.Date = fmt.Sprintf("=h%d,f%d", len(res.Preview[0]), len(res.Preview[1])), time.Now()
 		}
 		if res.Settings.Format == "" && res.Settings.Ver == "" {
-			res.Settings.Format, res.Settings.Ver, res.Settings.Date = "unspecified fixed-field", res.Name, time.Now()
+			res.Settings.Format, res.Settings.Ver, res.Settings.Date = "unspecified fixed-field", res.Location, time.Now()
 		}
 	}
 	if force || !res.Settings.Lock && res.Settings.Cols != "" {
@@ -85,7 +85,7 @@ func writeCSV(res *csv.Resource, row map[string]string) {
 	fmt.Println(`"` + strings.Join(col, `","`) + `"`)
 }
 
-func getRes(scache *csv.Settings, rn string) {
+func getRes(scache *csv.Settings, fn string) {
 	defer func() {
 		if e := recover(); e != nil {
 			fmt.Printf("%v\n", e)
@@ -93,12 +93,12 @@ func getRes(scache *csv.Settings, rn string) {
 		wg.Done()
 	}()
 	var r io.Reader
-	if rn == "" {
-		rn, r = "<stdin>", os.Stdin
+	if fn == "" {
+		fn, r = "<stdin>", os.Stdin
 	}
-	res, rows := csv.Resource{Name: rn, Comment: "#", Shebang: "#!", SettingsCache: scache}, 0
+	res, rows := csv.Resource{Location: fn, Comment: "#", Shebang: "#!", SettingsCache: scache}, 0
 	if e := res.Open(r); e != nil {
-		panic(fmt.Errorf("error opening %q: %v", rn, e))
+		panic(fmt.Errorf("error opening %q: %v", fn, e))
 	}
 	defer res.Close()
 	res.Cols = updateSettings(&res, colsFlag, forceFlag)
@@ -112,16 +112,15 @@ func getRes(scache *csv.Settings, rn string) {
 		}
 	}
 	if e := <-err; e != nil {
-		panic(fmt.Errorf("error reading %q: %v", rn, e))
-	}
-	if !csvFlag {
-		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, rn)
+		panic(fmt.Errorf("error reading %q: %v", fn, e))
+	} else if !csvFlag {
+		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, fn)
 	}
 }
 
 func main() {
 	flag.Parse()
-	settings := csv.Settings{Name: settingsFlag}
+	settings := csv.Settings{Location: settingsFlag}
 	defer settings.Sync()
 	settings.Cache(nil)
 

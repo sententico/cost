@@ -38,7 +38,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	settings := csv.Settings{Name: pfax.Args.SettingsFlag}
+	settings := csv.Settings{Location: pfax.Args.SettingsFlag}
 	settings.Cache(nil)
 	x, fin := pfax.Xm[string(pfax.Args.XfmFlag)], make(chan interface{}, 64)
 
@@ -58,7 +58,7 @@ func main() {
 					wg.Done()
 				}()
 				var (
-					res = csv.Resource{Name: fn, SettingsCache: &settings}
+					res = csv.Resource{Location: fn, SettingsCache: &settings}
 					e   error
 					fe  pfax.Fentry
 					ok  bool

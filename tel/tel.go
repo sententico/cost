@@ -12,13 +12,13 @@ import (
 type (
 	// Rate ...
 	Rate struct {
-		Res string
-		ccR map[string]rateMap
+		Location string
+		ccR      map[string]rateMap
 	}
 
 	// E164 ...
 	E164 struct {
-		Res      string
+		Location string
 		NANPbias bool
 		decoder  ccDecoder
 		Num      string
@@ -38,8 +38,8 @@ func (r *Rate) Load(rr io.Reader) (err error) {
 	res, b := make(ccRate), []byte{}
 	if rr != nil {
 		b, err = ioutil.ReadAll(rr)
-	} else if r.Res != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(r.Res))
+	} else if r.Location != "" {
+		b, err = ioutil.ReadFile(iio.ResolveName(r.Location))
 	} else {
 		b = []byte(defaultRates)
 	}
@@ -87,8 +87,8 @@ func (tn *E164) Load(r io.Reader) (err error) {
 	res, b := make(ccDecoder), []byte{}
 	if r != nil {
 		b, err = ioutil.ReadAll(r)
-	} else if tn.Res != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(tn.Res))
+	} else if tn.Location != "" {
+		b, err = ioutil.ReadFile(iio.ResolveName(tn.Location))
 	} else {
 		b = []byte(defaultDecoder)
 	}

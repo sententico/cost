@@ -19,7 +19,7 @@ type (
 
 	// Resource contains data and metadata for supported package types (CSV, fixed-field, ...)
 	Resource struct {
-		Name          string    // resource name (pathname, ...)
+		Location      string    // resource location (pathname, ...)
 		Typ           ResTyp    // resource type
 		Cols          string    // resource column map
 		Comment       string    // comment line prefix
@@ -27,13 +27,13 @@ type (
 		Sep           rune      // field separator rune (for CSV resources)
 		SettingsCache *Settings // format Settings resource cache
 
-		Preview  []string      // preview rows (excluding blank & comment lines)
-		Split    [][]string    // trimmed fields of Preview rows split by Sep (if CSV)
-		Heads    []string      // column heads from column map
-		Heading  bool          // first row is a heading
-		Rows     int           // estimated total resource rows (-1 if unknown)
-		Sig      string        // format signature (specifier or heading MD5 hash, if determined)
-		Settings SettingsEntry // format settings located by Sig in Settings cache (if found)
+		Preview  []string     // preview rows (excluding blank & comment lines)
+		Split    [][]string   // trimmed fields of Preview rows split by Sep (if CSV)
+		Heads    []string     // column heads from column map
+		Heading  bool         // first row is a heading
+		Rows     int          // estimated total resource rows (-1 if unknown)
+		Sig      string       // format signature (specifier or heading MD5 hash, if determined)
+		Settings SettingsItem // format settings located by Sig in Settings cache (if found)
 
 		stat     resStat
 		file     *os.File
@@ -46,9 +46,9 @@ type (
 		sig      chan int
 	}
 
-	// SettingsEntry contains Resource format information & settings retrieved by its signature
+	// SettingsItem contains Resource format information & settings retrieved by its signature
 	// (specifier or heading MD5 hash) from the Settings cache
-	SettingsEntry struct {
+	SettingsItem struct {
 		Cols   string    // column map default
 		Format string    // format name
 		Ver    string    // format version
@@ -58,10 +58,10 @@ type (
 
 	// Settings cache maps format settings by Resource signature (specifier or heading MD5 hash)
 	Settings struct {
-		Name     string     // settings resource name (pathname, ...)
+		Location string     // settings location (pathname, ...)
 		writable bool       // true if cache is writable
 		mutex    sync.Mutex // mutex to allow concurrent cache access
-		cache    map[string]SettingsEntry
+		cache    map[string]SettingsItem
 	}
 )
 
@@ -176,44 +176,44 @@ func (set *Settings) Cache(r io.Reader) {
 	}
 	defer set.mutex.Unlock()
 	if set.mutex.Lock(); r == nil {
-		switch file, e := os.Open(iio.ResolveName(set.Name)); e {
+		switch file, err := os.Open(iio.ResolveName(set.Location)); err {
 		case nil:
 			defer file.Close()
 			r = file
 		default:
-			set.cache = make(map[string]SettingsEntry)
-			set.writable = os.IsNotExist(e)
+			set.cache = make(map[string]SettingsItem)
+			set.writable = os.IsNotExist(err)
 			return
 		}
 	}
 
-	switch b, e := ioutil.ReadAll(r); e {
+	switch b, err := ioutil.ReadAll(r); err {
 	case nil:
-		if e = json.Unmarshal(b, &set.cache); e != nil {
-			set.cache = make(map[string]SettingsEntry)
+		if err = json.Unmarshal(b, &set.cache); err != nil {
+			set.cache = make(map[string]SettingsItem)
 		}
-		set.writable = e == nil
+		set.writable = err == nil
 	default:
-		set.cache = make(map[string]SettingsEntry)
+		set.cache = make(map[string]SettingsItem)
 	}
 }
 
 // Sync method on Settings writes (potentially modified) cached format settings back to the JSON
 // settings resource; this implementation does not properly sync (file overwrite only).
 func (set *Settings) Sync() error {
-	if set == nil || set.cache == nil || set.Name == "" {
+	if set == nil || set.cache == nil || set.Location == "" {
 		return fmt.Errorf("can't write settings cache")
 	} else if !set.writable {
-		return fmt.Errorf("can't write settings cache to %q", set.Name)
+		return fmt.Errorf("can't write settings cache to %q", set.Location)
 	}
 	defer set.mutex.Unlock()
 	set.mutex.Lock()
 
-	b, e := json.MarshalIndent(set.cache, "", "\t")
-	if e != nil {
-		return fmt.Errorf("can't write settings cache to %q (%v)", set.Name, e)
+	b, err := json.MarshalIndent(set.cache, "", "\t")
+	if err != nil {
+		return fmt.Errorf("can't write settings cache to %q (%v)", set.Location, err)
 	}
-	return ioutil.WriteFile(iio.ResolveName(set.Name), b, 0644)
+	return ioutil.WriteFile(iio.ResolveName(set.Location), b, 0644)
 }
 
 // Find method on Settings returns true if format signature exists in the cache.
@@ -228,15 +228,15 @@ func (set *Settings) Find(sig string) (found bool) {
 	return
 }
 
-// Get method on Settings returns cache entry located by format signature.
-func (set *Settings) Get(sig string) (e SettingsEntry) {
+// Get method on Settings returns cache item located by format signature.
+func (set *Settings) Get(sig string) (i SettingsItem) {
 	if set == nil || set.cache == nil {
 		return
 	}
 	defer set.mutex.Unlock()
 	set.mutex.Lock()
 
-	e, _ = set.cache[sig]
+	i, _ = set.cache[sig]
 	return
 }
 
@@ -256,15 +256,15 @@ func (set *Settings) GetSpecs() (specs []string) {
 	return
 }
 
-// Set method on Settings returns entry set (added or updated) in cache indexed under format
+// Set method on Settings returns item set (added or updated) in cache indexed under format
 // signature.
-func (set *Settings) Set(sig string, entry *SettingsEntry) *SettingsEntry {
+func (set *Settings) Set(sig string, item *SettingsItem) *SettingsItem {
 	if set == nil || set.cache == nil || sig == "" {
 		return nil
 	}
 	defer set.mutex.Unlock()
 	set.mutex.Lock()
 
-	set.cache[sig] = *entry
-	return entry
+	set.cache[sig] = *item
+	return item
 }
