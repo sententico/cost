@@ -6,17 +6,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sententico/cost/csv"
+	"github.com/sententico/cost/tel"
 )
 
 var (
 	settingsFlag string
-	debugFlag    bool
 	csvFlag      bool
+	debugFlag    bool
+	rateFlag     bool
 	forceFlag    bool
 	heading      bool
 	colsFlag     string
@@ -29,6 +32,7 @@ func init() {
 	flag.BoolVar(&forceFlag, "f", false, fmt.Sprintf("force file-type settings to settings file"))
 	flag.BoolVar(&csvFlag, "c", false, fmt.Sprintf("specify CSV output"))
 	flag.BoolVar(&debugFlag, "d", false, fmt.Sprintf("specify debug output"))
+	flag.BoolVar(&rateFlag, "r", false, fmt.Sprintf(""))
 	flag.StringVar(&colsFlag, "cols", "", fmt.Sprintf("column filter `map`: "+
 		"'[!]<head>[:(=|!){<pfx>[:<pfx>]...}][[:<bcol>]:<col>][,...]'  (ex. 'name,,!stat:={OK},age,acct:!{n/a:0000}:6')"))
 
@@ -104,9 +108,24 @@ func getRes(scache *csv.Settings, fn string) {
 	res.Cols = updateSettings(&res, colsFlag, forceFlag)
 	in, err := res.Get()
 
+	var decoder tel.E164
+	var rater tel.Rate
+	if rateFlag {
+		if e := decoder.Load(nil); e != nil {
+			panic(fmt.Errorf("error loading E.164 decoder: %v", e))
+		} else if e := rater.Load(nil); e != nil {
+			panic(fmt.Errorf("error loading telephony rater: %v", e))
+		}
+	}
+
 	for row := range in {
 		if rows++; csvFlag {
 			writeCSV(&res, row)
+		} else if rateFlag && row["callDirection"] == "PSTN_OUTBOUND" && decoder.Decode(row["toNumber"]) != "" {
+			d, _ := strconv.ParseFloat(row["rawDuration"], 32)
+			d /= 60000
+			fmt.Printf("rated %vs call to %v (+%v %v) at $%v (billed at $%v)\n",
+				d, row["toNumber"], decoder.CC, decoder.ISO3166, rater.Lookup(&decoder)*float32(d), row["charges"])
 		} else if debugFlag {
 			fmt.Println(row)
 		}

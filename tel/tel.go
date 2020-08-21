@@ -66,20 +66,21 @@ func (r *Rate) Load(rr io.Reader) (err error) {
 }
 
 // Lookup method on Rate...
-func (r *Rate) Lookup(tn *E164) float32 {
-	if r == nil || r.ccR == nil || tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
+func (r *Rate) Lookup(tn *E164) (v float32) {
+	if r == nil || tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
 		return 0
 	}
 	rm := r.ccR[tn.CC]
 	if rm == nil {
 		return 0
 	}
-	for match := tn.Num[len(tn.CC):]; len(match) > 0; match = match[:len(match)-1] {
-		if r := rm[match]; r > 0 {
-			return r
+	for match := tn.Num[len(tn.CC):]; ; match = match[:len(match)-1] {
+		if v = rm[match]; v > 0 {
+			return v
+		} else if match == "" {
+			return rm["default"]
 		}
 	}
-	return 0
 }
 
 // Load method on E164 ...
@@ -104,13 +105,13 @@ func (tn *E164) Load(r io.Reader) (err error) {
 
 // QDecode method on E164 ...
 func (tn *E164) QDecode(n string) string {
-	n, intl := strings.Map(func(r rune) rune {
+	n, intl, found := strings.Map(func(r rune) rune {
 		switch r {
 		case '(', ')', '[', ']', '-', '.', ' ', '\t':
 			return -1
 		}
 		return r
-	}, n), false
+	}, n), false, false
 	if n[0] == '+' {
 		n, intl = n[1:], true
 	} else if strings.HasPrefix(n, "011") {
@@ -119,35 +120,33 @@ func (tn *E164) QDecode(n string) string {
 		n, intl = n[2:], true
 	}
 
+	var i e164Info
 	if tn == nil {
 		return ""
-	} else if tn.decoder == nil || len(n) < 7 || len(n) > 15 {
+	} else if len(n) < 7 || len(n) > 15 {
 		return tn.set(n, "", nil)
 	} else if tn.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
-		d := tn.decoder["1"]
-		return tn.set("1"+n, "1", &d)
-	}
-
-	d, found := tn.decoder[n[:1]]
-	if found {
-		return tn.set(n, n[:1], &d)
-	} else if d, found = tn.decoder[n[:2]]; found {
-		return tn.set(n, n[:2], &d)
-	} else if d, found = tn.decoder[n[:3]]; found {
-		return tn.set(n, n[:3], &d)
+		i = tn.decoder["1"]
+		return tn.set("1"+n, "1", &i)
+	} else if i, found = tn.decoder[n[:1]]; found {
+		return tn.set(n, n[:1], &i)
+	} else if i, found = tn.decoder[n[:2]]; found {
+		return tn.set(n, n[:2], &i)
+	} else if i, found = tn.decoder[n[:3]]; found {
+		return tn.set(n, n[:3], &i)
 	}
 	return tn.set(n, "", nil)
 }
 
 // Decode method on E164 ...
 func (tn *E164) Decode(n string) string {
-	n, intl, cc := strings.Map(func(r rune) rune {
+	n, cc, intl, found := strings.Map(func(r rune) rune {
 		switch r {
 		case '(', ')', '[', ']', '-', '.', ' ', '\t':
 			return -1
 		}
 		return r
-	}, n), false, ""
+	}, n), "", false, false
 	if n[0] == '+' {
 		n, intl = n[1:], true
 	} else if strings.HasPrefix(n, "011") {
@@ -156,28 +155,25 @@ func (tn *E164) Decode(n string) string {
 		n, intl = n[2:], true
 	}
 
+	var i e164Info
 	if tn == nil {
 		return ""
-	} else if tn.decoder == nil || len(n) < 7 || len(n) > 15 {
+	} else if len(n) < 7 || len(n) > 15 {
 		return tn.set(n, "", nil)
 	} else if tn.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
-		d := tn.decoder["1"]
-		return tn.set("1"+n, "1", &d)
-	}
-
-	d, found := tn.decoder[n[:1]]
-	if found {
+		n, cc, i = "1"+n, "1", tn.decoder["1"]
+		//return tn.set(n, cc, &i)
+	} else if i, found = tn.decoder[n[:1]]; found {
 		cc = n[:1]
-	} else if d, found = tn.decoder[n[:2]]; found {
+	} else if i, found = tn.decoder[n[:2]]; found {
 		cc = n[:2]
-	} else if d, found = tn.decoder[n[:3]]; found {
+	} else if i, found = tn.decoder[n[:3]]; found {
 		cc = n[:3]
 	} else {
 		return tn.set(n, "", nil)
 	}
 
 	// expanded validation/decoding rules (including more precise area/subscriber partitioning)
-	xd := d
 	switch cc {
 	case "1":
 		// NANPA exceptions
@@ -185,17 +181,17 @@ func (tn *E164) Decode(n string) string {
 		// Russia/Kazakhstan exceptions
 	default:
 	}
-	return tn.set(n, cc, &xd)
+	return tn.set(n, cc, &i)
 }
 
 // set method on E164 (internal) ...
-func (tn *E164) set(n string, cc string, d *decodeItem) string {
-	if d != nil && d.Geo != "" {
+func (tn *E164) set(n string, cc string, i *e164Info) string {
+	if i != nil && i.Geo != "" {
 		tn.Num, tn.CC = n, cc
-		tn.Geo = d.Geo
-		tn.CN = d.CN
-		tn.ISO3166 = d.ISO3166
-		if so := len(cc) + d.AL; len(n) > so {
+		tn.Geo = i.Geo
+		tn.CN = i.CN
+		tn.ISO3166 = i.ISO3166
+		if so := len(cc) + i.AL; len(n) > so {
 			tn.AC, tn.Sub = n[len(cc):so], n[so:]
 		} else {
 			tn.AC, tn.Sub = "", ""
@@ -203,6 +199,6 @@ func (tn *E164) set(n string, cc string, d *decodeItem) string {
 	} else {
 		tn.Num, tn.CC, tn.Geo, tn.CN, tn.ISO3166, tn.AC, tn.Sub = "", "", "", "", "", "", ""
 	}
-	tn.CCx, tn.AN = "", ""
+	// tn.CCx, tn.AN = "", "" // never set
 	return tn.Num
 }
