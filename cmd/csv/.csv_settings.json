@@ -111,7 +111,7 @@
         "Date": "2020-05-03T15:11:49.8202887-04:00",
         "Lock": true
     },
-    "": {
+    "a52c1efa1adcb960d8d8398339aaafba": {
         "Cols": "gatewayAccountingId,startTime,,fromNumber,toNumber,callDirection,rawDuration,meteredDuration,charges",
         "Format": "Aspect CDR",
         "Ver": "2018 Mercury",
