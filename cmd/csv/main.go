@@ -146,7 +146,7 @@ func getRes(scache *csv.Settings, fn string) {
 	if e := <-err; e != nil {
 		panic(fmt.Errorf("error reading %q: %v", fn, e))
 	} else if rateFlag {
-		fmt.Printf("filtered %d records (%d failed); $%.2f charged -- rerated to $%.2f",
+		fmt.Printf("filtered %d records (%d failed); $%.2f charged -- rerated to $%.2f\n",
 			filtered, failed, charged, rated)
 	} else if !csvFlag {
 		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, fn)
