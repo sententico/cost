@@ -98,7 +98,6 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 			if sfx[src[i:]] != "" {
 				args := []string{
 					"python",
-					"-c",
 					fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), sfx[src[i:]]),
 				}
 				return exec.Command(args[0], append(append(args[1:], options...), src)...)
