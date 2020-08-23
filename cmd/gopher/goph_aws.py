@@ -4,6 +4,7 @@ import  sys
 import  os
 import  argparse
 from    datetime                import  datetime,timedelta
+import  random
 import  signal
 import  json
 import  boto3
@@ -74,7 +75,7 @@ def gophEC2AWS(m, cmon, args):
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
         for r,u in ar.items():
-            if u < 0: continue
+            if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
                 csv(s, {'id':       i.id,
@@ -100,7 +101,7 @@ def gophEBSAWS(m, cmon, args):
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
         for r,u in ar.items():
-            if u < 0: continue
+            if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for v in ec2.volumes.all():
                 csv(s, {'id':       v.id,
@@ -128,7 +129,7 @@ def gophRDSAWS(m, cmon, args):
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
         for r,u in ar.items():
-            if u < 0: continue
+            if u < 1.0 and u <= random.random(): continue
             rds, s = session.client('rds', region_name=r), a+':'+r
             for d in rds.describe_db_instances().get('DBInstances',[]):
                 arn = d['DBInstanceArn']

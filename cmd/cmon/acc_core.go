@@ -81,11 +81,37 @@ type (
 	}
 )
 
+var (
+	unleash = getUnleash()
+)
+
+func getUnleash() func(string, ...string) *exec.Cmd {
+	sfx := map[string]string{
+		"aws": "goph_aws.py",
+		"tel": "goph_tel.py",
+		"az":  "goph_az.py",
+		"k8s": "goph_k8s.py",
+		"":    "goph_aws.py", // must have default (empty suffix)
+	}
+	return func(src string, options ...string) *exec.Cmd {
+		for i := 0; ; i++ {
+			if sfx[src[i:]] != "" {
+				args := []string{
+					"python",
+					"-c",
+					fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), sfx[src[i:]]),
+				}
+				return exec.Command(args[0], append(append(args[1:], options...), src)...)
+			}
+		}
+	}
+}
+
 func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 	start, acc, token, pages, items, meta, now := int(time.Now().Unix()), make(chan accTok, 1), accTok(0), 0, 0, false, 0
-	pygo := exec.Command("python", fmt.Sprintf("%v/gopher.py", strings.TrimRight(settings.BinDir, "/")), src)
+	goph := unleash(src)
 	defer func() {
-		if e, x := recover(), pygo.Wait(); e != nil {
+		if e, x := recover(), goph.Wait(); e != nil {
 			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
 		} else if x != nil {
 			logE.Printf("gopher errors fetching from %q: %v", src, x.(*exec.ExitError).Stderr)
@@ -101,11 +127,11 @@ func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 	if e != nil {
 		panic(e) // TODO: test that panics here before Start() aren't a problem for deferred Wait()
 	}
-	pygo.Stdin = bytes.NewBuffer(sb)
-	pipe, e := pygo.StdoutPipe()
+	goph.Stdin = bytes.NewBuffer(sb)
+	pipe, e := goph.StdoutPipe()
 	if e != nil {
 		panic(e)
-	} else if e = pygo.Start(); e != nil {
+	} else if e = goph.Start(); e != nil {
 		panic(e)
 	}
 
@@ -169,14 +195,16 @@ func ec2awsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func ec2awsUpdate(m *model, item map[string]string, now int) {
-	ec2 := m.data[0].(*ec2Model)
+	ec2, id := m.data[0].(*ec2Model), item["id"]
 	if item == nil {
 		if now > ec2.Current {
 			ec2.Current = now
 		}
 		return
+	} else if id == "" {
+		return
 	}
-	inst := ec2.Inst[item["id"]]
+	inst := ec2.Inst[id]
 	if inst == nil {
 		inst = &ec2Item{
 			Type:  item["type"],
@@ -185,7 +213,7 @@ func ec2awsUpdate(m *model, item map[string]string, now int) {
 			Spot:  item["spot"],
 			Since: now,
 		}
-		ec2.Inst[item["id"]] = inst
+		ec2.Inst[id] = inst
 	}
 	inst.Acct = item["acct"]
 	inst.AZ = item["az"]
@@ -211,7 +239,7 @@ func ec2awsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// clean expired data
+	// clean expired data (including case of id=="")
 	m.rel <- token
 }
 func ec2awsMaint(n string) {
@@ -252,20 +280,22 @@ func ebsawsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func ebsawsUpdate(m *model, item map[string]string, now int) {
-	ebs := m.data[0].(*ebsModel)
+	ebs, id := m.data[0].(*ebsModel), item["id"]
 	if item == nil {
 		if now > ebs.Current {
 			ebs.Current = now
 		}
 		return
+	} else if id == "" {
+		return
 	}
-	vol := ebs.Vol[item["id"]]
+	vol := ebs.Vol[id]
 	if vol == nil {
 		vol = &ebsItem{
 			Type:  item["type"],
 			Since: now,
 		}
-		ebs.Vol[item["id"]] = vol
+		ebs.Vol[id] = vol
 	}
 	vol.Acct = item["acct"]
 	vol.Size = atoi(item["size"], -1)
@@ -294,7 +324,7 @@ func ebsawsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// clean expired data
+	// clean expired data (including case of id=="")
 	m.rel <- token
 }
 func ebsawsMaint(n string) {
@@ -335,14 +365,16 @@ func rdsawsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func rdsawsUpdate(m *model, item map[string]string, now int) {
-	rds := m.data[0].(*rdsModel)
+	rds, id := m.data[0].(*rdsModel), item["id"]
 	if item == nil {
 		if now > rds.Current {
 			rds.Current = now
 		}
 		return
+	} else if id == "" {
+		return
 	}
-	db := rds.DB[item["id"]]
+	db := rds.DB[id]
 	if db == nil {
 		db = &rdsItem{
 			Type:   item["type"],
@@ -350,7 +382,7 @@ func rdsawsUpdate(m *model, item map[string]string, now int) {
 			Engine: item["engine"],
 			Since:  now,
 		}
-		rds.DB[item["id"]] = db
+		rds.DB[id] = db
 	}
 	db.Acct = item["acct"]
 	db.Size = atoi(item["size"], -1)
@@ -380,7 +412,7 @@ func rdsawsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// clean expired data
+	// clean expired data (including case of id=="")
 	m.rel <- token
 }
 func rdsawsMaint(n string) {
