@@ -220,7 +220,7 @@ func flush(n string, m *model, at accTyp, release bool) {
 		}
 		pw.Close()
 	}()
-	if f, err := os.OpenFile(settings.Models[n], os.O_RDWR|os.O_CREATE, 0644); err != nil {
+	if f, err := os.OpenFile(settings.Models[n], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], err)
 		pr.CloseWithError(err)
 	} else if _, err = io.Copy(f, pr); err != nil {
