@@ -23,16 +23,16 @@ type (
 	ec2Item struct {
 		Acct   string
 		Type   string
-		Plat   string
-		AZ     string
-		AMI    string
-		Spot   string
-		Tag    map[string]string
+		Plat   string            `json:",omitempty"`
+		AZ     string            `json:",omitempty"`
+		AMI    string            `json:",omitempty"`
+		Spot   string            `json:",omitempty"`
+		Tag    map[string]string `json:",omitempty"`
 		State  string
 		Since  int
 		Last   int
-		Active []int
-		Stats  map[string]statItem
+		Active []int               `json:",omitempty"`
+		Stats  map[string]statItem `json:",omitempty"`
 	}
 	ec2Model struct {
 		Current int
@@ -42,16 +42,16 @@ type (
 	ebsItem struct {
 		Acct   string
 		Type   string
-		Size   int
-		IOPS   int
-		AZ     string
-		Mount  string
-		Tag    map[string]string
+		Size   int               `json:",omitempty"`
+		IOPS   int               `json:",omitempty"`
+		AZ     string            `json:",omitempty"`
+		Mount  string            `json:",omitempty"`
+		Tag    map[string]string `json:",omitempty"`
 		State  string
 		Since  int
 		Last   int
-		Active []int
-		Stats  map[string]statItem
+		Active []int               `json:",omitempty"`
+		Stats  map[string]statItem `json:",omitempty"`
 	}
 	ebsModel struct {
 		Current int
@@ -61,19 +61,19 @@ type (
 	rdsItem struct {
 		Acct    string
 		Type    string
-		SType   string
-		Size    int
-		Engine  string
-		Ver     string
-		Lic     string
-		AZ      string
-		MultiAZ bool
-		Tag     map[string]string
+		SType   string            `json:",omitempty"`
+		Size    int               `json:",omitempty"`
+		Engine  string            `json:",omitempty"`
+		Ver     string            `json:",omitempty"`
+		Lic     string            `json:",omitempty"`
+		AZ      string            `json:",omitempty"`
+		MultiAZ bool              `json:",omitempty"`
+		Tag     map[string]string `json:",omitempty"`
 		State   string
 		Since   int
 		Last    int
-		Active  []int
-		Stats   map[string]statItem
+		Active  []int               `json:",omitempty"`
+		Stats   map[string]statItem `json:",omitempty"`
 	}
 	rdsModel struct {
 		Current int
@@ -86,18 +86,18 @@ type (
 		Calls uint32  // total count
 	}
 	termSum struct {
-		Current   int32                        // hour cursor in summary maps (Unix time)
-		ByHour    map[int32]cdrStat            // map by hour (Unix time)
-		ByGeo     map[int32]map[string]cdrStat // map by hour/geo-code
-		ByCalling map[int32]map[string]cdrStat // map by hour/calling number
-		ByCalled  map[int32]map[string]cdrStat // map by hour/E.164 CC
+		Current int32                        // hour cursor in summary maps (Unix time)
+		ByHour  map[int32]cdrStat            // map by hour (Unix time)
+		ByGeo   map[int32]map[string]cdrStat // map by hour/geo-code
+		ByFrom  map[int32]map[uint64]cdrStat // map by hour/E.164 number
+		ByTo    map[int32]map[uint64]cdrStat // map by hour/E.164 prefix (minimally CC, 0x3ff mask)
 	}
 	cdrItem struct {
-		Calling uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
-		Called  uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
-		Begin   int32   // Unix time (seconds past epoch GMT)
-		Dur     uint32  // 0.1s actual (0x03ffffff mask); applicable rounding (0xfc000000 opt)
-		Cost    float32 // USD
+		From  uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
+		To    uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
+		Begin int32   // Unix time (seconds past epoch GMT)
+		Dur   uint32  // 0.1s actual (0x03ffffff mask); applicable rounding (0xfc000000 opt)
+		Cost  float32 // USD
 	}
 	termDetail struct {
 		Current int32                         // hour cursor in CDR map (Unix time)
@@ -242,7 +242,7 @@ func ec2awsBoot(n string, ctl chan string) {
 	sync(n, m)
 	ctl <- n
 }
-func ec2awsUpdate(m *model, item map[string]string, now int) {
+func ec2awsInsert(m *model, item map[string]string, now int) {
 	ec2, id := m.data[0].(*ec2Model), item["id"]
 	if item == nil {
 		if now > ec2.Current {
@@ -292,17 +292,17 @@ func ec2awsClean(m *model) {
 }
 func ec2awsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsUpdate) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsInsert) })
 	goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
-	for u, su, cl, fl :=
+	for g, sg, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
-		case <-u.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsUpdate) })
-		case <-su.C:
-			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ec2awsSUpdate)})
+		case <-g.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsInsert) })
+		case <-sg.C:
+			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ec2awsSInsert)})
 		case <-cl.C:
 			goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
 		case <-fl.C:
@@ -322,7 +322,7 @@ func ebsawsBoot(n string, ctl chan string) {
 	sync(n, m)
 	ctl <- n
 }
-func ebsawsUpdate(m *model, item map[string]string, now int) {
+func ebsawsInsert(m *model, item map[string]string, now int) {
 	ebs, id := m.data[0].(*ebsModel), item["id"]
 	if item == nil {
 		if now > ebs.Current {
@@ -372,17 +372,17 @@ func ebsawsClean(m *model) {
 }
 func ebsawsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsUpdate) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsInsert) })
 	goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
-	for u, su, cl, fl :=
+	for g, sg, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
-		case <-u.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsUpdate) })
-		case <-su.C:
-			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ebsawsSUpdate)})
+		case <-g.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsInsert) })
+		case <-sg.C:
+			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ebsawsSInsert)})
 		case <-cl.C:
 			goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
 		case <-fl.C:
@@ -402,7 +402,7 @@ func rdsawsBoot(n string, ctl chan string) {
 	sync(n, m)
 	ctl <- n
 }
-func rdsawsUpdate(m *model, item map[string]string, now int) {
+func rdsawsInsert(m *model, item map[string]string, now int) {
 	rds, id := m.data[0].(*rdsModel), item["id"]
 	if item == nil {
 		if now > rds.Current {
@@ -455,17 +455,17 @@ func rdsawsClean(m *model) {
 }
 func rdsawsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsUpdate) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsInsert) })
 	goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
-	for u, su, cl, fl :=
+	for g, sg, cl, fl :=
 		time.NewTicker(720*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
-		case <-u.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsUpdate) })
-		case <-su.C:
-			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, rdsawsSUpdate)})
+		case <-g.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsInsert) })
+		case <-sg.C:
+			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, rdsawsSInsert)})
 		case <-cl.C:
 			goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
 		case <-fl.C:
@@ -480,10 +480,10 @@ func rdsawsTerm(n string, ctl chan string) {
 
 func termcdrBoot(n string, ctl chan string) {
 	sum, detail, m := &termSum{
-		ByHour:    make(map[int32]cdrStat, 2184),
-		ByGeo:     make(map[int32]map[string]cdrStat, 2184),
-		ByCalling: make(map[int32]map[string]cdrStat, 2184),
-		ByCalled:  make(map[int32]map[string]cdrStat, 2184),
+		ByHour: make(map[int32]cdrStat, 2184),
+		ByGeo:  make(map[int32]map[string]cdrStat, 2184),
+		ByFrom: make(map[int32]map[uint64]cdrStat, 2184),
+		ByTo:   make(map[int32]map[uint64]cdrStat, 2184),
 	}, &termDetail{
 		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
 	}, mMod[n]
@@ -495,7 +495,7 @@ func termcdrBoot(n string, ctl chan string) {
 	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
 	ctl <- n
 }
-func termcdrUpdate(m *model, item map[string]string, now int) {
+func termcdrInsert(m *model, item map[string]string, now int) {
 	sum, detail, hr, id := m.data[0].(*termSum), m.data[1].(*termDetail), int32(now-now%3600), ato64(item["id"], 0)
 	if item == nil {
 		if hr > sum.Current {
@@ -506,11 +506,11 @@ func termcdrUpdate(m *model, item map[string]string, now int) {
 		return
 	}
 	cdr, cdrhr := &cdrItem{
-		Calling: 0,   // convert item["calling"] to E.164 and encode
-		Called:  0,   // convert item["called"] to E.164 and encode
-		Begin:   0,   // convert item["date"]/item["time"] to Unix time
-		Dur:     0,   // convert item["dur"] (ms)
-		Cost:    0.0, // lookup rate for call
+		From:  0, // convert item["calling"] to E.164 and encode
+		To:    0, // convert item["called"] to E.164 and encode
+		Begin: 0, // convert item["date"]/item["time"] to Unix time
+		Dur:   0, // convert item["dur"] (ms)
+		Cost:  0, // lookup rate for call
 	}, detail.CDR[hr]
 	// finish setting detail cdr struct
 	// update sum maps
@@ -524,21 +524,21 @@ func termcdrClean(m *model) {
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 	// sum, detail := m.data[0].(*termSum), m.data[1].(*termDetail)
-	// clean expired data (including case of id=="")
-	// sum.ByCalling and detail.CDR maps need aggressive trimming
+	// clean expired data (including case of id==0)
+	// sum.ByFrom and detail.CDR maps need aggressive trimming
 	m.rel <- token
 }
 func termcdrMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrUpdate) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrInsert) })
 	goAfter(240*time.Second, 270*time.Second, func() { termcdrClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
-	for u, cl, fl :=
+	for g, cl, fl :=
 		time.NewTicker(360*time.Second),
 		time.NewTicker(21600*time.Second), time.NewTicker(2880*time.Second); ; {
 		select {
-		case <-u.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrUpdate) })
+		case <-g.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrInsert) })
 		case <-cl.C:
 			goAfter(240*time.Second, 270*time.Second, func() { termcdrClean(m) })
 		case <-fl.C:
