@@ -70,7 +70,7 @@
         "Lock": true
     },
     "=,282,1:STOP,3:0x": {
-        "Cols": "id:3,date:6,time:7,dur:14,calling:20,called:21,dip:24,egress:32",
+        "Cols": "id:3,date:6,time:7,dur:14,from:20,to:21,dip:24,egress:32",
         "Format": "Ribbon CDR",
         "Ver": "2019 STOP",
         "Date": "2020-08-19T11:36:44.365841013-04:00",

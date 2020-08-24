@@ -66,40 +66,32 @@ def csvWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
-def gophRBBNTEL(m, cmon, args):
+def gophTERMCDR(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tag'])
-    flt = str.maketrans('\t',' ','=')
+    csv, s = csvWriter(m, ['id','date','time','dur','from','to','dip','egress']), ""
 
-    subprocess.Run
-
-
-    for a,ar in cmon['AWS']['Accounts'].items():
-        session = boto3.Session(profile_name=a)
-        for r,u in ar.items():
-            if u < 1.0 and u <= random.random(): continue
-            ec2, s = session.resource('ec2', region_name=r), a+':'+r
-            for i in ec2.instances.all():
-                csv(s, {'id':       i.id,
-                        'acct':     a,
-                        'type':     i.instance_type,
-                        'plat':     '' if not i.platform else i.platform,
-                        'az':       i.placement.get('AvailabilityZone',r),
-                        'ami':      '' if not i.image_id else i.image_id,
-                        'state':    i.state.get('Name',''),
-                        'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
-                        'tag':      '' if not i.tags else '{}'.format('\t'.join([
-                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in i.tags if
-                                    t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
-                                    'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                    'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+    with subprocess.Popen(['goph_rbbn.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+        for l in p.stdout:
+            if l.startswith('STOP,'):
+                col = l.split(',', 32)
+                if len(col) <= 32: continue
+                csv(s, {'id':       col[2],
+                        'date':     col[5],
+                        'time':     col[6],
+                        'dur':      col[13],
+                        'from':     col[19],
+                        'to':       col[20],
+                        'dip':      col[23],
+                        'egress':   col[31],
                         })
-    csv(None, None)
+            elif l.startswith('#!begin '):
+                s = l[:-1].partition(' ')[2].partition('~link')[0]
+        csv(None, None)
 
 def main():
     '''Parse command line args and run gopher command'''
     gophModels = {                      # gopher model map
-        'rbbn.tel':     [gophRBBNTEL,   'fetch CDRs from Ribbon switch'],
+        'term.cdr':     [gophTERMCDR,   'fetch internal (Ribbon switch) termination CDRs'],
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
@@ -125,7 +117,6 @@ def main():
     except  BrokenPipeError:            os._exit(0)
     except  KeyboardInterrupt:          ex('\n** command interrupted **\n', 10)
     except (AssertionError, IOError, RuntimeError,
-            ProfileNotFound, ClientError, EndpointConnectionError, ConnectionClosedError,
             GError) as e:               ex('** {} **\n'.format(e if e else 'unknown exception'), 10)
 
 if __name__ == '__main__':  main()      # called as script
