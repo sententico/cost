@@ -201,7 +201,7 @@ func flush(n string, m *model, at accTyp, release bool) {
 	go func() {
 		enc := json.NewEncoder(pw)
 		enc.SetIndent("", "\t")
-		if err := enc.Encode(m.data[0]); err != nil {
+		if err := enc.Encode(m.data[0:m.persist]); err != nil {
 			pw.CloseWithError(err)
 			return
 		}
@@ -225,12 +225,13 @@ func flush(n string, m *model, at accTyp, release bool) {
 func ec2awsBoot(n string, ctl chan string) {
 	ec2, f, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, settings.Models[n], mMod[n]
 	m.data = append(m.data, ec2)
+	m.persist = len(m.data)
 
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
-	} else if err != nil {
+	} else if pdata := m.data[0:m.persist]; err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, m.data[0]); err != nil {
+	} else if err = json.Unmarshal(b, &pdata); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	ctl <- n
@@ -311,12 +312,13 @@ func ec2awsTerm(n string, ctl chan string) {
 func ebsawsBoot(n string, ctl chan string) {
 	ebs, f, m := &ebsModel{Vol: make(map[string]*ebsItem, 1024)}, settings.Models[n], mMod[n]
 	m.data = append(m.data, ebs)
+	m.persist = len(m.data)
 
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
-	} else if err != nil {
+	} else if pdata := m.data[0:m.persist]; err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, m.data[0]); err != nil {
+	} else if err = json.Unmarshal(b, &pdata); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	ctl <- n
@@ -397,12 +399,13 @@ func ebsawsTerm(n string, ctl chan string) {
 func rdsawsBoot(n string, ctl chan string) {
 	rds, f, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, settings.Models[n], mMod[n]
 	m.data = append(m.data, rds)
+	m.persist = len(m.data)
 
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
-	} else if err != nil {
+	} else if pdata := m.data[0:m.persist]; err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, m.data[0]); err != nil {
+	} else if err = json.Unmarshal(b, &pdata); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
 	ctl <- n
@@ -484,33 +487,26 @@ func rdsawsTerm(n string, ctl chan string) {
 }
 
 func termcdrBoot(n string, ctl chan string) {
-	term, f, m := struct {
-		sum    *termSum
-		detail *termDetail
-	}{
-		&termSum{
-			ByHour:    make(map[int32]cdrStat, 2184),
-			ByGeo:     make(map[int32]map[string]cdrStat, 2184),
-			ByCalling: make(map[int32]map[string]cdrStat, 2184),
-			ByCalled:  make(map[int32]map[string]cdrStat, 2184),
-		},
-		&termDetail{
-			CDR: make(map[int32]map[uint64]*cdrItem, 2184),
-		},
+	sum, detail, f, m := &termSum{
+		ByHour:    make(map[int32]cdrStat, 2184),
+		ByGeo:     make(map[int32]map[string]cdrStat, 2184),
+		ByCalling: make(map[int32]map[string]cdrStat, 2184),
+		ByCalled:  make(map[int32]map[string]cdrStat, 2184),
+	}, &termDetail{
+		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
 	}, settings.Models[n], mMod[n]
-	m.data = append(m.data, term.sum)
-	m.data = append(m.data, term.detail)
-	persisted := m.data[0:len(m.data)]
+	m.data = append(m.data, sum)
+	m.data = append(m.data, detail)
+	m.persist = len(m.data)
+	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
 
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
-	} else if err != nil {
+	} else if pdata := m.data[0:m.persist]; err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &persisted); err != nil {
+	} else if err = json.Unmarshal(b, &pdata); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
-
-	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
 	ctl <- n
 }
 func termcdrUpdate(m *model, item map[string]string, now int) {

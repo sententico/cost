@@ -47,6 +47,7 @@ type (
 		rel        chan accTok
 		boot, term func(string, chan string)
 		maint      func(string)
+		persist    int
 		data       []interface{}
 	}
 )
