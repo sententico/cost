@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -192,6 +191,20 @@ func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 	}
 }
 
+func sync(n string, m *model) {
+	if fn := settings.Models[n]; fn == "" {
+		logE.Fatalf("no resource configured into which %q state may persist", n)
+	} else if f, err := os.Open(fn); os.IsNotExist(err) {
+		logW.Printf("no %q state found at %q", n, fn)
+	} else if dec, pdata := json.NewDecoder(f), m.data[0:m.persist]; err != nil {
+		logE.Fatalf("cannot read %q state from %q: %v", n, fn, err)
+	} else if err = dec.Decode(&pdata); err != nil {
+		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, fn, err)
+	} else {
+		f.Close()
+	}
+}
+
 func flush(n string, m *model, at accTyp, release bool) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{at, acc}
@@ -223,17 +236,10 @@ func flush(n string, m *model, at accTyp, release bool) {
 }
 
 func ec2awsBoot(n string, ctl chan string) {
-	ec2, f, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, settings.Models[n], mMod[n]
+	ec2, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, mMod[n]
 	m.data = append(m.data, ec2)
 	m.persist = len(m.data)
-
-	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
-		logW.Printf("no %q state found at %q", n, f)
-	} else if pdata := m.data[0:m.persist]; err != nil {
-		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &pdata); err != nil {
-		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
-	}
+	sync(n, m)
 	ctl <- n
 }
 func ec2awsUpdate(m *model, item map[string]string, now int) {
@@ -310,17 +316,10 @@ func ec2awsTerm(n string, ctl chan string) {
 }
 
 func ebsawsBoot(n string, ctl chan string) {
-	ebs, f, m := &ebsModel{Vol: make(map[string]*ebsItem, 1024)}, settings.Models[n], mMod[n]
+	ebs, m := &ebsModel{Vol: make(map[string]*ebsItem, 1024)}, mMod[n]
 	m.data = append(m.data, ebs)
 	m.persist = len(m.data)
-
-	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
-		logW.Printf("no %q state found at %q", n, f)
-	} else if pdata := m.data[0:m.persist]; err != nil {
-		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &pdata); err != nil {
-		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
-	}
+	sync(n, m)
 	ctl <- n
 }
 func ebsawsUpdate(m *model, item map[string]string, now int) {
@@ -397,17 +396,10 @@ func ebsawsTerm(n string, ctl chan string) {
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	rds, f, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, settings.Models[n], mMod[n]
+	rds, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, mMod[n]
 	m.data = append(m.data, rds)
 	m.persist = len(m.data)
-
-	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
-		logW.Printf("no %q state found at %q", n, f)
-	} else if pdata := m.data[0:m.persist]; err != nil {
-		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &pdata); err != nil {
-		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
-	}
+	sync(n, m)
 	ctl <- n
 }
 func rdsawsUpdate(m *model, item map[string]string, now int) {
@@ -487,26 +479,20 @@ func rdsawsTerm(n string, ctl chan string) {
 }
 
 func termcdrBoot(n string, ctl chan string) {
-	sum, detail, f, m := &termSum{
+	sum, detail, m := &termSum{
 		ByHour:    make(map[int32]cdrStat, 2184),
 		ByGeo:     make(map[int32]map[string]cdrStat, 2184),
 		ByCalling: make(map[int32]map[string]cdrStat, 2184),
 		ByCalled:  make(map[int32]map[string]cdrStat, 2184),
 	}, &termDetail{
 		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
-	}, settings.Models[n], mMod[n]
+	}, mMod[n]
 	m.data = append(m.data, sum)
 	m.data = append(m.data, detail)
 	m.persist = len(m.data)
-	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
+	sync(n, m)
 
-	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
-		logW.Printf("no %q state found at %q", n, f)
-	} else if pdata := m.data[0:m.persist]; err != nil {
-		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, &pdata); err != nil {
-		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
-	}
+	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
 	ctl <- n
 }
 func termcdrUpdate(m *model, item map[string]string, now int) {
