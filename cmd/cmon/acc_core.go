@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -79,6 +80,30 @@ type (
 		Current int
 		DB      map[string]*rdsItem
 	}
+
+	cdrStat struct {
+		Cost  float64 // total USD
+		Dur   uint64  // total 0.1s actual (high-order 16 bits unused)
+		Calls uint32  // total count
+	}
+	termSum struct {
+		Current   int32                        // hour cursor in summary maps (Unix time)
+		ByHour    map[int32]cdrStat            // map by hour (Unix time)
+		ByGeo     map[int32]map[string]cdrStat // map by hour/geo-code
+		ByCalling map[int32]map[string]cdrStat // map by hour/calling number
+		ByCalled  map[int32]map[string]cdrStat // map by hour/E.164 CC
+	}
+	cdrItem struct {
+		Calling uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
+		Called  uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
+		Begin   int32   // Unix time (seconds past epoch GMT)
+		Dur     uint32  // 0.1s actual (0x03ffffff mask); applicable rounding (0xfc000000 opt)
+		Cost    float32 // USD
+	}
+	termDetail struct {
+		Current int32                         // hour cursor in CDR map (Unix time)
+		CDR     map[int32]map[uint64]*cdrItem // map by hour(Unix time) / CDR ID
+	}
 )
 
 var (
@@ -87,11 +112,13 @@ var (
 
 func getUnleash() func(string, ...string) *exec.Cmd {
 	sfx := map[string]string{
-		"aws": "goph_aws.py",
-		"tel": "goph_tel.py",
-		"az":  "goph_az.py",
-		"k8s": "goph_k8s.py",
-		"":    "goph_aws.py", // must have default (empty suffix)
+		"aws":  "goph_aws.py",
+		"az":   "goph_az.py",
+		"gcs":  "goph_gcs.py",
+		"k8s":  "goph_k8s.py",
+		"rack": "goph_rack.py",
+		"cdr":  "goph_cdr.py",
+		"":     "goph_aws.py", // must have default (empty suffix)
 	}
 	return func(src string, options ...string) *exec.Cmd {
 		for i := 0; ; i++ {
@@ -170,27 +197,42 @@ func flush(n string, m *model, at accTyp, release bool) {
 	m.req <- modRq{at, acc}
 	token := <-acc
 
-	b, err := json.MarshalIndent(m.data[0], "", "\t")
+	pr, pw := io.Pipe()
+	go func() {
+		enc := json.NewEncoder(pw)
+		enc.SetIndent("", "\t")
+		if err := enc.Encode(m.data[0]); err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+		pw.Close()
+	}()
+	if f, err := os.OpenFile(settings.Models[n], os.O_RDWR|os.O_CREATE, 0644); err != nil {
+		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], err)
+		pr.CloseWithError(err)
+	} else if _, err = io.Copy(f, pr); err != nil {
+		logE.Printf("can't complete persisting %q state to %q: %v", n, settings.Models[n], err)
+		pr.CloseWithError(err)
+		f.Close()
+	} else {
+		f.Close()
+	}
 	if release {
 		m.rel <- token
-	}
-	if err != nil {
-		logE.Printf("can't encode %q state to JSON: %v", n, err)
-	} else if err = ioutil.WriteFile(settings.Models[n], b, 0644); err != nil {
-		logE.Printf("can't persist %q state to %q: %v", n, settings.Models[n], err)
 	}
 }
 
 func ec2awsBoot(n string, ctl chan string) {
 	ec2, f, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, settings.Models[n], mMod[n]
+	m.data = append(m.data, ec2)
+
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, ec2); err != nil {
+	} else if err = json.Unmarshal(b, m.data[0]); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
-	m.data = append(m.data, ec2)
 	ctl <- n
 }
 func ec2awsUpdate(m *model, item map[string]string, now int) {
@@ -268,14 +310,15 @@ func ec2awsTerm(n string, ctl chan string) {
 
 func ebsawsBoot(n string, ctl chan string) {
 	ebs, f, m := &ebsModel{Vol: make(map[string]*ebsItem, 1024)}, settings.Models[n], mMod[n]
+	m.data = append(m.data, ebs)
+
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, ebs); err != nil {
+	} else if err = json.Unmarshal(b, m.data[0]); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
-	m.data = append(m.data, ebs)
 	ctl <- n
 }
 func ebsawsUpdate(m *model, item map[string]string, now int) {
@@ -353,14 +396,15 @@ func ebsawsTerm(n string, ctl chan string) {
 
 func rdsawsBoot(n string, ctl chan string) {
 	rds, f, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, settings.Models[n], mMod[n]
+	m.data = append(m.data, rds)
+
 	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, f)
 	} else if err != nil {
 		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
-	} else if err = json.Unmarshal(b, rds); err != nil {
+	} else if err = json.Unmarshal(b, m.data[0]); err != nil {
 		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
 	}
-	m.data = append(m.data, rds)
 	ctl <- n
 }
 func rdsawsUpdate(m *model, item map[string]string, now int) {
@@ -439,8 +483,101 @@ func rdsawsTerm(n string, ctl chan string) {
 	ctl <- n
 }
 
+func termcdrBoot(n string, ctl chan string) {
+	term, f, m := struct {
+		sum    *termSum
+		detail *termDetail
+	}{
+		&termSum{
+			ByHour:    make(map[int32]cdrStat, 2184),
+			ByGeo:     make(map[int32]map[string]cdrStat, 2184),
+			ByCalling: make(map[int32]map[string]cdrStat, 2184),
+			ByCalled:  make(map[int32]map[string]cdrStat, 2184),
+		},
+		&termDetail{
+			CDR: make(map[int32]map[uint64]*cdrItem, 2184),
+		},
+	}, settings.Models[n], mMod[n]
+	m.data = append(m.data, term.sum)
+	m.data = append(m.data, term.detail)
+	persisted := m.data[0:len(m.data)]
+
+	if b, err := ioutil.ReadFile(f); os.IsNotExist(err) {
+		logW.Printf("no %q state found at %q", n, f)
+	} else if err != nil {
+		logE.Fatalf("cannot read %q state from %q: %v", n, f, err)
+	} else if err = json.Unmarshal(b, &persisted); err != nil {
+		logE.Fatalf("%q state resource %q is invalid JSON: %v", n, f, err)
+	}
+
+	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
+	ctl <- n
+}
+func termcdrUpdate(m *model, item map[string]string, now int) {
+	sum, detail, hr, id := m.data[0].(*termSum), m.data[1].(*termDetail), int32(now-now%3600), ato64(item["id"], 0)
+	if item == nil {
+		if hr > sum.Current {
+			sum.Current, detail.Current = hr, hr
+		}
+		return
+	} else if id == 0 {
+		return
+	}
+	cdr, cdrhr := &cdrItem{
+		Calling: 0,   // convert item["calling"] to E.164 and encode
+		Called:  0,   // convert item["called"] to E.164 and encode
+		Begin:   0,   // convert item["date"]/item["time"] to Unix time
+		Dur:     0,   // convert item["dur"] (ms)
+		Cost:    0.0, // lookup rate for call
+	}, detail.CDR[hr]
+	// finish setting detail cdr struct
+	// update sum maps
+	if cdrhr == nil {
+		cdrhr = make(map[uint64]*cdrItem, 4096)
+	}
+	cdrhr[id] = cdr
+}
+func termcdrClean(m *model) {
+	acc := make(chan accTok, 1)
+	m.req <- modRq{atEXCL, acc}
+	token := <-acc
+	// sum, detail := m.data[0].(*termSum), m.data[1].(*termDetail)
+	// clean expired data (including case of id=="")
+	// sum.ByCalling and detail.CDR maps need aggressive trimming
+	m.rel <- token
+}
+func termcdrMaint(n string) {
+	m := mMod[n]
+	goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrUpdate) })
+	goAfter(240*time.Second, 270*time.Second, func() { termcdrClean(m) })
+	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	for u, cl, fl :=
+		time.NewTicker(360*time.Second),
+		time.NewTicker(21600*time.Second), time.NewTicker(2880*time.Second); ; {
+		select {
+		case <-u.C:
+			goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrUpdate) })
+		case <-cl.C:
+			goAfter(240*time.Second, 270*time.Second, func() { termcdrClean(m) })
+		case <-fl.C:
+			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+		}
+	}
+}
+func termcdrTerm(n string, ctl chan string) {
+	flush(n, mMod[n], atEXCL, false)
+	ctl <- n
+}
+
 func atoi(s string, d int) int {
-	if i, err := strconv.Atoi(s); err == nil {
+	if i, err := strconv.ParseInt(s, 0, 0); err == nil {
+		return int(i)
+	}
+	return d
+}
+
+func ato64(s string, d uint64) uint64 {
+	if i, err := strconv.ParseUint(s, 0, 0); err == nil {
 		return i
 	}
 	return d

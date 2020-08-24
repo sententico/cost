@@ -4,6 +4,7 @@ import  sys
 import  os
 import  argparse
 from    datetime                import  datetime,timedelta
+import  subprocess
 import  random
 import  signal
 import  json
@@ -69,6 +70,10 @@ def gophRBBNTEL(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
     csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tag'])
     flt = str.maketrans('\t',' ','=')
+
+    subprocess.Run
+
+
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
         for r,u in ar.items():

@@ -88,9 +88,10 @@ func init() {
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
 	m, val := map[string]*model{
-		"ec2.aws": {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
-		"ebs.aws": {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
-		"rds.aws": {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
+		"ec2.aws":  {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
+		"ebs.aws":  {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
+		"rds.aws":  {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
+		"term.cdr": {boot: termcdrBoot, maint: termcdrMaint, term: termcdrTerm},
 	}, func(pri string, dflt string) string {
 		if strings.HasPrefix(pri, "CMON_") {
 			pri = os.Getenv(pri)
