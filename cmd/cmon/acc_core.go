@@ -132,7 +132,7 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 	}
 }
 
-func gopher(src string, m *model, update func(*model, map[string]string, int)) {
+func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 	start, acc, token, pages, items, meta, now := int(time.Now().Unix()), make(chan accTok, 1), accTok(0), 0, 0, false, 0
 	goph := unleash(src)
 	defer func() {
@@ -142,9 +142,11 @@ func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 			logE.Printf("gopher errors fetching from %q: %v", src, x.(*exec.ExitError).Stderr)
 		} else {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
+		}
+		if items > 0 {
 			m.req <- modRq{atEXCL, acc}
 			token = <-acc
-			update(m, nil, start) // TODO: should this be called even on errors?
+			insert(m, nil, start)
 			m.rel <- token
 		}
 	}()
@@ -171,7 +173,7 @@ func gopher(src string, m *model, update func(*model, map[string]string, int)) {
 		m.req <- modRq{atEXCL, acc}
 		for token = <-acc; ; {
 			if _, meta = item["~meta"]; !meta {
-				update(m, item, now)
+				insert(m, item, now)
 				items++
 			}
 			select {
@@ -553,6 +555,7 @@ func termcdrClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
+
 	// sum, detail := m.data[0].(*termSum), m.data[1].(*termDetail)
 	// clean expired data (including case of id==0)
 	// sum.ByFrom and detail.CDR maps need aggressive trimming
@@ -565,7 +568,7 @@ func termcdrMaint(n string) {
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 	for g, cl, fl :=
 		time.NewTicker(360*time.Second),
-		time.NewTicker(21600*time.Second), time.NewTicker(2880*time.Second); ; {
+		time.NewTicker(21600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
 			goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrInsert) })

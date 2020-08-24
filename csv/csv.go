@@ -67,7 +67,8 @@ type (
 
 // Resource type constants
 const (
-	RTunk   ResTyp = iota // unknown/indeterminate
+	RTunk   ResTyp = iota // unknown/indeterminate content
+	RTempty               // unknown/no content
 	RTcsv                 // CSV
 	RTfixed               // fixed-field
 )
@@ -143,6 +144,7 @@ func (res *Resource) Get() (<-chan map[string]string, <-chan error) {
 			res.getCSV()
 		case RTfixed:
 			res.getFixed()
+		case RTempty:
 		default:
 			panic(fmt.Errorf("unknown resource type"))
 		}

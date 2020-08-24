@@ -84,8 +84,8 @@ nextLine:
 	case len(res.ierr) > 0:
 		panic(fmt.Errorf("problem peeking ahead on resource (%v)", <-res.ierr))
 	case row < 1:
-		// TODO: silently suppress...empty resource (reflect in Resource fields?)
-		panic(fmt.Errorf("at least 1 data row required to characterize resource"))
+		res.Typ, res.Rows = RTempty, 0
+		return
 	case res.finfo != nil:
 		res.Rows = int(float64(res.finfo.Size())/float64(tlen-len(res.Preview[0])+row-1)*0.995+0.5) * (row - 1)
 	default:
@@ -100,7 +100,7 @@ nextSep:
 				continue nextSep
 			}
 			for _, f := range sl {
-				if len(f) > maxFieldLen {
+				if len(f) > maxFieldLen { // TODO: remove or modify this check?
 					continue nextSep
 				}
 			}
