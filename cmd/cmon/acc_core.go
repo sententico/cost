@@ -287,7 +287,14 @@ func ec2awsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// clean expired data (including case of id=="")
+
+	// clean expired/invalid data
+	ec2 := m.data[0].(*ec2Model)
+	for id, inst := range ec2.Inst {
+		if id == "" || ec2.Current-inst.Last > 86400*365 { // placeholder
+			delete(ec2.Inst, id)
+		}
+	}
 	m.rel <- token
 }
 func ec2awsMaint(n string) {
@@ -341,8 +348,8 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		ebs.Vol[id] = vol
 	}
 	vol.Acct = item["acct"]
-	vol.Size = atoi(item["size"], -1)
-	vol.IOPS = atoi(item["iops"], -1)
+	vol.Size = atoi(item["size"], 0)
+	vol.IOPS = atoi(item["iops"], 0)
 	vol.AZ = item["az"]
 	if vol.Mount = item["mount"]; vol.Mount == "0 attachments" {
 		vol.Mount = ""
@@ -369,7 +376,21 @@ func ebsawsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// clean expired data (including case of id=="")
+
+	// clean expired/invalid data
+	ebs := m.data[0].(*ebsModel)
+	for id, vol := range ebs.Vol {
+		if id == "" || ebs.Current-vol.Last > 86400*365 { // placeholder
+			delete(ebs.Vol, id)
+		} else {
+			if vol.IOPS < 0 {
+				vol.IOPS = 0
+			}
+			if vol.Mount == "0 attachments" {
+				vol.Mount = ""
+			}
+		}
+	}
 	m.rel <- token
 }
 func ebsawsMaint(n string) {
@@ -425,7 +446,7 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 		rds.DB[id] = db
 	}
 	db.Acct = item["acct"]
-	db.Size = atoi(item["size"], -1)
+	db.Size = atoi(item["size"], 0)
 	db.Ver = item["ver"]
 	db.AZ = item["az"]
 	db.Lic = item["lic"]
@@ -452,7 +473,14 @@ func rdsawsClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
-	// clean expired data (including case of id=="")
+
+	// clean expired/invalid data
+	rds := m.data[0].(*rdsModel)
+	for id, db := range rds.DB {
+		if id == "" || rds.Current-db.Last > 86400*365 { // placeholder
+			delete(rds.DB, id)
+		}
+	}
 	m.rel <- token
 }
 func rdsawsMaint(n string) {
