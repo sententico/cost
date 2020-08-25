@@ -155,12 +155,6 @@ def gophRDSAWS(m, cmon, args):
                        })
     csv(None, None)
 
-# Azure notes
-# https://stackoverflow.com/questions/58925397/how-could-i-list-azure-virtual-machines-using-python
-#
-# Kubernetes notes
-# ...
-
 def main():
     '''Parse command line args and run gopher command'''
     gophModels = {                      # gopher model map

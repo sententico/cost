@@ -111,13 +111,13 @@ var (
 
 func getUnleash() func(string, ...string) *exec.Cmd {
 	sfx := map[string]string{
-		"aws":  "goph_aws.py",
-		"az":   "goph_az.py",
-		"gcs":  "goph_gcs.py",
-		"k8s":  "goph_k8s.py",
-		"rack": "goph_rack.py",
-		"cdr":  "goph_cdr.py",
-		"":     "goph_aws.py", // must have default (empty suffix)
+		"aws": "goph_aws.py",
+		"az":  "goph_az.py",
+		"gcs": "goph_gcs.py",
+		"k8s": "goph_k8s.py",
+		"rax": "goph_rax.py",
+		"asp": "goph_asp.py",
+		"":    "goph_aws.py", // must have default (empty suffix)
 	}
 	return func(src string, options ...string) *exec.Cmd {
 		for i := 0; ; i++ {
@@ -510,7 +510,7 @@ func rdsawsTerm(n string, ctl chan string) {
 	ctl <- n
 }
 
-func termcdrBoot(n string, ctl chan string) {
+func cdraspBoot(n string, ctl chan string) {
 	sum, detail, m := &termSum{
 		ByHour: make(map[int32]cdrStat, 2184),
 		ByGeo:  make(map[int32]map[string]cdrStat, 2184),
@@ -527,7 +527,7 @@ func termcdrBoot(n string, ctl chan string) {
 	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
 	ctl <- n
 }
-func termcdrInsert(m *model, item map[string]string, now int) {
+func cdraspInsert(m *model, item map[string]string, now int) {
 	sum, detail, hr, id := m.data[0].(*termSum), m.data[1].(*termDetail), int32(now-now%3600), ato64(item["id"], 0)
 	if item == nil {
 		if hr > sum.Current {
@@ -551,7 +551,7 @@ func termcdrInsert(m *model, item map[string]string, now int) {
 	}
 	cdrhr[id] = cdr
 }
-func termcdrClean(m *model) {
+func cdraspClean(m *model) {
 	acc := make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
@@ -561,25 +561,25 @@ func termcdrClean(m *model) {
 	// sum.ByFrom and detail.CDR maps need aggressive trimming
 	m.rel <- token
 }
-func termcdrMaint(n string) {
+func cdraspMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrInsert) })
-	goAfter(240*time.Second, 270*time.Second, func() { termcdrClean(m) })
+	goAfter(0, 60*time.Second, func() { gopher(n, m, cdraspInsert) })
+	goAfter(240*time.Second, 270*time.Second, func() { cdraspClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 	for g, cl, fl :=
 		time.NewTicker(360*time.Second),
 		time.NewTicker(21600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, termcdrInsert) })
+			goAfter(0, 60*time.Second, func() { gopher(n, m, cdraspInsert) })
 		case <-cl.C:
-			goAfter(240*time.Second, 270*time.Second, func() { termcdrClean(m) })
+			goAfter(240*time.Second, 270*time.Second, func() { cdraspClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 		}
 	}
 }
-func termcdrTerm(n string, ctl chan string) {
+func cdraspTerm(n string, ctl chan string) {
 	flush(n, mMod[n], atEXCL, false)
 	ctl <- n
 }

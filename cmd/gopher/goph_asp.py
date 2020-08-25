@@ -66,11 +66,11 @@ def csvWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
-def gophTERMCDR(m, cmon, args):
+def gophCDRASP(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
     csv, s = csvWriter(m, ['id','date','time','dur','from','to','dip','egress']), ""
 
-    with subprocess.Popen(['goph_rbbn.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+    with subprocess.Popen(['goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('STOP,'):
                 col = l.split(',', 32)
@@ -84,6 +84,10 @@ def gophTERMCDR(m, cmon, args):
                         'dip':      col[23],
                         'egress':   col[31],
                         })
+                # are all STOP records termination CDRs?
+                #    if not, where is call direction indicated?
+                # where is the service provider indicated?
+                # are route attempts [29] always 1?
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
         csv(None, None)
@@ -91,7 +95,7 @@ def gophTERMCDR(m, cmon, args):
 def main():
     '''Parse command line args and run gopher command'''
     gophModels = {                      # gopher model map
-        'term.cdr':     [gophTERMCDR,   'fetch internal (Ribbon switch) termination CDRs'],
+        'cdr.asp':      [gophCDRASP,    'fetch Ribbon switch CDRs from Aspect'],
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
