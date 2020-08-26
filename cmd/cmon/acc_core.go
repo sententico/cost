@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sententico/cost/csv"
+	"github.com/sententico/cost/tel"
 )
 
 type (
@@ -80,30 +81,30 @@ type (
 		DB      map[string]*rdsItem
 	}
 
-	telNum  uint64 // parsed E.164: 0x3ff CC, 0xfc00 splits high-order 48 bits in AC/sub parts
 	cdrStat struct {
 		Cost  float64 // total USD
 		Dur   uint64  // total 0.1s actual (high-order 16 bits unused)
 		Calls uint32  // total count
 	}
 	termSum struct {
-		Current int32                        // hour cursor in summary maps (Unix time)
-		ByHour  map[int32]cdrStat            // map by hour (Unix time)
-		ByGeo   map[int32]map[string]cdrStat // map by hour/geo-code
-		ByFrom  map[int32]map[telNum]cdrStat // map by hour/E.164 number
-		ByTo    map[int32]map[telNum]cdrStat // map by hour/E.164 prefix (CC, AC, sub options)
+		Current int32                                // hour cursor in summary maps (Unix time)
+		ByHour  map[int32]cdrStat                    // map by hour (Unix time)
+		ByGeo   map[int32]map[string]cdrStat         // map by hour/geo-code
+		ByFrom  map[int32]map[tel.E164digest]cdrStat // map by hour/full from number
+		ByTo    map[int32]map[tel.E164digest]cdrStat // map by hour/to prefix (CC/CC+np)
 	}
 	origSum struct {
 		Current int32
-		ByHour  map[int32]cdrStat            // map by hour (Unix time)
-		ByTo    map[int32]map[telNum]cdrStat // map by hour/E.164 number
+		ByHour  map[int32]cdrStat                    // map by hour (Unix time)
+		ByTo    map[int32]map[tel.E164digest]cdrStat // map by hour/full to number
 	}
 	cdrItem struct {
-		From  uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
-		To    uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
-		Begin int32   // Unix time (seconds past epoch GMT)
-		Dur   uint32  // 0.1s actual (0x03ffffff mask); applicable rounding (0xfc000000 opt)
-		Cost  float32 // USD
+		From  tel.E164digest // decoded from number
+		To    tel.E164digest // decoded to number
+		Begin int32          // Unix time (seconds past epoch GMT)
+		Dur   uint32         // 0.1s actual (0x03ffffff mask); applicable rounding (0xfc000000 opt)
+		Info  uint32         // other info (service provider code, attempts, ...)
+		Cost  float32        // USD
 	}
 	termDetail struct {
 		Current int32                         // hour cursor in CDR map (Unix time)
@@ -524,11 +525,11 @@ func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, m := &termSum{
 		ByHour: make(map[int32]cdrStat, 2184),
 		ByGeo:  make(map[int32]map[string]cdrStat, 2184),
-		ByFrom: make(map[int32]map[telNum]cdrStat, 2184),
-		ByTo:   make(map[int32]map[telNum]cdrStat, 2184),
+		ByFrom: make(map[int32]map[tel.E164digest]cdrStat, 2184),
+		ByTo:   make(map[int32]map[tel.E164digest]cdrStat, 2184),
 	}, &origSum{
 		ByHour: make(map[int32]cdrStat, 2184),
-		ByTo:   make(map[int32]map[telNum]cdrStat, 2184),
+		ByTo:   make(map[int32]map[tel.E164digest]cdrStat, 2184),
 	}, &termDetail{
 		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
 	}, &origDetail{

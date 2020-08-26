@@ -13,14 +13,14 @@ type (
 	// Rate ...
 	Rate struct {
 		Location string
-		ccR      map[string]rateMap
+
+		ccR map[string]rateMap
 	}
 
 	// E164 ...
 	E164 struct {
 		Location string
 		NANPbias bool
-		decoder  ccDecoder
 		Num      string
 		Geo      string
 		CC       string
@@ -30,7 +30,12 @@ type (
 		AC       string
 		AN       string
 		Sub      string
+
+		decoder ccDecoder
 	}
+
+	// E164digest ...
+	E164digest uint64 // E.164 low 50 bits; high 14 bits: geo code + CC, prefix & subscriber digits
 )
 
 // Load method on Rate...
@@ -140,6 +145,7 @@ func (tn *E164) QDecode(n string) string {
 
 // Decode method on E164 ...
 func (tn *E164) Decode(n string) string {
+	// TODO: implement type switch to decode E164digest
 	n, cc, intl, found := strings.Map(func(r rune) rune {
 		switch r {
 		case '(', ')', '[', ']', '-', '.', ' ', '\t':
@@ -182,6 +188,26 @@ func (tn *E164) Decode(n string) string {
 	default:
 	}
 	return tn.set(n, cc, &i)
+}
+
+// Digest method on E164 ...
+func (tn *E164) Digest(n string) E164digest {
+	if tn == nil || n != "" && tn.QDecode(n) == "" || tn.Num == "" {
+		return 0
+	}
+	// encode tn to E164digest
+	return 0
+}
+
+// Geo method on E164digest ...
+func (tn E164digest) Geo() string {
+	// return lookup on uint64(tn) >> 60
+	return ""
+}
+
+// Num64 method on E164digest ...
+func (tn E164digest) Num64() uint64 {
+	return uint64(tn) & 0x3_ffff_ffff_ffff
 }
 
 // set method on E164 (internal) ...
