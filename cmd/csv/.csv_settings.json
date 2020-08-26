@@ -70,11 +70,11 @@
         "Lock": true
     },
     "=,282,1:STOP,3:0x": {
-        "Cols": "id:3,date:6,time:7,dur:14,from:20,to:21,dip:24,egress:32",
+        "Cols": "id:3,date:6,time:7,dur:14,svc:18,from:20,to:21,dip:24,try:30,trunk:31,egress:32",
         "Format": "Ribbon CDR",
-        "Ver": "2019 STOP",
+        "Ver": "2018 SBC Core STOP",
         "Date": "2020-08-19T11:36:44.365841013-04:00",
-        "Lock": false
+        "Lock": true
     },
     "=,{lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType,lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version}": {
         "Cols": "lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType:={Usage:DiscountedUsage:Tax:RIFee:Refund:Fee:Credit},lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version",

@@ -80,6 +80,7 @@ type (
 		DB      map[string]*rdsItem
 	}
 
+	telNum  uint64 // parsed E.164: 0x3ff CC, 0xfc00 splits high-order 48 bits in AC/sub parts
 	cdrStat struct {
 		Cost  float64 // total USD
 		Dur   uint64  // total 0.1s actual (high-order 16 bits unused)
@@ -89,8 +90,13 @@ type (
 		Current int32                        // hour cursor in summary maps (Unix time)
 		ByHour  map[int32]cdrStat            // map by hour (Unix time)
 		ByGeo   map[int32]map[string]cdrStat // map by hour/geo-code
-		ByFrom  map[int32]map[uint64]cdrStat // map by hour/E.164 number
-		ByTo    map[int32]map[uint64]cdrStat // map by hour/E.164 prefix (minimally CC, 0x3ff mask)
+		ByFrom  map[int32]map[telNum]cdrStat // map by hour/E.164 number
+		ByTo    map[int32]map[telNum]cdrStat // map by hour/E.164 prefix (CC, AC, sub options)
+	}
+	origSum struct {
+		Current int32
+		ByHour  map[int32]cdrStat            // map by hour (Unix time)
+		ByTo    map[int32]map[telNum]cdrStat // map by hour/E.164 number
 	}
 	cdrItem struct {
 		From  uint64  // CC (0x3ff); area digit len (0x3c00); E.164 (high-order 50 bits)
@@ -101,7 +107,11 @@ type (
 	}
 	termDetail struct {
 		Current int32                         // hour cursor in CDR map (Unix time)
-		CDR     map[int32]map[uint64]*cdrItem // map by hour(Unix time) / CDR ID
+		CDR     map[int32]map[uint64]*cdrItem // map by hour/CDR ID
+	}
+	origDetail struct {
+		Current int32                         // hour cursor in CDR map (Unix time)
+		CDR     map[int32]map[uint64]*cdrItem // map by hour/CDR ID
 	}
 )
 
@@ -511,16 +521,23 @@ func rdsawsTerm(n string, ctl chan string) {
 }
 
 func cdraspBoot(n string, ctl chan string) {
-	sum, detail, m := &termSum{
+	tsum, osum, tdetail, odetail, m := &termSum{
 		ByHour: make(map[int32]cdrStat, 2184),
 		ByGeo:  make(map[int32]map[string]cdrStat, 2184),
-		ByFrom: make(map[int32]map[uint64]cdrStat, 2184),
-		ByTo:   make(map[int32]map[uint64]cdrStat, 2184),
+		ByFrom: make(map[int32]map[telNum]cdrStat, 2184),
+		ByTo:   make(map[int32]map[telNum]cdrStat, 2184),
+	}, &origSum{
+		ByHour: make(map[int32]cdrStat, 2184),
+		ByTo:   make(map[int32]map[telNum]cdrStat, 2184),
 	}, &termDetail{
 		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
+	}, &origDetail{
+		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
 	}, mMod[n]
-	m.data = append(m.data, sum)
-	m.data = append(m.data, detail)
+	m.data = append(m.data, tsum)
+	m.data = append(m.data, osum)
+	m.data = append(m.data, tdetail)
+	m.data = append(m.data, odetail)
 	m.persist = len(m.data)
 	sync(n, m)
 
@@ -528,28 +545,42 @@ func cdraspBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func cdraspInsert(m *model, item map[string]string, now int) {
-	sum, detail, hr, id := m.data[0].(*termSum), m.data[1].(*termDetail), int32(now-now%3600), ato64(item["id"], 0)
+	hr, id := int32(now-now%3600), ato64(item["id"], 0)
 	if item == nil {
-		if hr > sum.Current {
-			sum.Current, detail.Current = hr, hr
+		if hr > m.data[0].(*termSum).Current {
+			m.data[0].(*termSum).Current, m.data[1].(*origSum).Current = hr, hr
+			m.data[2].(*termDetail).Current, m.data[3].(*origDetail).Current = hr, hr
 		}
 		return
 	} else if id == 0 {
 		return
 	}
-	cdr, cdrhr := &cdrItem{
+	cdr := &cdrItem{
 		From:  0, // convert item["calling"] to E.164 and encode
 		To:    0, // convert item["called"] to E.164 and encode
 		Begin: 0, // convert item["date"]/item["time"] to Unix time
 		Dur:   0, // convert item["dur"] (ms)
-		Cost:  0, // lookup rate for call
-	}, detail.CDR[hr]
-	// finish setting detail cdr struct
-	// update sum maps
-	if cdrhr == nil {
-		cdrhr = make(map[uint64]*cdrItem, 4096)
 	}
-	cdrhr[id] = cdr
+	// finish setting detail cdr struct
+	if orig := strings.HasPrefix(item["egress"], "10."); orig {
+		_, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
+		// lookup orig cdr cost
+		cdrhr := detail.CDR[hr]
+		if cdrhr == nil {
+			cdrhr = make(map[uint64]*cdrItem, 4096)
+		}
+		cdrhr[id] = cdr
+		// update orig summary maps
+	} else {
+		_, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
+		// lookup term cdr cost
+		cdrhr := detail.CDR[hr]
+		if cdrhr == nil {
+			cdrhr = make(map[uint64]*cdrItem, 4096)
+		}
+		cdrhr[id] = cdr
+		// update term summary maps
+	}
 }
 func cdraspClean(m *model) {
 	acc := make(chan accTok, 1)

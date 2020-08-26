@@ -68,26 +68,24 @@ def csvWriter(m, cols):
 
 def gophCDRASP(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv, s = csvWriter(m, ['id','date','time','dur','from','to','dip','egress']), ""
+    csv, s = csvWriter(m, ['id','start','dur','svc','from','to','dip','try','trunk','egress']), ""
 
     with subprocess.Popen(['goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('STOP,'):
                 col = l.split(',', 32)
                 if len(col) <= 32: continue
-                csv(s, {'id':       col[2],
-                        'date':     col[5],
-                        'time':     col[6],
-                        'dur':      col[13],
-                        'from':     col[19],
-                        'to':       col[20],
-                        'dip':      col[23],
-                        'egress':   col[31],
+                csv(s, {'id':       col[2],     # accounting ID
+                        'start':    round(datetime.strptime(col[5]+col[6],'%m/%d/%Y%H:%M:%S.%f').timestamp()),
+                        'dur':      col[13],    # call service duration
+                        'svc':      col[17],    # service provider
+                        'from':     col[19],    # calling number
+                        'to':       col[20],    # called number
+                        'dip':      col[23],    # called number before translation #1
+                        'try':      col[29],    # route attempt number
+                        'trunk':    col[30],    # gateway:trunk group
+                        'egress':   col[31],    # egress local signaling IP addr
                         })
-                # are all STOP records termination CDRs?
-                #    if not, where is call direction indicated?
-                # where is the service provider indicated?
-                # are route attempts [29] always 1?
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
         csv(None, None)

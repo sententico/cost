@@ -9,7 +9,7 @@ if [ -f .cmon_asp.lock ]; then
 fi
 trap "rm -f .cmon_asp.lock" 0; trap "exit 0" 1 2 3 13 15; touch .cmon_asp.lock
 
-recent="mercury-sonus-bucket-prod-us-east-1-127403002470/$(date ssdate='-12 hours' +%Y/%m/%d)"
+recent="mercury-sonus-bucket-prod-us-east-1-127403002470/$(date --date='-12 hours' +%Y/%m/%d)"
 next="mercury-sonus-bucket-prod-us-east-1-127403002470/$(date --date='+6 hours' +%Y/%m/%d)"
 if [ $recent == $next ]; then
     s3sync -p 127403002470 -k sinceD=0.125 -lf $recent
