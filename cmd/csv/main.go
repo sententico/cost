@@ -137,8 +137,21 @@ func getRes(scache *csv.Settings, fn string) {
 			r := float64(rater.Lookup(&decoder)) * d
 			charged += c
 			rated += r
-			fmt.Printf("re-rated %.1fm call to +%v (+%v %v) at $%.3f (billed at $%.3f)\n",
-				d, decoder.Num, decoder.CC, decoder.ISO3166, r, c)
+			fmt.Printf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%.3f\n",
+				row["gatewayAccountingId"],
+				row["startTime"],
+				row["endTime"],
+				row["fromNumber"],
+				row["toNumber"],
+				decoder.ISO3166,
+				row["callDirection"],
+				row["rawDuration"],
+				row["meteredDuration"],
+				row["charges"],
+				r,
+			)
+			//fmt.Printf("re-rated %.1fm call to +%v (+%v %v) at $%.3f (billed at $%.3f)\n",
+			//	d, decoder.Num, decoder.CC, decoder.ISO3166, r, c)
 		} else if debugFlag {
 			fmt.Println(row)
 		}
