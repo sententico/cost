@@ -557,15 +557,15 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		return
 	}
 	cdr := &cdrItem{
-		From:  0, // convert item["calling"] to E.164 and encode
-		To:    0, // convert item["called"] to E.164 and encode
-		Begin: 0, // convert item["date"]/item["time"] to Unix time
+		From:  0, // convert item["from"] to E.164 and encode
+		To:    0, // convert item["to"] to E.164 and encode
+		Begin: 0, // convert item["begin"] to Unix time (ISO format)
 		Dur:   0, // convert item["dur"] (ms)
 	}
-	// finish setting detail cdr struct
+	// finish setting detail cdr struct (Info, ...)
 	if orig := strings.HasPrefix(item["egress"], "10."); orig {
 		_, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
-		// lookup orig cdr cost
+		// lookup orig cdr Cost
 		cdrhr := detail.CDR[hr]
 		if cdrhr == nil {
 			cdrhr = make(map[uint64]*cdrItem, 4096)
@@ -574,7 +574,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		// update orig summary maps
 	} else {
 		_, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
-		// lookup term cdr cost
+		// lookup term cdr Cost
 		cdrhr := detail.CDR[hr]
 		if cdrhr == nil {
 			cdrhr = make(map[uint64]*cdrItem, 4096)
