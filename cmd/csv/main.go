@@ -102,7 +102,7 @@ func getRes(scache *csv.Settings, fn string) {
 		rater   tel.Rate
 	)
 	if fn == "" {
-		fn, r = "<stdin>", os.Stdin
+		fn, r = "", os.Stdin
 	}
 	if rateFlag {
 		if e := decoder.Load(nil); e != nil {
