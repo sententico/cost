@@ -68,23 +68,24 @@ def csvWriter(m, cols):
 
 def gophCDRASP(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv, s = csvWriter(m, ['id','start','dur','svc','from','to','dip','try','trunk','egress']), ""
+    csv, s = csvWriter(m, ['id','start','dur','type','from','to','dip','try','iTG','eTG','IP']), ""
 
     with subprocess.Popen(['goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('STOP,'):
-                col = l.split(',', 32)
-                if len(col) <= 32: continue
+                col = l.split(',', 34)
+                if len(col) <= 34: continue
                 csv(s, {'id':       col[2],     # accounting ID
-                        'start':    round(datetime.strptime(col[5]+col[6],'%m/%d/%Y%H:%M:%S.%f').timestamp()),
+                        'start':    datetime.strptime(col[5]+col[6],'%m/%d/%Y%H:%M:%S.%f').isoformat(),
                         'dur':      col[13],    # call service duration
-                        'svc':      col[17],    # service provider
-                        'from':     col[19],    # calling number
-                        'to':       col[20],    # called number
-                        'dip':      col[23],    # called number before translation #1
+                        'type':     col[17],    # service provider (CARRIER/SDENUM for inbound)
+                        'from':     col[19],    # calling number (not always full E.164)
+                        'to':       col[20],    # called number (not always full E.164)
+                        'dip':      col[23],    # called number before translation #1 (LRN data)
                         'try':      col[29],    # route attempt number
-                        'trunk':    col[30],    # gateway:trunk group
-                        'egress':   col[31],    # egress local signaling IP addr
+                        'iTG':      col[33],    # ingress trunk group name (inbound carrier)
+                        'eTG':      col[30],    # gateway:trunk group (outbound carrier)
+                        'IP':       col[31],    # egress local signaling IP addr (non-routable for inbound)
                         })
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]

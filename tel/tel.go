@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	iio "github.com/sententico/cost/internal/io"
@@ -19,23 +20,23 @@ type (
 
 	// E164 ...
 	E164 struct {
-		Location string
-		NANPbias bool
-		Num      string
-		Geo      string
-		CC       string
-		CCx      string
-		CN       string
-		ISO3166  string
-		AC       string
-		AN       string
-		Sub      string
+		Location string // resource location for decoder data
+		NANPbias bool   // set for NANP decoding bias
+		Num      string // proper E.164 number
+		Geo      string // geographic zone (with NANP subtypes)
+		CC       string // country/service code
+		CCx      string // country/service code extension
+		CCn      string // country/service code name
+		ISO3166  string // ISO 3166-2 alpha country code
+		P        string // prefix (including area codes)
+		Pn       string // prefix name
+		Sub      string // subscriber number
 
 		decoder ccDecoder
 	}
 
 	// E164digest ...
-	E164digest uint64 // E.164 low 50 bits; high 14 bits: geo code + CC, prefix & subscriber digits
+	E164digest uint64 // E.164 low 50 bits; high 14 bits: Geo code + CC, NP & Sub digits
 )
 
 // Load method on Rate...
@@ -195,7 +196,12 @@ func (tn *E164) Digest(n string) E164digest {
 	if tn == nil || n != "" && tn.QDecode(n) == "" || tn.Num == "" {
 		return 0
 	}
-	// encode tn to E164digest
+
+	if d, _ := strconv.ParseUint(tn.Num, 10, 64); d != 0 {
+		// add Geo lookup: d |= geo << 60
+		d |= uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
+		return E164digest(d)
+	}
 	return 0
 }
 
@@ -215,15 +221,15 @@ func (tn *E164) set(n string, cc string, i *e164Info) string {
 	if i != nil && i.Geo != "" {
 		tn.Num, tn.CC = n, cc
 		tn.Geo = i.Geo
-		tn.CN = i.CN
+		tn.CCn = i.CN
 		tn.ISO3166 = i.ISO3166
 		if so := len(cc) + i.AL; len(n) > so {
-			tn.AC, tn.Sub = n[len(cc):so], n[so:]
+			tn.P, tn.Sub = n[len(cc):so], n[so:]
 		} else {
-			tn.AC, tn.Sub = "", ""
+			tn.P, tn.Sub = "", ""
 		}
 	} else {
-		tn.Num, tn.CC, tn.Geo, tn.CN, tn.ISO3166, tn.AC, tn.Sub = "", "", "", "", "", "", ""
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 	}
 	// tn.CCx, tn.AN = "", "" // never set
 	return tn.Num
