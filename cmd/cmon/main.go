@@ -110,7 +110,7 @@ func init() {
 		logE.Fatalf("%q is invalid JSON settings file: %v", sfile, err)
 	}
 	for n := range m {
-		if _, ok := settings.Models[n]; !ok {
+		if _, found := settings.Models[n]; !found {
 			delete(m, n)
 		}
 	}
@@ -212,17 +212,19 @@ func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.H
 
 func main() {
 	logI.Printf("booting %v monitored object models", len(mMod))
-	ctl := make(chan string, 4)
+	ctl, models := make(chan string, 4), 0
 	for n, m := range mMod {
 		go modManager(m, n, ctl)
 	}
-	for i := 0; i < len(mMod); i++ {
+	for range mMod {
 		n := <-ctl
-		m := mMod[n]
-		m.state = msINIT
-		d := time.Duration(i*100) * time.Second
-		goAfter(d, d+20*time.Second, func() { m.maint(n) })
 		logI.Printf("%q object model booted", n)
+	}
+	for n, m := range mMod {
+		m.state = msINIT
+		d := time.Duration(models*100) * time.Second
+		models++
+		goAfter(d, d+20*time.Second, func() { m.maint(n) })
 	}
 
 	logI.Printf("listening on port %v for HTTP requests", port)
@@ -240,8 +242,8 @@ func main() {
 		quit <- true
 		<-ok
 		srv.Close()
-		for n, o := range mMod {
-			go o.term(n, ctl)
+		for n, m := range mMod {
+			go m.term(n, ctl)
 		}
 	}()
 	switch err := srv.ListenAndServe(); err {
@@ -253,7 +255,7 @@ func main() {
 	}
 	sig <- nil
 
-	for i := 0; i < len(mMod); i++ {
+	for range mMod {
 		n := <-ctl
 		mMod[n].state = msTERM
 		logI.Printf("%q object model shutdown", n)

@@ -2,6 +2,7 @@ package tel
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strconv"
@@ -11,38 +12,44 @@ import (
 )
 
 type (
-	// Rate ...
-	Rate struct {
-		Location string
+	// Rater ...
+	Rater struct {
+		Location string // rater resource location (filename, ...)
 
-		ccR map[string]rateMap
+		ccR map[string]pRate
 	}
 
-	// E164 ...
-	E164 struct {
-		Location string // resource location for decoder data
+	// Decoder ...
+	Decoder struct {
+		Location string // decoder resource location (filename, ...)
 		NANPbias bool   // set for NANP decoding bias
-		Num      string // proper E.164 number
-		Geo      string // geographic zone (with NANP subtypes)
-		CC       string // country/service code
-		CCx      string // country/service code extension
-		CCn      string // country/service code name
-		ISO3166  string // ISO 3166-2 alpha country code
-		P        string // prefix (including area codes)
-		Pn       string // prefix name
-		Sub      string // subscriber number
 
-		decoder ccDecoder
+		ccI map[string]*ccInfo
+	}
+
+	// E164full ...
+	E164full struct {
+		Num     string // proper E.164 number
+		Geo     string // geographic zone (with NANP subtypes)
+		CC      string // country/service code
+		CCx     string // country/service code extension
+		CCn     string // country/service code name
+		ISO3166 string // ISO 3166-2 alpha country code
+		P       string // national-scope prefix (including area codes)
+		Pn      string // national-scope prefix name
+		Sub     string // subscriber number
 	}
 
 	// E164digest ...
-	E164digest uint64 // E.164 low 50 bits; high 14 bits: Geo code + CC, NP & Sub digits
+	E164digest uint64 // high 14 bits: Geo code + CC, P & Sub digits; low 50 bits: E.164 Num
 )
 
-// Load method on Rate...
-func (r *Rate) Load(rr io.Reader) (err error) {
-	res, b := make(ccRate), []byte{}
-	if rr != nil {
+// Load method on Rater...
+func (r *Rater) Load(rr io.Reader) (err error) {
+	res, b := make(map[string][]rateGrp), []byte{}
+	if r == nil {
+		return fmt.Errorf("no rater specified")
+	} else if r.ccR = nil; rr != nil {
 		b, err = ioutil.ReadAll(rr)
 	} else if r.Location != "" {
 		b, err = ioutil.ReadFile(iio.ResolveName(r.Location))
@@ -50,74 +57,73 @@ func (r *Rate) Load(rr io.Reader) (err error) {
 		b = []byte(defaultRates)
 	}
 	if err != nil {
-		return
+		return fmt.Errorf("cannot access rater resource: %v", err)
 	} else if err = json.Unmarshal(b, &res); err != nil {
-		return
+		return fmt.Errorf("rater resource format problem: %v", err)
 	}
 
-	r.ccR = make(map[string]rateMap)
+	r.ccR = make(map[string]pRate)
 	for cc, rgs := range res {
-		rm := r.ccR[cc]
-		if rm == nil {
-			rm = make(rateMap)
-			r.ccR[cc] = rm
+		pr := r.ccR[cc]
+		if pr == nil {
+			pr = make(pRate)
+			r.ccR[cc] = pr
 		}
 		for _, rg := range rgs {
-			for _, pre := range rg.Pre {
-				rm[pre] = rg.Rate
+			for _, p := range rg.P {
+				pr[p] = rg.Rate
 			}
 		}
 	}
 	return nil
 }
 
-// Lookup method on Rate...
-func (r *Rate) Lookup(tn *E164) (v float32) {
+// Lookup method on Rater...
+func (r *Rater) Lookup(tn *E164full) (v float32) {
 	if r == nil || tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
 		return 0
 	}
-	rm := r.ccR[tn.CC]
-	if rm == nil {
-		return 0
-	}
+	pr := r.ccR[tn.CC]
 	for match := tn.Num[len(tn.CC):]; ; match = match[:len(match)-1] {
-		if v = rm[match]; v > 0 {
+		if v = pr[match]; v > 0 {
 			return v
 		} else if match == "" {
-			return rm["default"]
+			return pr["default"]
 		}
 	}
 }
 
-// Load method on E164 ...
-func (tn *E164) Load(r io.Reader) (err error) {
-	res, b := make(ccDecoder), []byte{}
-	if r != nil {
-		b, err = ioutil.ReadAll(r)
-	} else if tn.Location != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(tn.Location))
+// Load method on Decoder ...
+func (d *Decoder) Load(dr io.Reader) (err error) {
+	res, b := make(map[string]*ccInfo), []byte{}
+	if d == nil {
+		return fmt.Errorf("no decoder specified")
+	} else if d.ccI = nil; dr != nil {
+		b, err = ioutil.ReadAll(dr)
+	} else if d.Location != "" {
+		b, err = ioutil.ReadFile(iio.ResolveName(d.Location))
 	} else {
 		b = []byte(defaultDecoder)
 	}
 	if err != nil {
-		return
+		return fmt.Errorf("cannot access decoder resource: %v", err)
 	} else if err = json.Unmarshal(b, &res); err != nil {
-		return
+		return fmt.Errorf("decoder resource format problem: %v", err)
 	}
 
-	tn.decoder = res
+	d.ccI = res
 	return nil
 }
 
-// QDecode method on E164 ...
-func (tn *E164) QDecode(n string) string {
-	n, intl, found := strings.Map(func(r rune) rune {
+// Quick method on Decoder ...
+func (d *Decoder) Quick(n string, tn *E164full) error {
+	n, intl := strings.Map(func(r rune) rune {
 		switch r {
 		case '(', ')', '[', ']', '-', '.', ' ', '\t':
 			return -1
 		}
 		return r
-	}, n), false, false
+	}, n), false
 	if n[0] == '+' {
 		n, intl = n[1:], true
 	} else if strings.HasPrefix(n, "011") {
@@ -126,34 +132,35 @@ func (tn *E164) QDecode(n string) string {
 		n, intl = n[2:], true
 	}
 
-	var i e164Info
 	if tn == nil {
-		return ""
+		return fmt.Errorf("missing E.164")
 	} else if len(n) < 7 || len(n) > 15 {
-		return tn.set(n, "", nil)
-	} else if tn.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
-		i = tn.decoder["1"]
-		return tn.set("1"+n, "1", &i)
-	} else if i, found = tn.decoder[n[:1]]; found {
-		return tn.set(n, n[:1], &i)
-	} else if i, found = tn.decoder[n[:2]]; found {
-		return tn.set(n, n[:2], &i)
-	} else if i, found = tn.decoder[n[:3]]; found {
-		return tn.set(n, n[:3], &i)
+		tn.set(n, "", nil)
+		return fmt.Errorf("invalid E.164 length: %v", len(n))
+	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
+		tn.set("1"+n, "1", d.ccI["1"])
+	} else if i := d.ccI[n[:1]]; i != nil {
+		tn.set(n, n[:1], i)
+	} else if i = d.ccI[n[:2]]; i != nil {
+		tn.set(n, n[:2], i)
+	} else if i = d.ccI[n[:3]]; i != nil {
+		tn.set(n, n[:3], i)
+	} else {
+		tn.set(n, "", nil)
+		return fmt.Errorf("no valid CC prefix")
 	}
-	return tn.set(n, "", nil)
+	return nil
 }
 
-// Decode method on E164 ...
-func (tn *E164) Decode(n string) string {
-	// TODO: implement type switch to decode E164digest
-	n, cc, intl, found := strings.Map(func(r rune) rune {
+// Full method on Decoder ...
+func (d *Decoder) Full(n string, tn *E164full) error {
+	n, intl := strings.Map(func(r rune) rune {
 		switch r {
 		case '(', ')', '[', ']', '-', '.', ' ', '\t':
 			return -1
 		}
 		return r
-	}, n), "", false, false
+	}, n), false
 	if n[0] == '+' {
 		n, intl = n[1:], true
 	} else if strings.HasPrefix(n, "011") {
@@ -161,26 +168,31 @@ func (tn *E164) Decode(n string) string {
 	} else if strings.HasPrefix(n, "00") {
 		n, intl = n[2:], true
 	}
-
-	var i e164Info
 	if tn == nil {
-		return ""
+		return fmt.Errorf("missing E.164")
 	} else if len(n) < 7 || len(n) > 15 {
-		return tn.set(n, "", nil)
-	} else if tn.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
-		n, cc, i = "1"+n, "1", tn.decoder["1"]
-		//return tn.set(n, cc, &i)
-	} else if i, found = tn.decoder[n[:1]]; found {
-		cc = n[:1]
-	} else if i, found = tn.decoder[n[:2]]; found {
-		cc = n[:2]
-	} else if i, found = tn.decoder[n[:3]]; found {
-		cc = n[:3]
-	} else {
-		return tn.set(n, "", nil)
+		tn.set(n, "", nil)
+		return fmt.Errorf("invalid E.164 length: %v", len(n))
 	}
 
-	// expanded validation/decoding rules (including more precise area/subscriber partitioning)
+	var (
+		i  *ccInfo
+		cc string
+	)
+	if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
+		n, cc, i = "1"+n, "1", d.ccI["1"]
+	} else if i = d.ccI[n[:1]]; i != nil {
+		cc = n[:1]
+	} else if i = d.ccI[n[:2]]; i != nil {
+		cc = n[:2]
+	} else if i = d.ccI[n[:3]]; i != nil {
+		cc = n[:3]
+	} else {
+		tn.set(n, "", nil)
+		return fmt.Errorf("no valid CC prefix")
+	}
+
+	// expanded validation/decoding rules (including more precise P/Sub partitioning)
 	switch cc {
 	case "1":
 		// NANPA exceptions
@@ -188,42 +200,55 @@ func (tn *E164) Decode(n string) string {
 		// Russia/Kazakhstan exceptions
 	default:
 	}
-	return tn.set(n, cc, &i)
+	tn.set(n, cc, i)
+	return nil
 }
 
-// Digest method on E164 ...
-func (tn *E164) Digest(n string) E164digest {
-	if tn == nil || n != "" && tn.QDecode(n) == "" || tn.Num == "" {
+// Digest method on Decoder ...
+func (d *Decoder) Digest(n string) E164digest {
+	// TODO: code direct decoding for more efficiency
+	if d == nil || n == "" {
 		return 0
-	}
-
-	if d, _ := strconv.ParseUint(tn.Num, 10, 64); d != 0 {
-		// add Geo lookup: d |= geo << 60
-		d |= uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
+	} else if tn := (&E164full{}); d.Quick(n, tn) != nil {
+		return 0
+	} else if d, _ := strconv.ParseUint(tn.Num, 10, 64); d == 0 {
+		return 0
+	} else {
+		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
 		return E164digest(d)
 	}
+}
+
+// Digest method on E164full ...
+func (tn *E164full) Digest() E164digest {
+	// TODO: implement
 	return 0
 }
 
+// Full method on E164digest ...
+func (dtn E164digest) Full(d *Decoder, tn *E164full) error {
+	// TODO: implement
+	return nil
+}
+
 // Geo method on E164digest ...
-func (tn E164digest) Geo() string {
-	// return lookup on uint64(tn) >> 60
-	return ""
+func (dtn E164digest) Geo() string {
+	return geoName[geoCode(uint64(dtn)>>60)]
 }
 
 // Num64 method on E164digest ...
-func (tn E164digest) Num64() uint64 {
-	return uint64(tn) & 0x3_ffff_ffff_ffff
+func (dtn E164digest) Num64() uint64 {
+	return uint64(dtn) & 0x3_ffff_ffff_ffff
 }
 
-// set method on E164 (internal) ...
-func (tn *E164) set(n string, cc string, i *e164Info) string {
-	if i != nil && i.Geo != "" {
+// set method on E164full (internal) ...
+func (tn *E164full) set(n string, cc string, i *ccInfo) {
+	if i != nil {
 		tn.Num, tn.CC = n, cc
 		tn.Geo = i.Geo
-		tn.CCn = i.CN
+		tn.CCn = i.CCn
 		tn.ISO3166 = i.ISO3166
-		if so := len(cc) + i.AL; len(n) > so {
+		if so := len(cc) + i.Pl; len(n) > so {
 			tn.P, tn.Sub = n[len(cc):so], n[so:]
 		} else {
 			tn.P, tn.Sub = "", ""
@@ -231,6 +256,5 @@ func (tn *E164) set(n string, cc string, i *e164Info) string {
 	} else {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 	}
-	// tn.CCx, tn.AN = "", "" // never set
-	return tn.Num
+	// tn.CCx, tn.Pn = "", "" // not used
 }

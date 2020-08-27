@@ -98,17 +98,18 @@ func getRes(scache *csv.Settings, fn string) {
 	}()
 	var (
 		r       io.Reader
-		decoder tel.E164
-		rater   tel.Rate
+		decoder tel.Decoder
+		rater   tel.Rater
+		tn      tel.E164full
 	)
 	if fn == "" {
 		fn, r = "<stdin>", os.Stdin
 	}
 	if rateFlag {
 		if e := decoder.Load(nil); e != nil {
-			panic(fmt.Errorf("error loading E.164 decoder: %v", e))
+			panic(e)
 		} else if e := rater.Load(nil); e != nil {
-			panic(fmt.Errorf("error loading telephony rater: %v", e))
+			panic(e)
 		}
 	}
 
@@ -126,15 +127,14 @@ func getRes(scache *csv.Settings, fn string) {
 			writeCSV(&res, row)
 		} else if rateFlag && row["callDirection"] == "PSTN_OUTBOUND" {
 			filtered++
-			if n := decoder.Decode(row["toNumber"]); n == "" {
+			if err := decoder.Quick(row["toNumber"], &tn); err != nil {
 				failed++
-				fmt.Println(row)
 				continue
 			}
-			d, _ := strconv.ParseFloat(row["rawDuration"], 32)
+			d, _ := strconv.ParseFloat(row["rawDuration"], 64)
 			d /= 60000
-			c, _ := strconv.ParseFloat(row["charges"], 32)
-			r := float64(rater.Lookup(&decoder)) * d
+			c, _ := strconv.ParseFloat(row["charges"], 64)
+			r := float64(rater.Lookup(&tn)) * d
 			charged += c
 			rated += r
 			fmt.Printf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%.3f\n",
@@ -143,7 +143,7 @@ func getRes(scache *csv.Settings, fn string) {
 				row["endTime"],
 				row["fromNumber"],
 				row["toNumber"],
-				decoder.ISO3166,
+				tn.ISO3166,
 				row["callDirection"],
 				row["rawDuration"],
 				row["meteredDuration"],
@@ -151,7 +151,7 @@ func getRes(scache *csv.Settings, fn string) {
 				r,
 			)
 			//fmt.Printf("re-rated %.1fm call to +%v (+%v %v) at $%.3f (billed at $%.3f)\n",
-			//	d, decoder.Num, decoder.CC, decoder.ISO3166, r, c)
+			//	d, tn.Num, tn.CC, tn.ISO3166, r, c)
 		} else if debugFlag {
 			fmt.Println(row)
 		}

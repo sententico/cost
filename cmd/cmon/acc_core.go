@@ -114,6 +114,11 @@ type (
 		Current int32                         // hour cursor in CDR map (Unix time)
 		CDR     map[int32]map[uint64]*cdrItem // map by hour/CDR ID
 	}
+	cdrWork struct {
+		decoder tel.Decoder
+		rater   tel.Rater
+		tn      tel.E164full
+	}
 )
 
 var (
@@ -522,7 +527,7 @@ func rdsawsTerm(n string, ctl chan string) {
 }
 
 func cdraspBoot(n string, ctl chan string) {
-	tsum, osum, tdetail, odetail, m := &termSum{
+	tsum, osum, tdetail, odetail, work, m := &termSum{
 		ByHour: make(map[int32]cdrStat, 2184),
 		ByGeo:  make(map[int32]map[string]cdrStat, 2184),
 		ByFrom: make(map[int32]map[tel.E164digest]cdrStat, 2184),
@@ -534,7 +539,7 @@ func cdraspBoot(n string, ctl chan string) {
 		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
 	}, &origDetail{
 		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
-	}, mMod[n]
+	}, &cdrWork{}, mMod[n]
 	m.data = append(m.data, tsum)
 	m.data = append(m.data, osum)
 	m.data = append(m.data, tdetail)
@@ -542,11 +547,17 @@ func cdraspBoot(n string, ctl chan string) {
 	m.persist = len(m.data)
 	sync(n, m)
 
-	// TODO: append third segment to m.data for E.164 decoding and telephony rating (not persisted)
+	work.decoder.NANPbias = true
+	if err := work.decoder.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
+	} else if err = work.rater.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load rating engine: %v", n, err)
+	}
+	m.data = append(m.data, work)
 	ctl <- n
 }
 func cdraspInsert(m *model, item map[string]string, now int) {
-	hr, id := int32(now-now%3600), ato64(item["id"], 0)
+	hr, id, work := int32(now-now%3600), ato64(item["id"], 0), m.data[4].(*cdrWork)
 	if item == nil {
 		if hr > m.data[0].(*termSum).Current {
 			m.data[0].(*termSum).Current, m.data[1].(*origSum).Current = hr, hr
@@ -556,28 +567,37 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	} else if id == 0 {
 		return
 	}
+	b, _ := time.Parse(time.RFC3339, item["begin"])
 	cdr := &cdrItem{
-		From:  0, // convert item["from"] to E.164 and encode
-		To:    0, // convert item["to"] to E.164 and encode
-		Begin: 0, // convert item["begin"] to Unix time (ISO format)
-		Dur:   0, // convert item["dur"] (ms)
+		Begin: int32(b.Unix()),
+		Dur:   uint32(atoi(item["dur"], 0)+5) / 10 & 0x03ff_ffff,
 	}
-	// finish setting detail cdr struct (Info, ...)
-	if orig := strings.HasPrefix(item["egress"], "10."); orig {
+	cdr.Info = 0 // TODO: finish setting detail cdr struct (service provider code, attempts, ...)
+	switch item["type"] {
+	case "CARRIER", "SDENUM":
 		_, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
-		// lookup orig cdr Cost
+		cdr.To = work.decoder.Digest(item["to"])
+		work.decoder.Full(item["from"], &work.tn)
+		cdr.From = work.tn.Digest()
+		cdr.Cost = float32(cdr.Dur) / 600 * 0.005 // TODO: create orig lookup on work.tn
 		cdrhr := detail.CDR[hr]
 		if cdrhr == nil {
 			cdrhr = make(map[uint64]*cdrItem, 4096)
+			detail.CDR[hr] = cdrhr
 		}
 		cdrhr[id] = cdr
 		// update orig summary maps
-	} else {
+	case "CORE":
+	default:
 		_, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
-		// lookup term cdr Cost
+		cdr.From = work.decoder.Digest(item["from"])
+		work.decoder.Full(item["to"], &work.tn) // TODO: should be LRN if available
+		cdr.To = work.tn.Digest()
+		cdr.Cost = float32(cdr.Dur) / 600 * work.rater.Lookup(&work.tn)
 		cdrhr := detail.CDR[hr]
 		if cdrhr == nil {
 			cdrhr = make(map[uint64]*cdrItem, 4096)
+			detail.CDR[hr] = cdrhr
 		}
 		cdrhr[id] = cdr
 		// update term summary maps
