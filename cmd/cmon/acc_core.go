@@ -87,16 +87,16 @@ type (
 		Calls uint32  // total count
 	}
 	termSum struct {
-		Current int32                                // hour cursor in summary maps (Unix time)
-		ByHour  map[int32]cdrStat                    // map by hour (Unix time)
-		ByGeo   map[int32]map[string]cdrStat         // map by hour/geo-code
-		ByFrom  map[int32]map[tel.E164digest]cdrStat // map by hour/full from number
-		ByTo    map[int32]map[tel.E164digest]cdrStat // map by hour/to prefix (CC/CC+np)
+		Current int32                                 // hour cursor in summary maps (Unix time)
+		ByHour  map[int32]*cdrStat                    // map by hour (Unix time)
+		ByGeo   map[int32]map[string]*cdrStat         // map by hour/geo-code
+		ByFrom  map[int32]map[tel.E164digest]*cdrStat // map by hour/full from number
+		ByTo    map[int32]map[tel.E164digest]*cdrStat // map by hour/to prefix (CC/CC+np)
 	}
 	origSum struct {
 		Current int32
-		ByHour  map[int32]cdrStat                    // map by hour (Unix time)
-		ByTo    map[int32]map[tel.E164digest]cdrStat // map by hour/full to number
+		ByHour  map[int32]*cdrStat                    // map by hour (Unix time)
+		ByTo    map[int32]map[tel.E164digest]*cdrStat // map by hour/full to number
 	}
 	cdrItem struct {
 		From  tel.E164digest // decoded from number
@@ -104,7 +104,7 @@ type (
 		Begin int32          // Unix time (seconds past epoch GMT)
 		Dur   uint32         // 0.1s actual (0x03ffffff mask); applicable rounding (0xfc000000 opt)
 		Info  uint32         // other info (service provider code, attempts, ...)
-		Cost  float32        // USD
+		Cost  float32        // rated USD cost
 	}
 	termDetail struct {
 		Current int32                         // hour cursor in CDR map (Unix time)
@@ -116,7 +116,8 @@ type (
 	}
 	cdrWork struct {
 		decoder tel.Decoder
-		rater   tel.Rater
+		trates  tel.Rater
+		orates  tel.Rater
 		tn      tel.E164full
 	}
 )
@@ -528,13 +529,13 @@ func rdsawsTerm(n string, ctl chan string) {
 
 func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
-		ByHour: make(map[int32]cdrStat, 2184),
-		ByGeo:  make(map[int32]map[string]cdrStat, 2184),
-		ByFrom: make(map[int32]map[tel.E164digest]cdrStat, 2184),
-		ByTo:   make(map[int32]map[tel.E164digest]cdrStat, 2184),
+		ByHour: make(map[int32]*cdrStat, 2184),
+		ByGeo:  make(map[int32]map[string]*cdrStat, 2184),
+		ByFrom: make(map[int32]map[tel.E164digest]*cdrStat, 2184),
+		ByTo:   make(map[int32]map[tel.E164digest]*cdrStat, 2184),
 	}, &origSum{
-		ByHour: make(map[int32]cdrStat, 2184),
-		ByTo:   make(map[int32]map[tel.E164digest]cdrStat, 2184),
+		ByHour: make(map[int32]*cdrStat, 2184),
+		ByTo:   make(map[int32]map[tel.E164digest]*cdrStat, 2184),
 	}, &termDetail{
 		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
 	}, &origDetail{
@@ -548,10 +549,13 @@ func cdraspBoot(n string, ctl chan string) {
 	sync(n, m)
 
 	work.decoder.NANPbias = true
+	work.trates.Default, work.orates.Default = tel.DefaultTermRates, tel.DefaultOrigRates
 	if err := work.decoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
-	} else if err = work.rater.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load rating engine: %v", n, err)
+	} else if err = work.trates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load termination rates: %v", n, err)
+	} else if err = work.orates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load origination rates: %v", n, err)
 	}
 	m.data = append(m.data, work)
 	ctl <- n
@@ -575,32 +579,48 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	cdr.Info = 0 // TODO: finish setting detail cdr struct (service provider code, attempts, ...)
 	switch item["type"] {
 	case "CARRIER", "SDENUM":
-		_, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
+		sum, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
 		cdr.To = work.decoder.Digest(item["to"])
 		work.decoder.Full(item["from"], &work.tn)
 		cdr.From = work.tn.Digest()
-		cdr.Cost = float32(cdr.Dur) / 600 * 0.005 // TODO: create orig lookup on work.tn
+		cdr.Cost = float32(cdr.Dur) / 600 * work.orates.Lookup(&work.tn)
 		cdrhr := detail.CDR[hr]
 		if cdrhr == nil {
 			cdrhr = make(map[uint64]*cdrItem, 4096)
 			detail.CDR[hr] = cdrhr
 		}
 		cdrhr[id] = cdr
-		// update orig summary maps
+		if s := sum.ByHour[hr]; s == nil {
+			sum.ByHour[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur), Cost: float64(cdr.Cost)}
+		} else {
+			s.Calls++
+			s.Dur += uint64(cdr.Dur)
+			s.Cost += float64(cdr.Cost)
+		}
+		// TODO: complete orig summary maps
 	case "CORE":
 	default:
-		_, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
+		sum, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
 		cdr.From = work.decoder.Digest(item["from"])
-		work.decoder.Full(item["to"], &work.tn) // TODO: should be LRN if available
+		if len(item["dip"]) < 20 || work.decoder.Full(item["dip"][:10], &work.tn) != nil {
+			work.decoder.Full(item["to"], &work.tn)
+		}
 		cdr.To = work.tn.Digest()
-		cdr.Cost = float32(cdr.Dur) / 600 * work.rater.Lookup(&work.tn)
+		cdr.Cost = float32(cdr.Dur) / 600 * work.trates.Lookup(&work.tn)
 		cdrhr := detail.CDR[hr]
 		if cdrhr == nil {
 			cdrhr = make(map[uint64]*cdrItem, 4096)
 			detail.CDR[hr] = cdrhr
 		}
 		cdrhr[id] = cdr
-		// update term summary maps
+		if s := sum.ByHour[hr]; s == nil {
+			sum.ByHour[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur), Cost: float64(cdr.Cost)}
+		} else {
+			s.Calls++
+			s.Dur += uint64(cdr.Dur)
+			s.Cost += float64(cdr.Cost)
+		}
+		// TODO: complete term summary maps
 	}
 }
 func cdraspClean(m *model) {
@@ -608,9 +628,19 @@ func cdraspClean(m *model) {
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
-	// sum, detail := m.data[0].(*termSum), m.data[1].(*termDetail)
-	// clean expired data (including case of id==0)
-	// sum.ByFrom and detail.CDR maps need aggressive trimming
+	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
+	texp, oexp := tdetail.Current-3600*24, odetail.Current-3600*24
+	for hr := range tdetail.CDR {
+		if hr <= texp {
+			delete(tdetail.CDR, hr)
+		}
+	}
+	for hr := range odetail.CDR {
+		if hr <= oexp {
+			delete(odetail.CDR, hr)
+		}
+	}
+	// TODO: ByFrom (like CDR maps) needs aggressive trimming
 	m.rel <- token
 }
 func cdraspMaint(n string) {

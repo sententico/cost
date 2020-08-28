@@ -14,14 +14,15 @@ import (
 type (
 	// Rater ...
 	Rater struct {
-		Location string // rater resource location (filename, ...)
+		Location string // JSON rate resource location (filename, ...)
+		Default  string // default JSON rates
 
 		ccR map[string]pRate
 	}
 
 	// Decoder ...
 	Decoder struct {
-		Location string // decoder resource location (filename, ...)
+		Location string // encodings resource location (filename, ...)
 		NANPbias bool   // set for NANP decoding bias
 
 		ccI map[string]*ccInfo
@@ -44,7 +45,7 @@ type (
 	E164digest uint64 // high 14 bits: Geo code + CC, P & Sub digits; low 50 bits: E.164 Num
 )
 
-// Load method on Rater...
+// Load method on Rater ...
 func (r *Rater) Load(rr io.Reader) (err error) {
 	res, b := make(map[string][]rateGrp), []byte{}
 	if r == nil {
@@ -53,13 +54,15 @@ func (r *Rater) Load(rr io.Reader) (err error) {
 		b, err = ioutil.ReadAll(rr)
 	} else if r.Location != "" {
 		b, err = ioutil.ReadFile(iio.ResolveName(r.Location))
+	} else if r.Default != "" {
+		b = []byte(r.Default)
 	} else {
-		b = []byte(defaultRates)
+		b = []byte(DefaultTermRates)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot access rater resource: %v", err)
+		return fmt.Errorf("cannot access rates resource: %v", err)
 	} else if err = json.Unmarshal(b, &res); err != nil {
-		return fmt.Errorf("rater resource format problem: %v", err)
+		return fmt.Errorf("rates resource format problem: %v", err)
 	}
 
 	r.ccR = make(map[string]pRate)
@@ -78,7 +81,7 @@ func (r *Rater) Load(rr io.Reader) (err error) {
 	return nil
 }
 
-// Lookup method on Rater...
+// Lookup method on Rater ...
 func (r *Rater) Lookup(tn *E164full) (v float32) {
 	if r == nil || tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
 		return 0
@@ -103,12 +106,12 @@ func (d *Decoder) Load(dr io.Reader) (err error) {
 	} else if d.Location != "" {
 		b, err = ioutil.ReadFile(iio.ResolveName(d.Location))
 	} else {
-		b = []byte(defaultDecoder)
+		b = []byte(defaultEncodings)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot access decoder resource: %v", err)
+		return fmt.Errorf("cannot access encodings resource: %v", err)
 	} else if err = json.Unmarshal(b, &res); err != nil {
-		return fmt.Errorf("decoder resource format problem: %v", err)
+		return fmt.Errorf("encodings resource format problem: %v", err)
 	}
 
 	d.ccI = res
