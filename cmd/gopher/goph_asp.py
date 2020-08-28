@@ -67,10 +67,10 @@ def csvWriter(m, cols):
     return csvWrite
 
 def gophCDRASP(m, cmon, args):
-    if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
+    if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
     csv, s = csvWriter(m, ['id','begin','dur','type','from','to','dip','try','iTG','eTG','IP']), ""
 
-    with subprocess.Popen(['goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+    with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('STOP,'):
                 col = l.split(',', 34)

@@ -165,7 +165,7 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 		if e, x := recover(), goph.Wait(); e != nil {
 			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
 		} else if x != nil {
-			logE.Printf("gopher errors fetching from %q: %v [%v]", src, x,
+			logE.Printf("gopher returned errors from %q: %v [%v]", src, x,
 				strings.Split(strings.Trim(string(eb.Bytes()), "\n\t "), "\n")[0])
 		} else {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
