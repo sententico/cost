@@ -83,36 +83,40 @@ type (
 
 	cdrStat struct {
 		Cost  float64 // total USD
-		Dur   uint64  // total 0.1s actual (high-order 16 bits unused)
-		Calls uint32  // total count
+		Dur   uint64  // total 0.1s actual (high-order 24 bits unused)
+		Calls uint32  // total count (high-order 4 bit unused)
 	}
+	hS      map[int32]*cdrStat                    // stats by hour
+	hgS     map[int32]map[string]*cdrStat         // stats by hour/geo zone
+	hpS     map[int32]map[tel.E164digest]*cdrStat // stats by hour/E.164 prefix digest
 	termSum struct {
-		Current int32                                 // hour cursor in summary maps (Unix time)
-		ByHour  map[int32]*cdrStat                    // map by hour (Unix time)
-		ByGeo   map[int32]map[string]*cdrStat         // map by hour/geo-code
-		ByFrom  map[int32]map[tel.E164digest]*cdrStat // map by hour/full from number
-		ByTo    map[int32]map[tel.E164digest]*cdrStat // map by hour/to prefix (CC/CC+np)
+		Current int32 // hour cursor in term summary maps (Unix time)
+		ByHour  hS    // map by hour (Unix time)
+		ByGeo   hgS   // map by hour/geo zone
+		ByFrom  hpS   // map by hour/full from number
+		ByTo    hpS   // map by hour/to prefix (CC/CC+np)
 	}
 	origSum struct {
-		Current int32
-		ByHour  map[int32]*cdrStat                    // map by hour (Unix time)
-		ByTo    map[int32]map[tel.E164digest]*cdrStat // map by hour/full to number
+		Current int32 // hour cursor in orig summary maps (Unix time)
+		ByHour  hS    // map by hour (Unix time)
+		ByTo    hpS   // map by hour/full to number
 	}
 	cdrItem struct {
 		From  tel.E164digest // decoded from number
 		To    tel.E164digest // decoded to number
 		Begin int32          // Unix time (seconds past epoch GMT)
-		Dur   uint32         // 0.1s actual (0x03ffffff mask); applicable rounding (0xfc000000 opt)
+		Dur   uint32         // 0.1s actual (0x03ffffff mask); billable rounding (0xfc000000 opt)
 		Info  uint32         // other info (service provider code, attempts, ...)
 		Cost  float32        // rated USD cost
 	}
+	hiC        map[int32]map[uint64]*cdrItem // CDRs by hour/ID
 	termDetail struct {
-		Current int32                         // hour cursor in CDR map (Unix time)
-		CDR     map[int32]map[uint64]*cdrItem // map by hour/CDR ID
+		Current int32 // hour cursor in term CDR map (Unix time)
+		CDR     hiC   // map by hour/CDR ID
 	}
 	origDetail struct {
-		Current int32                         // hour cursor in CDR map (Unix time)
-		CDR     map[int32]map[uint64]*cdrItem // map by hour/CDR ID
+		Current int32 // hour cursor in orig CDR map (Unix time)
+		CDR     hiC   // map by hour/CDR ID
 	}
 	cdrWork struct {
 		decoder tel.Decoder
@@ -120,6 +124,11 @@ type (
 		orates  tel.Rater
 		tn      tel.E164full
 	}
+)
+
+const (
+	durMask   = 0x03ff_ffff
+	billShift = 32 - 6
 )
 
 var (
@@ -529,17 +538,17 @@ func rdsawsTerm(n string, ctl chan string) {
 
 func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
-		ByHour: make(map[int32]*cdrStat, 2184),
-		ByGeo:  make(map[int32]map[string]*cdrStat, 2184),
-		ByFrom: make(map[int32]map[tel.E164digest]*cdrStat, 2184),
-		ByTo:   make(map[int32]map[tel.E164digest]*cdrStat, 2184),
+		ByHour: make(hS, 2184),
+		ByGeo:  make(hgS, 2184),
+		ByFrom: make(hpS, 2184),
+		ByTo:   make(hpS, 2184),
 	}, &origSum{
-		ByHour: make(map[int32]*cdrStat, 2184),
-		ByTo:   make(map[int32]map[tel.E164digest]*cdrStat, 2184),
+		ByHour: make(hS, 2184),
+		ByTo:   make(hpS, 2184),
 	}, &termDetail{
-		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
+		CDR: make(hiC, 2184),
 	}, &origDetail{
-		CDR: make(map[int32]map[uint64]*cdrItem, 2184),
+		CDR: make(hiC, 2184),
 	}, &cdrWork{}, mMod[n]
 	m.data = append(m.data, tsum)
 	m.data = append(m.data, osum)
@@ -560,6 +569,47 @@ func cdraspBoot(n string, ctl chan string) {
 	m.data = append(m.data, work)
 	ctl <- n
 }
+func (m hiC) add(hr int32, id uint64, cdr *cdrItem) {
+	if hm := m[hr]; hm == nil {
+		hm = make(map[uint64]*cdrItem, 4096)
+		m[hr], hm[id] = hm, cdr
+	} else {
+		hm[id] = cdr
+	}
+}
+func (m hS) add(hr int32, cdr *cdrItem) {
+	if s := m[hr]; s == nil {
+		m[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+	} else {
+		s.Calls++
+		s.Dur += uint64(cdr.Dur & durMask)
+		s.Cost += float64(cdr.Cost)
+	}
+}
+func (m hgS) add(hr int32, geo string, cdr *cdrItem) {
+	if hm := m[hr]; hm == nil {
+		hm = make(map[string]*cdrStat)
+		m[hr], hm[geo] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+	} else if s := hm[geo]; s == nil {
+		hm[geo] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+	} else {
+		s.Calls++
+		s.Dur += uint64(cdr.Dur & durMask)
+		s.Cost += float64(cdr.Cost)
+	}
+}
+func (m hpS) add(hr int32, pre tel.E164digest, cdr *cdrItem) {
+	if hm := m[hr]; hm == nil {
+		hm = make(map[tel.E164digest]*cdrStat)
+		m[hr], hm[pre] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+	} else if s := hm[pre]; s == nil {
+		hm[pre] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+	} else {
+		s.Calls++
+		s.Dur += uint64(cdr.Dur & durMask)
+		s.Cost += float64(cdr.Cost)
+	}
+}
 func cdraspInsert(m *model, item map[string]string, now int) {
 	hr, id, work := int32(now-now%3600), ato64(item["id"], 0), m.data[4].(*cdrWork)
 	if item == nil {
@@ -574,9 +624,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	b, _ := time.Parse(time.RFC3339, item["begin"])
 	cdr := &cdrItem{
 		Begin: int32(b.Unix()),
-		Dur:   uint32(atoi(item["dur"], 0)+5) / 10 & 0x03ff_ffff,
+		Dur:   uint32(atoi(item["dur"], 0)+5) / 10 & durMask,
+		Info:  uint32(atoi(item["try"], 1)), // TODO: mask in service provider code
 	}
-	cdr.Info = 0 // TODO: finish setting detail cdr struct (service provider code, attempts, ...)
 	switch item["type"] {
 	case "CARRIER", "SDENUM":
 		sum, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
@@ -584,20 +634,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		work.decoder.Full(item["from"], &work.tn)
 		cdr.From = work.tn.Digest()
 		cdr.Cost = float32(cdr.Dur) / 600 * work.orates.Lookup(&work.tn)
-		cdrhr := detail.CDR[hr]
-		if cdrhr == nil {
-			cdrhr = make(map[uint64]*cdrItem, 4096)
-			detail.CDR[hr] = cdrhr
-		}
-		cdrhr[id] = cdr
-		if s := sum.ByHour[hr]; s == nil {
-			sum.ByHour[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur), Cost: float64(cdr.Cost)}
-		} else {
-			s.Calls++
-			s.Dur += uint64(cdr.Dur)
-			s.Cost += float64(cdr.Cost)
-		}
-		// TODO: complete orig summary maps
+		detail.CDR.add(hr, id, cdr)
+		sum.ByHour.add(hr, cdr)
+		sum.ByTo.add(hr, cdr.To, cdr)
 	case "CORE":
 	default:
 		sum, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
@@ -607,20 +646,11 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		cdr.To = work.tn.Digest()
 		cdr.Cost = float32(cdr.Dur) / 600 * work.trates.Lookup(&work.tn)
-		cdrhr := detail.CDR[hr]
-		if cdrhr == nil {
-			cdrhr = make(map[uint64]*cdrItem, 4096)
-			detail.CDR[hr] = cdrhr
-		}
-		cdrhr[id] = cdr
-		if s := sum.ByHour[hr]; s == nil {
-			sum.ByHour[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur), Cost: float64(cdr.Cost)}
-		} else {
-			s.Calls++
-			s.Dur += uint64(cdr.Dur)
-			s.Cost += float64(cdr.Cost)
-		}
-		// TODO: complete term summary maps
+		detail.CDR.add(hr, id, cdr)
+		sum.ByHour.add(hr, cdr)
+		sum.ByGeo.add(hr, work.tn.Geo, cdr)
+		sum.ByFrom.add(hr, cdr.From, cdr)
+		// sum.ByTo.add(hr, cdr.To, cdr) // TODO: mask cdr.To prefix
 	}
 }
 func cdraspClean(m *model) {
