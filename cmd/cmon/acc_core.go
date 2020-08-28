@@ -105,8 +105,8 @@ type (
 		From  tel.E164digest // decoded from number
 		To    tel.E164digest // decoded to number
 		Begin int32          // Unix time (seconds past epoch GMT)
-		Dur   uint32         // 0.1s actual (0x03ffffff mask); billable rounding (0xfc000000 opt)
-		Info  uint32         // other info (service provider code, attempts, ...)
+		Dur   uint32         // billable duration increment (s) | actual (0.1s)
+		Info  uint32         // other info: service provider code | tries
 		Cost  float32        // rated USD cost
 	}
 	hiC        map[int32]map[uint64]*cdrItem // CDRs by hour/ID
@@ -122,13 +122,17 @@ type (
 		decoder tel.Decoder
 		trates  tel.Rater
 		orates  tel.Rater
+		sp      tel.SPmap
 		tn      tel.E164full
 	}
 )
 
 const (
-	durMask   = 0x03ff_ffff
-	billShift = 32 - 6
+	durMask   = 0x03ff_ffff // CDR Dur actual duration mask (0.1s)
+	billShift = 32 - 6      // CDR Dur billable duration increment (s) shift
+
+	tryMask = 0xff   // CDR Info tries mask
+	spShift = 32 - 8 // CDR Info service provider shift
 )
 
 var (
@@ -159,14 +163,14 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 }
 
 func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
-	eb, start, acc, token, pages, items, meta, now := bytes.Buffer{}, int(time.Now().Unix()), make(chan accTok, 1), accTok(0), 0, 0, false, 0
-	goph := unleash(src)
+	goph, eb, start, now := unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
+	acc, token, pages, items, meta := make(chan accTok, 1), accTok(0), 0, 0, false
 	defer func() {
 		if e, x := recover(), goph.Wait(); e != nil {
 			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
 		} else if x != nil {
-			logE.Printf("gopher returned errors from %q: %v [%v]", src, x,
-				strings.Split(strings.Trim(string(eb.Bytes()), "\n\t "), "\n")[0])
+			logE.Printf("gopher returned errors from %q: %v [%v]", src, x, strings.Split(strings.Trim(
+				string(eb.Bytes()), "\n\t "), "\n")[0])
 		} else {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
 		}
@@ -566,6 +570,8 @@ func cdraspBoot(n string, ctl chan string) {
 		logE.Fatalf("%q cannot load termination rates: %v", n, err)
 	} else if err = work.orates.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load origination rates: %v", n, err)
+	} else if err = work.sp.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load service provider map: %v", n, err)
 	}
 	m.data = append(m.data, work)
 	ctl <- n
@@ -626,7 +632,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	cdr := &cdrItem{
 		Begin: int32(b.Unix()),
 		Dur:   uint32(atoi(item["dur"], 0)+5) / 10 & durMask,
-		Info:  uint32(atoi(item["try"], 1)), // TODO: mask in service provider code
+		Info:  uint32(atoi(item["try"], 1)) & tryMask,
 	}
 	switch item["type"] {
 	case "CARRIER", "SDENUM":
@@ -635,6 +641,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		work.decoder.Full(item["from"], &work.tn)
 		cdr.From = work.tn.Digest()
 		cdr.Cost = float32(cdr.Dur) / 600 * work.orates.Lookup(&work.tn)
+		if strings.HasPrefix(item["iTG"], "ASPTIB") {
+			cdr.Info |= work.sp.Code(item["iTG"][6:]) << spShift
+		}
 		detail.CDR.add(hr, id, cdr)
 		sum.ByHour.add(hr, cdr)
 		sum.ByTo.add(hr, cdr.To, cdr)
@@ -647,6 +656,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		cdr.To = work.tn.Digest()
 		cdr.Cost = float32(cdr.Dur) / 600 * work.trates.Lookup(&work.tn)
+		if len(item["eTG"]) > 12 && strings.HasPrefix(item["eTG"][6:], "ASPTOB") {
+			cdr.Info |= work.sp.Code(item["eTG"][12:]) << spShift
+		}
 		detail.CDR.add(hr, id, cdr)
 		sum.ByHour.add(hr, cdr)
 		sum.ByGeo.add(hr, work.tn.Geo, cdr)

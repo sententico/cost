@@ -16,6 +16,11 @@ type (
 		Pl      int
 	}
 
+	spIDs struct {
+		Name  string
+		Alias []string
+	}
+
 	geoCode uint8
 )
 
@@ -72,6 +77,27 @@ var (
 )
 
 const (
+	defaultProviders = `{
+		0:		{"Name":"unknown",		"Alias":["","unk","?"]},
+
+		1:		{"Name":"AT&T",			"Alias":["at&t","ATT","att"]},
+		2:		{"Name":"Bandwidth",	"Alias":["BANDWIDTH","bandwidth","BW","bw","BANDWID"]},
+		3:		{"Name":"Brightlink",	"Alias":["BRIGHTLINK","brightlink","BL","bl","BRIGHTL","BRIGHTLSD"]},
+		4:		{"Name":"BT",			"Alias":["bt","British Telecom","britteluk"]},
+		5:		{"Name":"Global Crossing","Alias":["GLOBAL CROSSING","GX","gx"]},
+		6:		{"Name":"IDT",			"Alias":["idt"]},
+		7:		{"Name":"Intelepeer",	"Alias":["INTELEPEER","IP","ip","IPEER"]},
+		8:		{"Name":"Inteliquent",	"Alias":["INTELIQUENT","inteliquent","IQ","iq","NT","nt","INTLQNT"]},
+		9:		{"Name":"Level 3",		"Alias":["LEVEL 3","level 3","LEVEL3","level3","L3","l3"]},
+		10:		{"Name":"NuWave",		"Alias":["NUWAVE","nuwave","NW","nw"]},
+		11:		{"Name":"Tata",			"Alias":["TATA","tata","TA","ta"]},
+		12:		{"Name":"Verizon",		"Alias":["VERIZON","verizon","VZ","vz"]},
+		13:		{"Name":"Voxbone",		"Alias":["VOXBONE","voxbone","VB","vb"]},
+
+		254:	{"Name":"customer",		"Alias":["BYOC"]},
+		255:	{"Name":"internal",		"Alias":["Aspect","ASPECT","ASP","asp","Voxeo","VOXEO","VX","vx","AUDIOC"]}
+		}`
+
 	defaultEncodings = `{
 		"1":	{"Geo":"nanpa",	"ISO3166":"XC",	"Pl":3,	"CCn":"North America"},
 		"20":	{"Geo":"afr",	"ISO3166":"EG",	"Pl":3,	"CCn":"Egypt"},

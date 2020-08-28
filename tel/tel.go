@@ -28,6 +28,14 @@ type (
 		ccI map[string]*ccInfo
 	}
 
+	// SPmap ...
+	SPmap struct {
+		Location string // service provider resource location
+
+		alCo map[string]uint32
+		coNa map[uint32]string
+	}
+
 	// E164full ...
 	E164full struct {
 		Num     string // proper E.164 number
@@ -220,6 +228,44 @@ func (d *Decoder) Digest(n string) E164digest {
 		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
 		return E164digest(d)
 	}
+}
+
+// Load method on SPmap ...
+func (sp *SPmap) Load(r io.Reader) (err error) {
+	res, b := make(map[uint32]spIDs), []byte{}
+	if sp == nil {
+		return fmt.Errorf("no service provider map specified")
+	} else if sp.alCo, sp.coNa = nil, nil; r != nil {
+		b, err = ioutil.ReadAll(r)
+	} else if sp.Location != "" {
+		b, err = ioutil.ReadFile(iio.ResolveName(sp.Location))
+	} else {
+		b = []byte(defaultProviders)
+	}
+	if err != nil {
+		return fmt.Errorf("cannot access service provider resource: %v", err)
+	} else if err = json.Unmarshal(b, &res); err != nil {
+		return fmt.Errorf("service provider resource format problem: %v", err)
+	}
+
+	sp.alCo, sp.coNa = make(map[string]uint32), make(map[uint32]string)
+	for c, id := range res {
+		sp.coNa[c], sp.alCo[id.Name] = id.Name, c
+		for _, al := range id.Alias {
+			sp.alCo[al] = c
+		}
+	}
+	return nil
+}
+
+// Code method on SPmap ...
+func (sp *SPmap) Code(al string) uint32 {
+	return sp.alCo[al]
+}
+
+// Name method on SPmap ...
+func (sp *SPmap) Name(co uint32) string {
+	return sp.coNa[co]
 }
 
 // Digest method on E164full ...
