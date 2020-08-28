@@ -222,9 +222,9 @@ func main() {
 	}
 	for n, m := range mMod {
 		m.state = msINIT
-		d := time.Duration(models*100) * time.Second
+		d, model, name := time.Duration(models*100)*time.Second, m, n
 		models++
-		goAfter(d, d+20*time.Second, func() { m.maint(n) })
+		goAfter(d, d+20*time.Second, func() { model.maint(name) })
 	}
 
 	logI.Printf("listening on port %v for HTTP requests", port)

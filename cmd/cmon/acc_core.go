@@ -670,7 +670,12 @@ func cdraspClean(m *model) {
 			delete(odetail.CDR, hr)
 		}
 	}
-	// TODO: ByFrom (like CDR maps) needs aggressive trimming
+	tsum, _ := m.data[0].(*termSum), m.data[2].(*origSum)
+	for hr := range tsum.ByTo {
+		if hr <= texp {
+			delete(tsum.ByTo, hr)
+		}
+	}
 	m.rel <- token
 }
 func cdraspMaint(n string) {
