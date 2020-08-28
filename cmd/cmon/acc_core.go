@@ -670,7 +670,7 @@ func cdraspClean(m *model) {
 			delete(odetail.CDR, hr)
 		}
 	}
-	tsum, _ := m.data[0].(*termSum), m.data[2].(*origSum)
+	tsum, _ := m.data[0].(*termSum), m.data[1].(*origSum)
 	for hr := range tsum.ByTo {
 		if hr <= texp {
 			delete(tsum.ByTo, hr)
