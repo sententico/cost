@@ -159,13 +159,14 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 }
 
 func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
-	start, acc, token, pages, items, meta, now := int(time.Now().Unix()), make(chan accTok, 1), accTok(0), 0, 0, false, 0
+	eb, start, acc, token, pages, items, meta, now := bytes.Buffer{}, int(time.Now().Unix()), make(chan accTok, 1), accTok(0), 0, 0, false, 0
 	goph := unleash(src)
 	defer func() {
 		if e, x := recover(), goph.Wait(); e != nil {
 			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
 		} else if x != nil {
-			logE.Printf("gopher errors fetching from %q: %v", src, x.(*exec.ExitError).Stderr)
+			logE.Printf("gopher errors fetching from %q: %v [%v]", src, x,
+				strings.Split(strings.Trim(string(eb.Bytes()), "\n\t "), "\n")[0])
 		} else {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
 		}
@@ -180,7 +181,7 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 	if e != nil {
 		panic(e) // TODO: test that panics here before Start() aren't a problem for deferred Wait()
 	}
-	goph.Stdin = bytes.NewBuffer(sb)
+	goph.Stdin, goph.Stderr = bytes.NewBuffer(sb), &eb
 	pipe, e := goph.StdoutPipe()
 	if e != nil {
 		panic(e)
