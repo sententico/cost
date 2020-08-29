@@ -75,8 +75,12 @@ def gophCDRASP(m, cmon, args):
             if l.startswith('STOP,'):
                 col = l.split(',', 34)
                 if len(col) <= 34: continue
+                try:    begin = datetime.strptime(col[5]+col[6],'%m/%d/%Y%H:%M:%S.%f').isoformat(timespec='seconds')+'Z'
+                except  KeyboardInterrupt: raise
+                except: continue
+
                 csv(s, {'id':       col[2],     # accounting ID
-                        'begin':    datetime.strptime(col[5]+col[6],'%m/%d/%Y%H:%M:%S.%f').isoformat(timespec='seconds')+'Z',
+                        'begin':    begin,      # start date/time
                         'dur':      col[13],    # call service duration
                         'type':     col[17],    # service provider (CARRIER/SDENUM for inbound)
                         'from':     col[19],    # calling number (not always full E.164)

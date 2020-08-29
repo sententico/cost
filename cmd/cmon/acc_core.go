@@ -183,7 +183,7 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 	}()
 	sb, e := json.MarshalIndent(settings, "", "\t")
 	if e != nil {
-		panic(e) // TODO: test that panics here before Start() aren't a problem for deferred Wait()
+		panic(e)
 	}
 	goph.Stdin, goph.Stderr = bytes.NewBuffer(sb), &eb
 	pipe, e := goph.StdoutPipe()
@@ -638,7 +638,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	case "CARRIER", "SDENUM":
 		sum, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
 		cdr.To = work.decoder.Digest(item["to"])
-		work.decoder.Full(item["from"], &work.tn)
+		work.decoder.Quick(item["from"], &work.tn)
 		cdr.From = work.tn.Digest()
 		cdr.Cost = float32(cdr.Dur) / 600 * work.orates.Lookup(&work.tn)
 		if strings.HasPrefix(item["iTG"], "ASPTIB") {
@@ -651,8 +651,8 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	default:
 		sum, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
 		cdr.From = work.decoder.Digest(item["from"])
-		if len(item["dip"]) < 20 || work.decoder.Full(item["dip"][:10], &work.tn) != nil {
-			work.decoder.Full(item["to"], &work.tn)
+		if len(item["dip"]) < 20 || work.decoder.Quick(item["dip"][:10], &work.tn) != nil {
+			work.decoder.Quick(item["to"], &work.tn)
 		}
 		cdr.To = work.tn.Digest()
 		cdr.Cost = float32(cdr.Dur) / 600 * work.trates.Lookup(&work.tn)

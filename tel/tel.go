@@ -270,8 +270,14 @@ func (sp *SPmap) Name(co uint32) string {
 
 // Digest method on E164full ...
 func (tn *E164full) Digest() E164digest {
-	// TODO: implement
-	return 0
+	if tn == nil || tn.Num == "" {
+		return 0
+	} else if d, _ := strconv.ParseUint(tn.Num, 10, 64); d == 0 {
+		return 0
+	} else {
+		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
+		return E164digest(d)
+	}
 }
 
 // Full method on E164digest ...
