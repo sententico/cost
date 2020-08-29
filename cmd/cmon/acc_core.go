@@ -171,7 +171,7 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 		} else if e := goph.Wait(); e != nil { // TODO: leaks when Wait() skipped on panic?
 			logE.Printf("gopher returned errors from %q: %v [%v]", src, e, strings.Split(strings.Trim(
 				string(eb.Bytes()), "\n\t "), "\n")[0])
-		} else {
+		} else if items > 0 {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
 		}
 		if items > 0 {
