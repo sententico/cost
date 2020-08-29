@@ -269,11 +269,14 @@ func (sp *SPmap) Name(co uint32) string {
 }
 
 // Digest method on E164full ...
-func (tn *E164full) Digest() E164digest {
-	if tn == nil || tn.Num == "" {
+func (tn *E164full) Digest(pre int) E164digest {
+	if tn == nil || tn.Num == "" || pre < len(tn.CC) || pre > len(tn.Num) {
 		return 0
-	} else if d, _ := strconv.ParseUint(tn.Num, 10, 64); d == 0 {
+	} else if d, _ := strconv.ParseUint(tn.Num[:pre], 10, 64); d == 0 {
 		return 0
+	} else if pre < len(tn.Num) {
+		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(pre-len(tn.CC))<<54
+		return E164digest(d)
 	} else {
 		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
 		return E164digest(d)

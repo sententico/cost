@@ -75,7 +75,7 @@ def gophCDRASP(m, cmon, args):
             if l.startswith('STOP,'):
                 col = l.split(',', 34)
                 if len(col) <= 34: continue
-                try:    begin = datetime.strptime(col[5]+col[6],'%m/%d/%Y%H:%M:%S.%f').isoformat(timespec='seconds')+'Z'
+                try:    begin = datetime.strptime(col[5]+col[6][:-2],'%m/%d/%Y%H:%M:%S').isoformat()+'Z'
                 except  KeyboardInterrupt: raise
                 except: continue
 
@@ -88,7 +88,8 @@ def gophCDRASP(m, cmon, args):
                         'dip':      col[23],    # called number before translation #1 (LRN data)
                         'try':      col[29],    # route attempt number
                         'iTG':      col[33],    # ingress trunk group name (inbound carrier)
-                        'eTG':      col[30],    # gateway:trunk group (outbound carrier)
+                                                # gateway:trunk group (outbound carrier)
+                        'eTG':      col[30].partition(':')[2],
                         'IP':       col[31],    # egress local signaling IP addr (non-routable for inbound)
                         })
             elif l.startswith('#!begin '):

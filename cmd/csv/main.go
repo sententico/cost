@@ -97,7 +97,7 @@ func getRes(scache *csv.Settings, fn string) {
 		wg.Done()
 	}()
 	var (
-		r       io.Reader
+		r       io.ReadCloser
 		decoder tel.Decoder
 		rater   tel.Rater
 		tn      tel.E164full

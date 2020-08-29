@@ -164,12 +164,17 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 
 func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 	goph, eb, start, now := unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
+	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	acc, token, pages, items, meta := make(chan accTok, 1), accTok(0), 0, 0, false
 	defer func() {
 		if e := recover(); e != nil {
-			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
-		} else if e := goph.Wait(); e != nil { // TODO: leaks when Wait() skipped on panic?
-			logE.Printf("gopher returned errors from %q: %v [%v]", src, e, strings.Split(strings.Trim(
+			if token != 0 {
+				m.rel <- token
+				gophStdout.Close()
+			}
+			logE.Printf("gopher error while fetching %q: %v", src, e.(error))
+		} else if e := goph.Wait(); e != nil {
+			logE.Printf("gopher errors from %q: %v [%v]", src, e, strings.Split(strings.Trim(
 				string(eb.Bytes()), "\n\t "), "\n")[0])
 		} else if items > 0 {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
@@ -181,24 +186,19 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 			m.rel <- token
 		}
 	}()
-	sb, e := json.MarshalIndent(settings, "", "\t")
-	if e != nil {
+	if sb, e := json.MarshalIndent(settings, "", "\t"); e != nil {
 		panic(e)
-	}
-	goph.Stdin, goph.Stderr = bytes.NewBuffer(sb), &eb
-	pipe, e := goph.StdoutPipe()
-	if e != nil {
+	} else if goph.Stdin, goph.Stderr = bytes.NewBuffer(sb), &eb; false {
+	} else if pipe, e := goph.StdoutPipe(); e != nil {
 		panic(e)
 	} else if e = goph.Start(); e != nil {
 		panic(e)
-	}
-
-	res := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
-	if e = res.Open(pipe); e != nil {
+	} else if e = gophStdout.Open(pipe); e != nil {
 		panic(e)
 	}
-	in, err := res.Get()
-	for item := range in {
+
+	results, err := gophStdout.Get()
+	for item := range results {
 		now = int(time.Now().Unix())
 		pages++
 		m.req <- modRq{atEXCL, acc}
@@ -208,18 +208,19 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 				items++
 			}
 			select {
-			case item = <-in:
+			case item = <-results:
 				if item != nil {
 					continue
 				}
 			default:
 			}
 			m.rel <- token
+			token = 0
 			break
 		}
 	}
-	res.Close()
-	if e = <-err; e != nil {
+	gophStdout.Close()
+	if e := <-err; e != nil {
 		panic(e)
 	}
 }
@@ -618,31 +619,29 @@ func (m hpS) add(hr int32, pre tel.E164digest, cdr *cdrItem) {
 	}
 }
 func cdraspInsert(m *model, item map[string]string, now int) {
-	hr, id, work := int32(now-now%3600), ato64(item["id"], 0), m.data[4].(*cdrWork)
-	if item == nil {
-		if hr > m.data[0].(*termSum).Current {
-			m.data[0].(*termSum).Current, m.data[1].(*origSum).Current = hr, hr
-			m.data[2].(*termDetail).Current, m.data[3].(*origDetail).Current = hr, hr
-		}
-		return
-	} else if id == 0 {
+	id, work := ato64(item["id"], 0), m.data[4].(*cdrWork)
+	b, err := time.Parse(time.RFC3339, item["begin"])
+	if err != nil || id == 0 {
 		return
 	}
-	b, _ := time.Parse(time.RFC3339, item["begin"])
 	cdr := &cdrItem{
 		Begin: int32(b.Unix()),
 		Dur:   uint32(atoi(item["dur"], 0)+5) / 10 & durMask,
 		Info:  uint32(atoi(item["try"], 1)) & tryMask,
 	}
-	switch item["type"] {
+
+	switch hr := cdr.Begin / 3600; item["type"] {
 	case "CARRIER", "SDENUM":
 		sum, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
 		cdr.To = work.decoder.Digest(item["to"])
 		work.decoder.Quick(item["from"], &work.tn)
-		cdr.From = work.tn.Digest()
+		cdr.From = work.tn.Digest(len(work.tn.Num))
 		cdr.Cost = float32(cdr.Dur) / 600 * work.orates.Lookup(&work.tn)
-		if strings.HasPrefix(item["iTG"], "ASPTIB") {
-			cdr.Info |= work.sp.Code(item["iTG"][6:]) << spShift
+		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
+			cdr.Info |= work.sp.Code(tg[6:]) << spShift
+		}
+		if hr > sum.Current {
+			sum.Current, detail.Current = hr, hr
 		}
 		detail.CDR.add(hr, id, cdr)
 		sum.ByHour.add(hr, cdr)
@@ -654,16 +653,19 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if len(item["dip"]) < 20 || work.decoder.Quick(item["dip"][:10], &work.tn) != nil {
 			work.decoder.Quick(item["to"], &work.tn)
 		}
-		cdr.To = work.tn.Digest()
+		cdr.To = work.tn.Digest(len(work.tn.Num))
 		cdr.Cost = float32(cdr.Dur) / 600 * work.trates.Lookup(&work.tn)
-		if len(item["eTG"]) > 12 && strings.HasPrefix(item["eTG"][6:], "ASPTOB") {
-			cdr.Info |= work.sp.Code(item["eTG"][12:]) << spShift
+		if tg := item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
+			cdr.Info |= work.sp.Code(tg[6:]) << spShift
+		}
+		if hr > sum.Current {
+			sum.Current, detail.Current = hr, hr
 		}
 		detail.CDR.add(hr, id, cdr)
 		sum.ByHour.add(hr, cdr)
 		sum.ByGeo.add(hr, work.tn.Geo, cdr)
 		sum.ByFrom.add(hr, cdr.From, cdr)
-		// sum.ByTo.add(hr, cdr.To, cdr) // TODO: mask cdr.To prefix
+		sum.ByTo.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
 	}
 }
 func cdraspClean(m *model) {

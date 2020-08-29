@@ -33,10 +33,10 @@ type (
 		Heading  bool         // first row is a heading
 		Rows     int          // estimated total resource rows (-1 if unknown)
 		Sig      string       // format signature (specifier or heading MD5 hash, if determined)
-		Settings SettingsItem // format settings located by Sig in Settings cache (if found)
+		Settings SettingsItem // format settings matched to Sig in SettingsCache (if found)
 
 		stat     resStat
-		file     *os.File
+		reader   io.ReadCloser
 		finfo    os.FileInfo
 		peek, in <-chan string
 		ierr     <-chan error
@@ -76,7 +76,7 @@ const (
 // Open method on Resource populates resource fields for identification and prepares resource
 // for Get method extraction. If a SettingsCache is specified, known resource formats can be
 // automatically be identified in Settings.
-func (res *Resource) Open(r io.Reader) (e error) {
+func (res *Resource) Open(r io.ReadCloser) (e error) {
 	switch res.stat {
 	case rsOPEN, rsGET:
 		return fmt.Errorf("resource already open")
@@ -86,7 +86,10 @@ func (res *Resource) Open(r io.Reader) (e error) {
 	defer func() {
 		if i := recover(); i != nil {
 			e = i.(error)
-			res.file.Close()
+			if res.reader != nil {
+				res.reader.Close()
+				res.reader = nil
+			}
 			if res.isig != nil {
 				close(res.isig)
 				res.isig = nil
@@ -95,14 +98,16 @@ func (res *Resource) Open(r io.Reader) (e error) {
 	}()
 
 	if r == nil {
-		if res.file, e = os.Open(iio.ResolveName(res.Location)); e != nil {
+		if f, e := os.Open(iio.ResolveName(res.Location)); e != nil {
 			panic(e)
-		}
-		if res.finfo, e = res.file.Stat(); e != nil {
+		} else if res.finfo, e = f.Stat(); e != nil {
+			f.Close()
 			panic(e)
+		} else {
+			r = f
 		}
-		r = res.file
 	}
+	res.reader = r
 
 	res.peek, res.in, res.ierr, res.isig = iio.ReadLn(r, previewLines)
 	if res.peekAhead(); len(res.ierr) > 0 {
@@ -166,7 +171,7 @@ func (res *Resource) Close() error {
 	case rsGET:
 		close(res.sig)
 	}
-	res.file.Close()
+	res.reader.Close()
 	res.stat = rsCLOSED
 	return nil
 }
