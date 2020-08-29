@@ -166,10 +166,10 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 	goph, eb, start, now := unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
 	acc, token, pages, items, meta := make(chan accTok, 1), accTok(0), 0, 0, false
 	defer func() {
-		if e, x := recover(), goph.Wait(); e != nil {
+		if e := recover(); e != nil {
 			logE.Printf("gopher error fetching from %q: %v", src, e.(error))
-		} else if x != nil {
-			logE.Printf("gopher returned errors from %q: %v [%v]", src, x, strings.Split(strings.Trim(
+		} else if e := goph.Wait(); e != nil { // TODO: leaks when Wait() skipped on panic?
+			logE.Printf("gopher returned errors from %q: %v [%v]", src, e, strings.Split(strings.Trim(
 				string(eb.Bytes()), "\n\t "), "\n")[0])
 		} else {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)

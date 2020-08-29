@@ -135,11 +135,11 @@ func (d *Decoder) Quick(n string, tn *E164full) error {
 		}
 		return r
 	}, n), false
-	if n[0] == '+' {
+	if len(n) > 0 && n[0] == '+' {
 		n, intl = n[1:], true
-	} else if strings.HasPrefix(n, "011") {
+	} else if len(n) > 2 && n[:3] == "011" {
 		n, intl = n[3:], true
-	} else if strings.HasPrefix(n, "00") {
+	} else if len(n) > 1 && n[:2] == "00" {
 		n, intl = n[2:], true
 	}
 
@@ -172,11 +172,11 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 		}
 		return r
 	}, n), false
-	if n[0] == '+' {
+	if len(n) > 0 && n[0] == '+' {
 		n, intl = n[1:], true
-	} else if strings.HasPrefix(n, "011") {
+	} else if len(n) > 2 && n[:3] == "011" {
 		n, intl = n[3:], true
-	} else if strings.HasPrefix(n, "00") {
+	} else if len(n) > 1 && n[:2] == "00" {
 		n, intl = n[2:], true
 	}
 	if tn == nil {
