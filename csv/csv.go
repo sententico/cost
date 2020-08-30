@@ -110,9 +110,7 @@ func (res *Resource) Open(r io.ReadCloser) (e error) {
 	res.reader = r
 
 	res.peek, res.in, res.ierr, res.isig = iio.ReadLn(r, previewLines)
-	if res.peekAhead(); len(res.ierr) > 0 {
-		panic(fmt.Errorf("peek-ahead error (%v)", <-res.ierr))
-	}
+	res.peekAhead()
 	res.stat = rsOPEN
 	return nil
 }

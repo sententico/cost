@@ -156,6 +156,7 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 					"python",
 					fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), sfx[src[i:]]),
 				}
+				// TODO: change to exec.CommandContext() to support timeouts?
 				return exec.Command(args[0], append(append(args[1:], options...), src)...)
 			}
 		}
@@ -172,7 +173,7 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 				m.rel <- token
 				gophStdout.Close()
 			}
-			logE.Printf("gopher error while fetching %q: %v", src, e.(error))
+			logE.Printf("gopher error while fetching %q: %v", src, e)
 		} else if e := goph.Wait(); e != nil {
 			logE.Printf("gopher errors from %q: %v [%v]", src, e, strings.Split(strings.Trim(
 				string(eb.Bytes()), "\n\t "), "\n")[0])
