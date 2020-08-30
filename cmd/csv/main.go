@@ -127,7 +127,7 @@ func getRes(scache *csv.Settings, fn string) {
 			writeCSV(&res, row)
 		} else if rateFlag && row["callDirection"] == "PSTN_OUTBOUND" {
 			filtered++
-			if err := decoder.Quick(row["toNumber"], &tn); err != nil {
+			if err := decoder.Full(row["toNumber"], &tn); err != nil {
 				failed++
 				continue
 			}

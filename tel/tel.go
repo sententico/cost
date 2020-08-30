@@ -126,51 +126,14 @@ func (d *Decoder) Load(dr io.Reader) (err error) {
 	return nil
 }
 
-// Quick method on Decoder ...
-func (d *Decoder) Quick(n string, tn *E164full) error {
-	n, intl := strings.Map(func(r rune) rune {
-		switch r {
-		case '(', ')', '[', ']', '-', '.', ' ', '\t':
-			return -1
-		}
-		return r
-	}, n), false
-	if len(n) > 0 && n[0] == '+' {
-		n, intl = n[1:], true
-	} else if len(n) > 2 && n[:3] == "011" {
-		n, intl = n[3:], true
-	} else if len(n) > 1 && n[:2] == "00" {
-		n, intl = n[2:], true
-	}
-
-	if tn == nil {
-		return fmt.Errorf("missing E.164")
-	} else if len(n) < 7 || len(n) > 15 {
-		tn.set(n, "", nil)
-		return fmt.Errorf("invalid E.164 length: %v", len(n))
-	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
-		tn.set("1"+n, "1", d.ccI["1"])
-	} else if i := d.ccI[n[:1]]; i != nil {
-		tn.set(n, n[:1], i)
-	} else if i = d.ccI[n[:2]]; i != nil {
-		tn.set(n, n[:2], i)
-	} else if i = d.ccI[n[:3]]; i != nil {
-		tn.set(n, n[:3], i)
-	} else {
-		tn.set(n, "", nil)
-		return fmt.Errorf("no valid CC prefix")
-	}
-	return nil
-}
-
 // Full method on Decoder ...
 func (d *Decoder) Full(n string, tn *E164full) error {
 	n, intl := strings.Map(func(r rune) rune {
 		switch r {
-		case '(', ')', '[', ']', '-', '.', ' ', '\t':
-			return -1
+		case '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return r
 		}
-		return r
+		return -1
 	}, n), false
 	if len(n) > 0 && n[0] == '+' {
 		n, intl = n[1:], true
@@ -179,53 +142,70 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 	} else if len(n) > 1 && n[:2] == "00" {
 		n, intl = n[2:], true
 	}
+
+	var cc string
 	if tn == nil {
 		return fmt.Errorf("missing E.164")
+	} else if d == nil {
+		tn.set(n, "", nil)
+		return fmt.Errorf("no decoder specified")
 	} else if len(n) < 7 || len(n) > 15 {
 		tn.set(n, "", nil)
 		return fmt.Errorf("invalid E.164 length: %v", len(n))
-	}
-
-	var (
-		i  *ccInfo
-		cc string
-	)
-	if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
-		n, cc, i = "1"+n, "1", d.ccI["1"]
-	} else if i = d.ccI[n[:1]]; i != nil {
+	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
+		n, cc = "1"+n, "1"
+	} else if d.ccI[n[:1]] != nil {
 		cc = n[:1]
-	} else if i = d.ccI[n[:2]]; i != nil {
+	} else if d.ccI[n[:2]] != nil {
 		cc = n[:2]
-	} else if i = d.ccI[n[:3]]; i != nil {
+	} else if d.ccI[n[:3]] != nil {
 		cc = n[:3]
 	} else {
 		tn.set(n, "", nil)
 		return fmt.Errorf("no valid CC prefix")
 	}
 
-	// expanded validation/decoding rules (including more precise P/Sub partitioning)
-	switch cc {
-	case "1":
-		// NANPA exceptions
-	case "7":
-		// Russia/Kazakhstan exceptions
-	default:
-	}
-	tn.set(n, cc, i)
+	tn.set(n, cc, d.xInfo(n, cc))
 	return nil
 }
 
 // Digest method on Decoder ...
 func (d *Decoder) Digest(n string) E164digest {
-	// TODO: code direct decoding for more efficiency
-	if d == nil || n == "" {
+	n, intl := strings.Map(func(r rune) rune {
+		switch r {
+		case '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return r
+		}
+		return -1
+	}, n), false
+	if len(n) > 0 && n[0] == '+' {
+		n, intl = n[1:], true
+	} else if len(n) > 2 && n[:3] == "011" {
+		n, intl = n[3:], true
+	} else if len(n) > 1 && n[:2] == "00" {
+		n, intl = n[2:], true
+	}
+
+	var cc string
+	if d == nil || len(n) < 7 || len(n) > 15 {
 		return 0
-	} else if tn := (&E164full{}); d.Quick(n, tn) != nil {
+	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
+		n, cc = "1"+n, "1"
+	} else if d.ccI[n[:1]] != nil {
+		cc = n[:1]
+	} else if d.ccI[n[:2]] != nil {
+		cc = n[:2]
+	} else if d.ccI[n[:3]] != nil {
+		cc = n[:3]
+	} else {
 		return 0
-	} else if d, _ := strconv.ParseUint(tn.Num, 10, 64); d == 0 {
+	}
+
+	x := d.xInfo(n, cc)
+	if d, _ := strconv.ParseUint(n, 10, 64); d == 0 || len(n) < len(cc)+x.Pl {
 		return 0
 	} else {
-		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
+		d |= uint64(geoEncode[x.Geo])<<60 | uint64(len(cc))<<58 | uint64(x.Pl)<<54 | uint64(len(n)-len(cc)-x.Pl)<<50
 		return E164digest(d)
 	}
 }
@@ -297,22 +277,4 @@ func (dtn E164digest) Geo() string {
 // Num64 method on E164digest ...
 func (dtn E164digest) Num64() uint64 {
 	return uint64(dtn) & 0x3_ffff_ffff_ffff
-}
-
-// set method on E164full (internal) ...
-func (tn *E164full) set(n string, cc string, i *ccInfo) {
-	if i != nil {
-		tn.Num, tn.CC = n, cc
-		tn.Geo = i.Geo
-		tn.CCn = i.CCn
-		tn.ISO3166 = i.ISO3166
-		if so := len(cc) + i.Pl; len(n) > so {
-			tn.P, tn.Sub = n[len(cc):so], n[so:]
-		} else {
-			tn.P, tn.Sub = "", ""
-		}
-	} else {
-		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
-	}
-	// tn.CCx, tn.Pn = "", "" // not used
 }
