@@ -151,7 +151,7 @@ func modManager(m *model, n string, ctl chan string) {
 	m.rel = make(chan accTok, 16)
 	m.boot(n, ctl)
 
-	for ; ; token++ { // loop indefinitely as model access manager when boot complete
+	for token++; ; token++ { // loop indefinitely as model access manager when boot complete
 	nextRequest:
 		for mr = <-m.req; mr.typ&atEXCL == 0; token++ {
 			mr.acc <- token

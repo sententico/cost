@@ -577,13 +577,16 @@ func cdraspBoot(n string, ctl chan string) {
 	m.data = append(m.data, work)
 	ctl <- n
 }
-func (m hiC) add(hr int32, id uint64, cdr *cdrItem) {
+func (m hiC) add(hr int32, id uint64, cdr *cdrItem) bool {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[uint64]*cdrItem, 4096)
 		m[hr], hm[id] = hm, cdr
-	} else {
+	} else if hm[id] == nil {
 		hm[id] = cdr
+	} else {
+		return false
 	}
+	return true
 }
 func (m hS) add(hr int32, cdr *cdrItem) {
 	if s := m[hr]; s == nil {
@@ -619,7 +622,8 @@ func (m hpS) add(hr int32, pre tel.E164digest, cdr *cdrItem) {
 	}
 }
 func cdraspInsert(m *model, item map[string]string, now int) {
-	id, work := ato64(item["id"], 0), m.data[4].(*cdrWork)
+	id, tsum, osum := ato64(item["id"], 0), m.data[0].(*termSum), m.data[1].(*origSum)
+	tdetail, odetail, work := m.data[2].(*termDetail), m.data[3].(*origDetail), m.data[4].(*cdrWork)
 	b, err := time.Parse(time.RFC3339, item["begin"])
 	if err != nil || id == 0 {
 		return
@@ -632,7 +636,6 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 
 	switch hr := cdr.Begin / 3600; item["type"] {
 	case "CARRIER", "SDENUM":
-		sum, detail := m.data[1].(*origSum), m.data[3].(*origDetail)
 		cdr.To = work.decoder.Digest(item["to"])
 		work.decoder.Full(item["from"], &work.tn)
 		cdr.From = work.tn.Digest(len(work.tn.Num))
@@ -640,15 +643,15 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
 			cdr.Info |= work.sp.Code(tg[6:]) << spShift
 		}
-		if hr > sum.Current {
-			sum.Current, detail.Current = hr, hr
+		if hr > osum.Current {
+			osum.Current, odetail.Current = hr, hr
 		}
-		detail.CDR.add(hr, id, cdr)
-		sum.ByHour.add(hr, cdr)
-		sum.ByTo.add(hr, cdr.To, cdr)
+		if odetail.CDR.add(hr, id, cdr) {
+			osum.ByHour.add(hr, cdr)
+			osum.ByTo.add(hr, cdr.To, cdr)
+		}
 	case "CORE":
 	default:
-		sum, detail := m.data[0].(*termSum), m.data[2].(*termDetail)
 		cdr.From = work.decoder.Digest(item["from"])
 		if len(item["dip"]) < 20 || work.decoder.Full(item["dip"][:10], &work.tn) != nil {
 			work.decoder.Full(item["to"], &work.tn)
@@ -658,14 +661,15 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if tg := item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
 			cdr.Info |= work.sp.Code(tg[6:]) << spShift
 		}
-		if hr > sum.Current {
-			sum.Current, detail.Current = hr, hr
+		if hr > tsum.Current {
+			tsum.Current, tdetail.Current = hr, hr
 		}
-		detail.CDR.add(hr, id, cdr)
-		sum.ByHour.add(hr, cdr)
-		sum.ByGeo.add(hr, work.tn.Geo, cdr)
-		sum.ByFrom.add(hr, cdr.From, cdr)
-		sum.ByTo.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
+		if tdetail.CDR.add(hr, id, cdr) {
+			tsum.ByHour.add(hr, cdr)
+			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
+			tsum.ByFrom.add(hr, cdr.From, cdr)
+			tsum.ByTo.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
+		}
 	}
 }
 func cdraspClean(m *model) {
