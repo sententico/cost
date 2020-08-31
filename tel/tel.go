@@ -28,12 +28,20 @@ type (
 		ccI map[string]*ccInfo
 	}
 
-	// SPmap ...
+	// SPmap service provider map ...
 	SPmap struct {
 		Location string // service provider resource location
 
-		alCo map[string]uint32
-		coNa map[uint32]string
+		alCo map[string]uint16
+		coNa map[uint16]string
+	}
+
+	// SLmap service location map ...
+	SLmap struct {
+		Location string // service location resource location
+
+		alCo map[string]uint16
+		coNa map[uint16]string
 	}
 
 	// E164full ...
@@ -205,14 +213,14 @@ func (d *Decoder) Digest(n string) E164digest {
 	if d, _ := strconv.ParseUint(n, 10, 64); d == 0 || len(n) < len(cc)+x.Pl {
 		return 0
 	} else {
-		d |= uint64(geoEncode[x.Geo])<<60 | uint64(len(cc))<<58 | uint64(x.Pl)<<54 | uint64(len(n)-len(cc)-x.Pl)<<50
+		d |= uint64(geoEncode[x.Geo])<<geoShift | uint64(len(cc))<<ccShift | uint64(x.Pl)<<pShift | uint64(len(n)-len(cc)-x.Pl)<<subShift
 		return E164digest(d)
 	}
 }
 
 // Load method on SPmap ...
 func (sp *SPmap) Load(r io.Reader) (err error) {
-	res, b := make(map[uint32]spIDs), []byte{}
+	res, b := make(map[uint16]spIDs), []byte{}
 	if sp == nil {
 		return fmt.Errorf("no service provider map specified")
 	} else if sp.alCo, sp.coNa = nil, nil; r != nil {
@@ -228,7 +236,7 @@ func (sp *SPmap) Load(r io.Reader) (err error) {
 		return fmt.Errorf("service provider resource format problem: %v", err)
 	}
 
-	sp.alCo, sp.coNa = make(map[string]uint32), make(map[uint32]string)
+	sp.alCo, sp.coNa = make(map[string]uint16), make(map[uint16]string)
 	for c, id := range res {
 		sp.coNa[c], sp.alCo[id.Name] = id.Name, c
 		for _, al := range id.Alias {
@@ -239,13 +247,51 @@ func (sp *SPmap) Load(r io.Reader) (err error) {
 }
 
 // Code method on SPmap ...
-func (sp *SPmap) Code(al string) uint32 {
+func (sp *SPmap) Code(al string) uint16 {
 	return sp.alCo[al]
 }
 
 // Name method on SPmap ...
-func (sp *SPmap) Name(co uint32) string {
+func (sp *SPmap) Name(co uint16) string {
 	return sp.coNa[co]
+}
+
+// Load method on SLmap ...
+func (sl *SLmap) Load(r io.Reader) (err error) {
+	res, b := make(map[uint16]spIDs), []byte{}
+	if sl == nil {
+		return fmt.Errorf("no service location map specified")
+	} else if sl.alCo, sl.coNa = nil, nil; r != nil {
+		b, err = ioutil.ReadAll(r)
+	} else if sl.Location != "" {
+		b, err = ioutil.ReadFile(iio.ResolveName(sl.Location))
+	} else {
+		b = []byte(defaultLocations)
+	}
+	if err != nil {
+		return fmt.Errorf("cannot access service location resource: %v", err)
+	} else if err = json.Unmarshal(b, &res); err != nil {
+		return fmt.Errorf("service location resource format problem: %v", err)
+	}
+
+	sl.alCo, sl.coNa = make(map[string]uint16), make(map[uint16]string)
+	for c, id := range res {
+		sl.coNa[c], sl.alCo[id.Name] = id.Name, c
+		for _, al := range id.Alias {
+			sl.alCo[al] = c
+		}
+	}
+	return nil
+}
+
+// Code method on SLmap ...
+func (sl *SLmap) Code(al string) uint16 {
+	return sl.alCo[al]
+}
+
+// Name method on SLmap ...
+func (sl *SLmap) Name(co uint16) string {
+	return sl.coNa[co]
 }
 
 // Digest method on E164full ...
@@ -255,10 +301,10 @@ func (tn *E164full) Digest(pre int) E164digest {
 	} else if d, _ := strconv.ParseUint(tn.Num[:pre], 10, 64); d == 0 {
 		return 0
 	} else if pre < len(tn.Num) {
-		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(pre-len(tn.CC))<<54
+		d |= uint64(geoEncode[tn.Geo])<<geoShift | uint64(len(tn.CC))<<ccShift | uint64(pre-len(tn.CC))<<pShift
 		return E164digest(d)
 	} else {
-		d |= uint64(geoEncode[tn.Geo])<<60 | uint64(len(tn.CC))<<58 | uint64(len(tn.P))<<54 | uint64(len(tn.Sub))<<50
+		d |= uint64(geoEncode[tn.Geo])<<geoShift | uint64(len(tn.CC))<<ccShift | uint64(len(tn.P))<<pShift | uint64(len(tn.Sub))<<subShift
 		return E164digest(d)
 	}
 }

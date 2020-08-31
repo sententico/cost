@@ -77,6 +77,15 @@ var (
 )
 
 const (
+	geoShift = 64 - 4             // E164digest Geo code
+	ccShift  = 60 - 2             // E164digest CC length
+	ccMask   = 0x3                // E164digest CC length
+	pShift   = 58 - 4             // E164digest P length
+	pMask    = 0xf                // E164digest P length
+	subShift = 54 - 4             // E164digest Sub length
+	subMask  = 0xf                // E164digest Sub length
+	numMask  = 0x3_ffff_ffff_ffff // E164digest Num E.164 number
+
 	defaultProviders = `{
 		"0":	{"Name":"unknown",		"Alias":["","unk","?"]},
 
@@ -96,7 +105,19 @@ const (
 
 		"254":	{"Name":"customer",		"Alias":["BYOC"]},
 		"255":	{"Name":"internal",		"Alias":["Aspect","ASPECT","ASP","asp","Voxeo","VOXEO","VX","vx","AUDIOC"]}
-		}`
+	}`
+
+	defaultLocations = `{
+		"0":	{"Name":"LAS",			"Alias":["las","SBC20","SBC21"]},
+		"1":	{"Name":"ASH",			"Alias":["ash","SBC60","SBC61"]},
+		"2":	{"Name":"LHR",			"Alias":["lhr","SBC40"]},
+		"3":	{"Name":"FRA",			"Alias":["fra","SBC50"]},
+
+		"16":	{"Name":"LGW",			"Alias":["lgw","UKSSPRD2A1RBBN","UKSSPRD2B1RBBN","UKSSPRD2C1RBBN"]},
+
+		"254":	{"Name":"AWS lab",		"Alias":["AWS LAB","SSD1A1RBBN","SSD1A2RBBN","SSD1B1RBBN","SSD1B2RBBN","SSD1D1RBBN","SSD1D2RBBN"]},
+		"255":	{"Name":"lab",			"Alias":["LAB","SBC1"]}
+	}`
 )
 
 // xInfo method on Decoder (internal) ...

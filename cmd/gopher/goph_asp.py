@@ -68,7 +68,7 @@ def csvWriter(m, cols):
 
 def gophCDRASP(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    csv, s = csvWriter(m, ['id','begin','dur','type','from','to','dip','try','iTG','eTG','IP']), ""
+    csv, s = csvWriter(m, ['id','loc','begin','dur','type','from','to','dip','try','iTG','eTG','IP']), ""
 
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
@@ -80,6 +80,7 @@ def gophCDRASP(m, cmon, args):
                 except: continue
 
                 csv(s, {'id':       col[2],     # accounting ID
+                        'loc':      col[1],     # gateway name
                         'begin':    begin,      # start date/time
                         'dur':      col[13],    # call service duration
                         'type':     col[17],    # service provider (CARRIER/SDENUM for inbound)

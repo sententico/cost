@@ -82,32 +82,31 @@ type (
 	}
 
 	cdrStat struct {
-		Cost  float64 // total USD
-		Dur   uint64  // total 0.1s actual (high-order 24 bits unused)
-		Calls uint32  // total count (high-order 4 bit unused)
+		Calls uint32  `json:"N"` // total number of calls (high-order 4 bit unused)
+		Dur   uint64  `json:"D"` // total 0.1s actual duration (high-order 24 bits unused)
+		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
 	}
 	hS      map[int32]*cdrStat                    // stats by hour
 	hgS     map[int32]map[string]*cdrStat         // stats by hour/geo zone
 	hpS     map[int32]map[tel.E164digest]*cdrStat // stats by hour/E.164 prefix digest
 	termSum struct {
-		Current int32 // hour cursor in term summary maps (Unix time)
-		ByHour  hS    // map by hour (Unix time)
+		Current int32 // hour cursor in term summary maps (Unix time, hours past epoch)
+		ByHour  hS    // map by hour (Unix time, hours past epoch)
 		ByGeo   hgS   // map by hour/geo zone
 		ByFrom  hpS   // map by hour/full from number
 		ByTo    hpS   // map by hour/to prefix (CC/CC+np)
 	}
 	origSum struct {
-		Current int32 // hour cursor in orig summary maps (Unix time)
-		ByHour  hS    // map by hour (Unix time)
+		Current int32 // hour cursor in orig summary maps (Unix time, hours past epoch)
+		ByHour  hS    // map by hour (Unix time, hours past epoch)
 		ByTo    hpS   // map by hour/full to number
 	}
 	cdrItem struct {
-		From  tel.E164digest // decoded from number
-		To    tel.E164digest // decoded to number
-		Begin int32          // Unix time (seconds past epoch GMT)
-		Dur   uint32         // billable duration increment (s) | actual (0.1s)
-		Info  uint32         // other info: service provider code | tries
-		Cost  float32        // rated USD cost
+		From tel.E164digest `json:"Fr"` // decoded from number
+		To   tel.E164digest `json:"To"` // decoded to number
+		Time uint32         `json:"T"`  // actual duration (0.1s) | begin hour offset (s)
+		Cost float32        `json:"C"`  // rated USD cost (7-digit precision)
+		Info uint16         `json:"I"`  // other info: loc code | tries | service provider code
 	}
 	hiC        map[int32]map[uint64]*cdrItem // CDRs by hour/ID
 	termDetail struct {
@@ -123,16 +122,19 @@ type (
 		trates  tel.Rater
 		orates  tel.Rater
 		sp      tel.SPmap
+		sl      tel.SLmap
 		tn      tel.E164full
 	}
 )
 
 const (
-	durMask   = 0x03ff_ffff // CDR Dur actual duration mask (0.1s)
-	billShift = 32 - 6      // CDR Dur billable duration increment (s) shift
+	durShift = 32 - 20 // CDR Time actual duration (0.1s)
+	offMask  = 0xfff   // CDR Time call begin-hour offset (s)
 
-	tryMask = 0xff   // CDR Info tries mask
-	spShift = 32 - 8 // CDR Info service provider shift
+	locShift   = 16 - 6 // CDR Info location code
+	triesShift = 10 - 4 // CDR Info tries (0 for origination calls)
+	triesMask  = 0xf    // CDR Info tries (0 for origination calls)
+	spMask     = 0x3f   // CDR Info service provider code
 )
 
 var (
@@ -574,6 +576,8 @@ func cdraspBoot(n string, ctl chan string) {
 		logE.Fatalf("%q cannot load origination rates: %v", n, err)
 	} else if err = work.sp.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load service provider map: %v", n, err)
+	} else if err = work.sl.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load service location map: %v", n, err)
 	}
 	m.data = append(m.data, work)
 	ctl <- n
@@ -591,34 +595,34 @@ func (m hiC) add(hr int32, id uint64, cdr *cdrItem) bool {
 }
 func (m hS) add(hr int32, cdr *cdrItem) {
 	if s := m[hr]; s == nil {
-		m[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+		m[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
 	} else {
 		s.Calls++
-		s.Dur += uint64(cdr.Dur & durMask)
+		s.Dur += uint64(cdr.Time & durShift)
 		s.Cost += float64(cdr.Cost)
 	}
 }
 func (m hgS) add(hr int32, geo string, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[string]*cdrStat)
-		m[hr], hm[geo] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+		m[hr], hm[geo] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
 	} else if s := hm[geo]; s == nil {
-		hm[geo] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+		hm[geo] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
 	} else {
 		s.Calls++
-		s.Dur += uint64(cdr.Dur & durMask)
+		s.Dur += uint64(cdr.Time & durShift)
 		s.Cost += float64(cdr.Cost)
 	}
 }
 func (m hpS) add(hr int32, pre tel.E164digest, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[tel.E164digest]*cdrStat)
-		m[hr], hm[pre] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+		m[hr], hm[pre] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
 	} else if s := hm[pre]; s == nil {
-		hm[pre] = &cdrStat{Calls: 1, Dur: uint64(cdr.Dur & durMask), Cost: float64(cdr.Cost)}
+		hm[pre] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
 	} else {
 		s.Calls++
-		s.Dur += uint64(cdr.Dur & durMask)
+		s.Dur += uint64(cdr.Time & durShift)
 		s.Cost += float64(cdr.Cost)
 	}
 }
@@ -629,20 +633,20 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	if err != nil || id == 0 {
 		return
 	}
+	begin, dur := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10
 	cdr := &cdrItem{
-		Begin: int32(b.Unix()),
-		Dur:   uint32(atoi(item["dur"], 0)+5) / 10 & durMask,
-		Info:  uint32(atoi(item["try"], 1)) & tryMask,
+		Time: dur<<durShift | uint32(begin%3600),
+		Info: work.sl.Code(item["loc"]) << locShift,
 	}
 
-	switch hr := cdr.Begin / 3600; item["type"] {
+	switch hr := begin / 3600; item["type"] {
 	case "CARRIER", "SDENUM":
 		cdr.To = work.decoder.Digest(item["to"])
 		work.decoder.Full(item["from"], &work.tn)
 		cdr.From = work.tn.Digest(len(work.tn.Num))
-		cdr.Cost = float32(cdr.Dur) / 600 * work.orates.Lookup(&work.tn)
+		cdr.Cost = float32(dur) / 600 * work.orates.Lookup(&work.tn)
 		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
-			cdr.Info |= work.sp.Code(tg[6:]) << spShift
+			cdr.Info |= work.sp.Code(tg[6:]) & spMask
 		}
 		if hr > osum.Current {
 			osum.Current, odetail.Current = hr, hr
@@ -658,9 +662,14 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			work.decoder.Full(item["to"], &work.tn)
 		}
 		cdr.To = work.tn.Digest(len(work.tn.Num))
-		cdr.Cost = float32(cdr.Dur) / 600 * work.trates.Lookup(&work.tn)
+		cdr.Cost = float32(dur) / 600 * work.trates.Lookup(&work.tn)
+		if tries := uint16(atoi(item["try"], 1)); tries > triesMask {
+			cdr.Info |= triesMask << triesShift
+		} else {
+			cdr.Info |= tries << triesShift
+		}
 		if tg := item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
-			cdr.Info |= work.sp.Code(tg[6:]) << spShift
+			cdr.Info |= work.sp.Code(tg[6:]) & spMask
 		}
 		if hr > tsum.Current {
 			tsum.Current, tdetail.Current = hr, hr
