@@ -108,7 +108,7 @@ const (
 	}`
 
 	defaultLocations = `{
-		"0":	{"Name":"LAS",			"Alias":["las","SBC20","SBC21"]},
+		"0":	{"Name":"LAS",			"Alias":["las","","SBC20","SBC21"]},
 		"1":	{"Name":"ASH",			"Alias":["ash","SBC60","SBC61"]},
 		"2":	{"Name":"LHR",			"Alias":["lhr","SBC40"]},
 		"3":	{"Name":"FRA",			"Alias":["fra","SBC50"]},

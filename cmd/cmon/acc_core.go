@@ -708,16 +708,27 @@ func cdraspClean(m *model) {
 	m.rel <- token
 }
 func cdraspMaint(n string) {
-	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, cdraspInsert) })
+	m, goGo := mMod[n], make(chan bool, 1)
+	goAfter(0, 60*time.Second, func() {
+		gopher(n, m, cdraspInsert)
+		goGo <- true
+	})
 	goAfter(240*time.Second, 270*time.Second, func() { cdraspClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
 	for g, cl, fl :=
 		time.NewTicker(360*time.Second),
 		time.NewTicker(21600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, cdraspInsert) })
+			goAfter(0, 60*time.Second, func() {
+				select {
+				case <-goGo:
+					gopher(n, m, cdraspInsert)
+					goGo <- true
+				default:
+				}
+			})
 		case <-cl.C:
 			goAfter(240*time.Second, 270*time.Second, func() { cdraspClean(m) })
 		case <-fl.C:
