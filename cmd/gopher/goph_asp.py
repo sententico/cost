@@ -80,7 +80,7 @@ def gophCDRASP(m, cmon, args):
                 except: continue
 
                 csv(s, {'id':       col[2],     # accounting ID
-                        'loc':      col[1],     # gateway name
+                        'loc':      col[1],     # gateway name (maps to service location)
                         'begin':    begin,      # start date/time
                         'dur':      col[13],    # call service duration
                         'type':     col[17],    # service provider (CARRIER/SDENUM for inbound)

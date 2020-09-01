@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	geoName = map[geoCode]string{
+	geoName, geoEncode = map[geoCode]string{
 		gcUS48: "us48",
 		gcAKHI: "akhi",
 		gcUST:  "ust",
@@ -58,8 +58,7 @@ var (
 		gcRUS:  "rus",
 		gcMEA:  "mea",
 		gcGLOB: "glob",
-	}
-	geoEncode = map[string]geoCode{
+	}, map[string]geoCode{
 		"us48": gcUS48,
 		"akhi": gcAKHI,
 		"ust":  gcUST,
@@ -103,7 +102,7 @@ const (
 		"12":	{"Name":"Verizon",		"Alias":["VERIZON","verizon","VZ","vz"]},
 		"13":	{"Name":"Voxbone",		"Alias":["VOXBONE","voxbone","VB","vb"]},
 
-		"254":	{"Name":"customer",		"Alias":["BYOC"]},
+		"254":	{"Name":"customer",		"Alias":["Customer","CUSTOMER","BYOC","byoc"]},
 		"255":	{"Name":"internal",		"Alias":["Aspect","ASPECT","ASP","asp","Voxeo","VOXEO","VX","vx","AUDIOC"]}
 	}`
 

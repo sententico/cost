@@ -723,7 +723,7 @@ func cdraspMaint(n string) {
 		case <-g.C:
 			goAfter(0, 60*time.Second, func() {
 				select {
-				case <-goGo:
+				case <-goGo: // serialize cdr.asp gophers
 					gopher(n, m, cdraspInsert)
 					goGo <- true
 				default:
