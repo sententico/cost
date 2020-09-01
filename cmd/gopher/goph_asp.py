@@ -83,7 +83,7 @@ def gophCDRASP(m, cmon, args):
                         'loc':      col[1],     # gateway name (maps to service location)
                         'begin':    begin,      # start date/time
                         'dur':      col[13],    # call service duration
-                        'type':     col[17],    # service provider (CARRIER/SDENUM for inbound)
+                        'type':     col[17],    # service provider (CARRIER/SDENUM for inbound?)
                         'from':     col[19],    # calling number (not always full E.164)
                         'to':       col[20],    # called number (not always full E.164)
                         'dip':      col[23],    # called number before translation #1 (LRN data)

@@ -568,6 +568,7 @@ func cdraspBoot(n string, ctl chan string) {
 
 	work.decoder.NANPbias = true
 	work.trates.Default, work.orates.Default = tel.DefaultTermRates, tel.DefaultOrigRates
+	work.trates.DefaultRate, work.orates.DefaultRate = 0.01, 0.005
 	if err := work.decoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
 	} else if err = work.trates.Load(nil); err != nil {
@@ -634,19 +635,23 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		return
 	}
 	begin, dur := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10
-	cdr := &cdrItem{
+	cdr, hr := &cdrItem{
 		Time: dur<<durShift | uint32(begin%3600),
 		Info: work.sl.Code(item["loc"]) << locShift,
-	}
+	}, begin/3600
 
-	switch hr := begin / 3600; item["type"] {
-	case "CARRIER", "SDENUM":
-		cdr.To = work.decoder.Digest(item["to"])
+	switch typ, ip := item["type"], item["IP"]; {
+	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
+		if cdr.To = work.decoder.Digest(item["to"]); cdr.To == 0 {
+			break
+		}
 		work.decoder.Full(item["from"], &work.tn)
 		cdr.From = work.tn.Digest(len(work.tn.Num))
 		cdr.Cost = float32(dur) / 600 * work.orates.Lookup(&work.tn)
 		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
+		} else if len(tg) > 4 && tg[:4] == "BYOC" {
+			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if hr > osum.Current {
 			osum.Current, odetail.Current = hr, hr
@@ -655,13 +660,15 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			osum.ByHour.add(hr, cdr)
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
-	case "CORE":
+	case typ == "CORE":
 	default:
 		cdr.From = work.decoder.Digest(item["from"])
 		if len(item["dip"]) < 20 || work.decoder.Full(item["dip"][:10], &work.tn) != nil {
 			work.decoder.Full(item["to"], &work.tn)
 		}
-		cdr.To = work.tn.Digest(len(work.tn.Num))
+		if cdr.To = work.tn.Digest(len(work.tn.Num)); cdr.To == 0 {
+			break
+		}
 		cdr.Cost = float32(dur) / 600 * work.trates.Lookup(&work.tn)
 		if tries := uint16(atoi(item["try"], 1)); tries > triesMask {
 			cdr.Info |= triesMask << triesShift
@@ -670,6 +677,8 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		if tg := item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
+		} else if len(tg) > 4 && tg[:4] == "BYOC" {
+			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if hr > tsum.Current {
 			tsum.Current, tdetail.Current = hr, hr

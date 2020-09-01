@@ -14,8 +14,9 @@ import (
 type (
 	// Rater ...
 	Rater struct {
-		Location string // JSON rate resource location (filename, ...)
-		Default  string // default JSON rates
+		Location    string  // JSON rate resource location (filename, ...)
+		Default     string  // default JSON rates
+		DefaultRate float32 // default rate
 
 		ccR map[string]pRate
 	}
@@ -99,15 +100,21 @@ func (r *Rater) Load(rr io.Reader) (err error) {
 
 // Lookup method on Rater ...
 func (r *Rater) Lookup(tn *E164full) (v float32) {
-	if r == nil || tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
+	if r == nil {
 		return 0
+	} else if tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
+		return r.DefaultRate
 	}
 	pr := r.ccR[tn.CC]
 	for match := tn.Num[len(tn.CC):]; ; match = match[:len(match)-1] {
 		if v = pr[match]; v > 0 {
 			return v
 		} else if match == "" {
-			return pr["default"]
+			if v = pr["default"]; v > 0 {
+				return v
+			} else {
+				return r.DefaultRate
+			}
 		}
 	}
 }
