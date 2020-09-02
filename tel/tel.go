@@ -50,11 +50,10 @@ type (
 		Num     string // proper E.164 number
 		Geo     string // geographic zone (with NANP subtypes)
 		CC      string // country/service code
-		CCx     string // country/service code extension
 		CCn     string // country/service code name
 		ISO3166 string // ISO 3166-2 alpha country code
 		P       string // national-scope prefix (including area codes)
-		Pn      string // national-scope prefix name
+		Pn      string // national-scope prefix name (unimplemented)
 		Sub     string // subscriber number
 	}
 
@@ -137,6 +136,16 @@ func (d *Decoder) Load(dr io.Reader) (err error) {
 		return fmt.Errorf("encodings resource format problem: %v", err)
 	}
 
+	for _, i := range res {
+		if len(i.Sub) > 0 {
+			i.subI = make(map[string]*ccInfo)
+			for _, si := range i.Sub {
+				for _, p := range si.P {
+					i.subI[p] = si
+				}
+			}
+		}
+	}
 	d.ccI = res
 	return nil
 }
@@ -162,12 +171,12 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 	if tn == nil {
 		return fmt.Errorf("missing E.164")
 	} else if d == nil {
-		tn.set(n, "", nil)
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 		return fmt.Errorf("no decoder specified")
 	} else if len(n) < 7 || len(n) > 15 {
-		tn.set(n, "", nil)
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 		return fmt.Errorf("invalid E.164 length: %v", len(n))
-	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
+	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[1] != '9' && n[3] != '0' && n[3] != '1' {
 		n, cc = "1"+n, "1"
 	} else if d.ccI[n[:1]] != nil {
 		cc = n[:1]
@@ -176,12 +185,17 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 	} else if d.ccI[n[:3]] != nil {
 		cc = n[:3]
 	} else {
-		tn.set(n, "", nil)
-		return fmt.Errorf("no valid CC prefix")
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
+		return fmt.Errorf("prefix [%v...] not a valid CC", n[:3])
 	}
 
-	tn.set(n, cc, d.xInfo(n, cc))
-	return nil
+	if i, p, s := d.ccInfo(n, cc); i == nil {
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
+		return fmt.Errorf("missing encodings for CC %v", cc)
+	} else {
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, cc, i.Geo, i.CCn, i.ISO3166, p, s
+		return nil
+	}
 }
 
 // Digest method on Decoder ...
@@ -204,7 +218,7 @@ func (d *Decoder) Digest(n string) E164digest {
 	var cc string
 	if d == nil || len(n) < 7 || len(n) > 15 {
 		return 0
-	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[3] != '0' && n[3] != '1' {
+	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[1] != '9' && n[3] != '0' && n[3] != '1' {
 		n, cc = "1"+n, "1"
 	} else if d.ccI[n[:1]] != nil {
 		cc = n[:1]
@@ -216,11 +230,12 @@ func (d *Decoder) Digest(n string) E164digest {
 		return 0
 	}
 
-	x := d.xInfo(n, cc)
-	if d, _ := strconv.ParseUint(n, 10, 64); d == 0 || len(n) < len(cc)+x.Pl {
+	if i, p, s := d.ccInfo(n, cc); i == nil {
+		return 0
+	} else if d, _ := strconv.ParseUint(n, 10, 64); d == 0 {
 		return 0
 	} else {
-		d |= uint64(geoEncode[x.Geo])<<geoShift | uint64(len(cc))<<ccShift | uint64(x.Pl)<<pShift | uint64(len(n)-len(cc)-x.Pl)<<subShift
+		d |= uint64(geoEncode[i.Geo])<<geoShift | uint64(len(cc))<<ccShift | uint64(len(p))<<pShift | uint64(len(s))<<subShift
 		return E164digest(d)
 	}
 }
