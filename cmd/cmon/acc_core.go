@@ -128,6 +128,14 @@ type (
 )
 
 const (
+	idLocShift = 64 - 14            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
+	shelfShift = 50 - 2             // CDR ID shelf (only 1 observed)
+	shelfMask  = 0x3                // CDR ID shelf (only 1 observed)
+	bootShift  = 48 - 16            // CDR ID boot sequence number
+	bootMask   = 0xffff             // CDR ID boot sequence number
+	callMask   = 0xffff_ffff        // CDR ID call sequence number
+	idMask     = 0x3_ffff_ffff_ffff // CDR ID (Ribbon value without added location)
+
 	durShift = 32 - 20 // CDR Time actual duration (0.1s)
 	offMask  = 0xfff   // CDR Time call begin-hour offset (s)
 
@@ -634,10 +642,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	if err != nil || id == 0 {
 		return
 	}
-	begin, dur := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10
+	begin, dur, loc := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10, work.sl.Code(item["loc"])
 	cdr, hr := &cdrItem{
 		Time: dur<<durShift | uint32(begin%3600),
-		Info: work.sl.Code(item["loc"]) << locShift,
+		Info: loc << locShift,
 	}, begin/3600
 
 	switch typ, ip := item["type"], item["IP"]; {
@@ -656,7 +664,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if hr > osum.Current {
 			osum.Current, odetail.Current = hr, hr
 		}
-		if odetail.CDR.add(hr, id, cdr) {
+		if odetail.CDR.add(hr, uint64(loc)<<idLocShift|id&idMask, cdr) {
 			osum.ByHour.add(hr, cdr)
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
@@ -683,7 +691,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if hr > tsum.Current {
 			tsum.Current, tdetail.Current = hr, hr
 		}
-		if tdetail.CDR.add(hr, id, cdr) {
+		if tdetail.CDR.add(hr, uint64(loc)<<idLocShift|id&idMask, cdr) {
 			tsum.ByHour.add(hr, cdr)
 			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
 			tsum.ByFrom.add(hr, cdr.From, cdr)
