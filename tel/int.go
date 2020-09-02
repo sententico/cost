@@ -413,8 +413,8 @@ const (
 func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	i, nat := d.ccI[cc], n[len(cc):]
 	if i == nil || i.subI == nil || i.Pl >= len(nat) {
-	} else if i = i.subI[nat[:i.Pl]]; i == nil {
-		i = i.subI[""]
+	} else if i, mi := i.subI[nat[:i.Pl]], i; i == nil {
+		i = mi.subI[""]
 	}
 	if i == nil || i.Pl >= len(nat) {
 		return nil, "", ""
