@@ -173,7 +173,7 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 	} else if d == nil {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 		return fmt.Errorf("no decoder specified")
-	} else if len(n) < 7 || len(n) > 15 {
+	} else if (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 		return fmt.Errorf("invalid E.164 length: %v", len(n))
 	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[1] != '9' && n[3] != '0' && n[3] != '1' {
@@ -216,7 +216,7 @@ func (d *Decoder) Digest(n string) E164digest {
 	}
 
 	var cc string
-	if d == nil || len(n) < 7 || len(n) > 15 {
+	if d == nil || (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
 		return 0
 	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[1] != '9' && n[3] != '0' && n[3] != '1' {
 		n, cc = "1"+n, "1"
