@@ -235,7 +235,7 @@ func (d *Decoder) Digest(n string) E164digest {
 	} else if d, _ := strconv.ParseUint(n, 10, 64); d == 0 {
 		return 0
 	} else {
-		d |= uint64(geoEncode[i.Geo])<<geoShift | uint64(len(cc))<<ccShift | uint64(len(p))<<pShift | uint64(len(s))<<subShift
+		d = d<<numShift | uint64(len(cc))<<ccShift | uint64(len(p))<<pShift | uint64(len(s))<<subShift | uint64(geoEncode[i.Geo])&geoMask
 		return E164digest(d)
 	}
 }
@@ -323,10 +323,10 @@ func (tn *E164full) Digest(pre int) E164digest {
 	} else if d, _ := strconv.ParseUint(tn.Num[:pre], 10, 64); d == 0 {
 		return 0
 	} else if pre < len(tn.Num) {
-		d |= uint64(geoEncode[tn.Geo])<<geoShift | uint64(len(tn.CC))<<ccShift | uint64(pre-len(tn.CC))<<pShift
+		d = d<<numShift | uint64(len(tn.CC))<<ccShift | uint64(pre-len(tn.CC))<<pShift | uint64(geoEncode[tn.Geo])&geoMask
 		return E164digest(d)
 	} else {
-		d |= uint64(geoEncode[tn.Geo])<<geoShift | uint64(len(tn.CC))<<ccShift | uint64(len(tn.P))<<pShift | uint64(len(tn.Sub))<<subShift
+		d = d<<numShift | uint64(len(tn.CC))<<ccShift | uint64(len(tn.P))<<pShift | uint64(len(tn.Sub))<<subShift | uint64(geoEncode[tn.Geo])&geoMask
 		return E164digest(d)
 	}
 }
@@ -339,14 +339,10 @@ func (tnd E164digest) Full(d *Decoder, tn *E164full) error {
 
 // Geo method on E164digest ...
 func (tnd E164digest) Geo() string {
-	if ccl := uint64(tnd) >> ccShift & ccMask; ccl == 0 {
-		return ""
-	} else {
-		return geoDecode[geoCode(uint64(tnd)>>geoShift)]
-	}
+	return geoDecode[geoCode(tnd&geoMask)]
 }
 
 // Num64 method on E164digest ...
 func (tnd E164digest) Num64() uint64 {
-	return uint64(tnd) & numMask
+	return uint64(tnd) >> numShift
 }

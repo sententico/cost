@@ -29,7 +29,8 @@ type (
 )
 
 const (
-	gcUS48 geoCode = iota
+	gcNIL geoCode = iota
+	gcUS48
 	gcAKHI
 	gcUST
 	gcCAN
@@ -44,7 +45,6 @@ const (
 	gcGLOB
 	gcUNUSED1
 	gcUNUSED2
-	gcUNUSED3
 )
 
 var (
@@ -80,14 +80,14 @@ var (
 )
 
 const (
-	geoShift = 64 - 4             // E164digest Geo code
-	ccShift  = 60 - 2             // E164digest CC length
-	ccMask   = 0x3                // E164digest CC length
-	pShift   = 58 - 4             // E164digest P length
-	pMask    = 0xf                // E164digest P length
-	subShift = 54 - 4             // E164digest Sub length
-	subMask  = 0xf                // E164digest Sub length
-	numMask  = 0x3_ffff_ffff_ffff // E164digest Num E.164 number
+	numShift = 64 - 50 // E164digest Num E.164 number
+	ccShift  = 14 - 2  // E164digest CC length
+	ccMask   = 0x3     // E164digest CC length
+	pShift   = 12 - 4  // E164digest P length
+	pMask    = 0xf     // E164digest P length
+	subShift = 8 - 4   // E164digest Sub length
+	subMask  = 0xf     // E164digest Sub length
+	geoMask  = 0xf     // E164digest Geo code
 
 	defaultProviders = `{
 		"0":	{"Name":"unknown",		"Alias":["","unk","?"]},
