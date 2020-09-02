@@ -332,17 +332,21 @@ func (tn *E164full) Digest(pre int) E164digest {
 }
 
 // Full method on E164digest ...
-func (dtn E164digest) Full(d *Decoder, tn *E164full) error {
+func (tnd E164digest) Full(d *Decoder, tn *E164full) error {
 	// TODO: implement
 	return nil
 }
 
 // Geo method on E164digest ...
-func (dtn E164digest) Geo() string {
-	return geoName[geoCode(uint64(dtn)>>60)]
+func (tnd E164digest) Geo() string {
+	if ccl := uint64(tnd) >> ccShift & ccMask; ccl == 0 {
+		return ""
+	} else {
+		return geoDecode[geoCode(uint64(tnd)>>geoShift)]
+	}
 }
 
 // Num64 method on E164digest ...
-func (dtn E164digest) Num64() uint64 {
-	return uint64(dtn) & 0x3_ffff_ffff_ffff
+func (tnd E164digest) Num64() uint64 {
+	return uint64(tnd) & numMask
 }

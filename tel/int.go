@@ -29,8 +29,7 @@ type (
 )
 
 const (
-	gcNIL geoCode = iota
-	gcUS48
+	gcUS48 geoCode = iota
 	gcAKHI
 	gcUST
 	gcCAN
@@ -45,10 +44,11 @@ const (
 	gcGLOB
 	gcUNUSED1
 	gcUNUSED2
+	gcUNUSED3
 )
 
 var (
-	geoName, geoEncode = map[geoCode]string{
+	geoDecode, geoEncode = map[geoCode]string{
 		gcUS48: "us48",
 		gcAKHI: "akhi",
 		gcUST:  "ust",
@@ -411,9 +411,10 @@ const (
 
 // ccInfo method on Decoder (internal) ...
 func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
+	var mi *ccInfo
 	i, nat := d.ccI[cc], n[len(cc):]
 	if i == nil || i.subI == nil || i.Pl >= len(nat) {
-	} else if i, mi := i.subI[nat[:i.Pl]], i; i == nil {
+	} else if i, mi = i.subI[nat[:i.Pl]], i; i == nil {
 		i = mi.subI[""]
 	}
 	if i == nil || i.Pl >= len(nat) {
