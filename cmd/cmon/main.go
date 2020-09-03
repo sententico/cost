@@ -43,6 +43,7 @@ type (
 	}
 	model struct {
 		state      modSt
+		immed      bool
 		req        chan modRq
 		rel        chan accTok
 		evt        chan string
@@ -91,7 +92,7 @@ func init() {
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
 	m, val := map[string]*model{
-		"trig.cmon": {boot: trigcmonBoot, maint: trigcmonMaint, term: trigcmonTerm},
+		"trig.cmon": {boot: trigcmonBoot, maint: trigcmonMaint, term: trigcmonTerm, immed: true},
 		"ec2.aws":   {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
 		"ebs.aws":   {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
 		"rds.aws":   {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
@@ -230,7 +231,7 @@ func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.H
 
 func main() {
 	logI.Printf("booting %v monitored object models", len(mMod))
-	ctl, models := make(chan string, 4), 0
+	ctl, dseq := make(chan string, 4), 0
 	for n, m := range mMod {
 		go modManager(m, n, ctl)
 	}
@@ -239,10 +240,13 @@ func main() {
 		logI.Printf("%q object model booted", n)
 	}
 	for n, m := range mMod {
-		m.state = msINIT
-		d, model, name := time.Duration(models*100)*time.Second, m, n
-		models++
-		goAfter(d, d+20*time.Second, func() { model.maint(name) })
+		if m.state = msINIT; m.immed {
+			go m.maint(n)
+		} else {
+			d, m, n := time.Duration(dseq*100)*time.Second, m, n
+			dseq++
+			goAfter(d, d+20*time.Second, func() { m.maint(n) })
+		}
 	}
 
 	logI.Printf("listening on port %v for HTTP requests", port)
