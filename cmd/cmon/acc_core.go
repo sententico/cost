@@ -98,20 +98,20 @@ type (
 		Dur   uint64  `json:"D"` // total 0.1s actual duration (high-order 24 bits unused)
 		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
 	}
-	hS      map[int32]*cdrStat                    // stats by hour
-	hgS     map[int32]map[string]*cdrStat         // stats by hour/geo zone
-	hpS     map[int32]map[tel.E164digest]*cdrStat // stats by hour/E.164 prefix digest
+	hsS     map[int32]map[string]*cdrStat         // stats by hour/string value
+	hnS     map[int32]map[tel.E164digest]*cdrStat // stats by hour/E.164 digest number
 	termSum struct {
 		Current int32 // hour cursor in term summary maps (Unix time, hours past epoch)
-		ByHour  hS    // map by hour (Unix time, hours past epoch)
-		ByGeo   hgS   // map by hour/geo zone
-		ByFrom  hpS   // map by hour/full from number
-		ByTo    hpS   // map by hour/to prefix (CC/CC+np)
+		ByLoc   hsS   // map by hour (Unix time, hours past epoch) / service location
+		ByGeo   hsS   // map by hour / to geo zone
+		BySP    hsS   // map by hour / service provider
+		ByFrom  hnS   // map by hour / full from number
+		ByTo    hnS   // map by hour / to prefix (CC+P)
 	}
 	origSum struct {
 		Current int32 // hour cursor in orig summary maps (Unix time, hours past epoch)
-		ByHour  hS    // map by hour (Unix time, hours past epoch)
-		ByTo    hpS   // map by hour/full to number
+		ByLoc   hsS   // map by hour (Unix time, hours past epoch) / service location
+		ByTo    hnS   // map by hour / full to number
 	}
 	cdrItem struct {
 		From tel.E164digest `json:"Fr"` // decoded from number
@@ -619,13 +619,14 @@ func rdsawsTerm(n string, ctl chan string) {
 
 func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
-		ByHour: make(hS, 2184),
-		ByGeo:  make(hgS, 2184),
-		ByFrom: make(hpS, 2184),
-		ByTo:   make(hpS, 2184),
+		ByLoc:  make(hsS, 2184),
+		ByGeo:  make(hsS, 2184),
+		BySP:   make(hsS, 2184),
+		ByFrom: make(hnS, 2184),
+		ByTo:   make(hnS, 2184),
 	}, &origSum{
-		ByHour: make(hS, 2184),
-		ByTo:   make(hpS, 2184),
+		ByLoc: make(hsS, 2184),
+		ByTo:  make(hnS, 2184),
 	}, &termDetail{
 		CDR: make(hiC, 2184),
 	}, &origDetail{
@@ -668,36 +669,27 @@ func (m hiC) add(hr int32, id uint64, cdr *cdrItem) bool {
 	}
 	return true
 }
-func (m hS) add(hr int32, cdr *cdrItem) {
-	if s := m[hr]; s == nil {
-		m[hr] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
-	} else {
-		s.Calls++
-		s.Dur += uint64(cdr.Time & durShift)
-		s.Cost += float64(cdr.Cost)
-	}
-}
-func (m hgS) add(hr int32, geo string, cdr *cdrItem) {
+func (m hsS) add(hr int32, k string, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[string]*cdrStat)
-		m[hr], hm[geo] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
-	} else if s := hm[geo]; s == nil {
-		hm[geo] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
+		m[hr], hm[k] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+	} else if s := hm[k]; s == nil {
+		hm[k] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
 	} else {
 		s.Calls++
-		s.Dur += uint64(cdr.Time & durShift)
+		s.Dur += uint64(cdr.Time >> durShift)
 		s.Cost += float64(cdr.Cost)
 	}
 }
-func (m hpS) add(hr int32, pre tel.E164digest, cdr *cdrItem) {
+func (m hnS) add(hr int32, k tel.E164digest, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[tel.E164digest]*cdrStat)
-		m[hr], hm[pre] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
-	} else if s := hm[pre]; s == nil {
-		hm[pre] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time & durShift), Cost: float64(cdr.Cost)}
+		m[hr], hm[k] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+	} else if s := hm[k]; s == nil {
+		hm[k] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
 	} else {
 		s.Calls++
-		s.Dur += uint64(cdr.Time & durShift)
+		s.Dur += uint64(cdr.Time >> durShift)
 		s.Cost += float64(cdr.Cost)
 	}
 }
@@ -708,18 +700,18 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	if err != nil || id == 0 {
 		return
 	}
-	begin, dur, loc := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10, work.sl.Code(item["loc"])
+	beg, dur, lc, ln := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10, work.sl.Code(item["loc"]), ""
 	var decoder *tel.Decoder
-	switch work.sl.Name(loc) {
+	switch ln = work.sl.Name(lc); ln {
 	case "ASH", "LAS", "lab":
 		decoder = &work.nadecoder
 	default:
 		decoder = &work.decoder
 	}
 	cdr, hr := &cdrItem{
-		Time: dur<<durShift | uint32(begin%3600),
-		Info: loc << locShift,
-	}, begin/3600
+		Time: dur<<durShift | uint32(beg%3600),
+		Info: lc << locShift,
+	}, beg/3600
 
 	switch typ, ip := item["type"], item["IP"]; {
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
@@ -737,8 +729,8 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if hr > osum.Current {
 			osum.Current, odetail.Current = hr, hr
 		}
-		if odetail.CDR.add(hr, uint64(loc)<<gwlocShift|id&idMask, cdr) {
-			osum.ByHour.add(hr, cdr)
+		if odetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
+			osum.ByLoc.add(hr, ln, cdr)
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
 	case typ == "CORE":
@@ -764,9 +756,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if hr > tsum.Current {
 			tsum.Current, tdetail.Current = hr, hr
 		}
-		if tdetail.CDR.add(hr, uint64(loc)<<gwlocShift|id&idMask, cdr) {
-			tsum.ByHour.add(hr, cdr)
+		if tdetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
+			tsum.ByLoc.add(hr, ln, cdr)
 			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
+			tsum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
 			tsum.ByFrom.add(hr, cdr.From, cdr)
 			tsum.ByTo.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
 		}
@@ -778,7 +771,7 @@ func cdraspClean(m *model) {
 	token := <-acc
 
 	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
-	texp, oexp := tdetail.Current-3600*24, odetail.Current-3600*24
+	texp, oexp := tdetail.Current-24, odetail.Current-24
 	for hr := range tdetail.CDR {
 		if hr <= texp {
 			delete(tdetail.CDR, hr)
