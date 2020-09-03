@@ -16,8 +16,16 @@ import (
 )
 
 type (
+	trigItem struct {
+		Name     string
+		SnapCond map[string][]string
+		Action   []string
+	}
 	trigModel struct {
 		Placeholder string
+		Trigger     []*trigItem
+
+		tMap map[int64]*trigItem
 	}
 
 	statItem struct {
@@ -303,14 +311,14 @@ func trigcmonClean(m *model) {
 }
 func trigcmonMaint(n string) {
 	m := mMod[n]
-	goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
+	goAfter(240*time.Second, 270*time.Second, func() { trigcmonClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 
 	for cl, fl :=
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
 		case <-cl.C:
-			goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
+			goAfter(240*time.Second, 270*time.Second, func() { trigcmonClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 
