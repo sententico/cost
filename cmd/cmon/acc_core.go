@@ -703,7 +703,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	beg, dur, lc, ln := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10, work.sl.Code(item["loc"]), ""
 	var decoder *tel.Decoder
 	switch ln = work.sl.Name(lc); ln {
-	case "ASH", "LAS", "lab":
+	case "ASH", "LAS", "lab", "AWS lab":
 		decoder = &work.nadecoder
 	default:
 		decoder = &work.decoder
@@ -714,6 +714,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	}, beg/3600
 
 	switch typ, ip := item["type"], item["IP"]; {
+	case typ == "CORE":
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
 		if cdr.To = decoder.Digest(item["to"]); cdr.To == 0 {
 			break
@@ -733,7 +734,6 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			osum.ByLoc.add(hr, ln, cdr)
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
-	case typ == "CORE":
 	default:
 		cdr.From = decoder.Digest(item["from"])
 		if len(item["dip"]) < 20 || decoder.Full(item["dip"][:10], &work.tn) != nil {
