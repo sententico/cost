@@ -106,20 +106,20 @@ const (
 		"12":	{"Name":"Verizon",		"Alias":["VERIZON","verizon","VZ","vz"]},
 		"13":	{"Name":"Voxbone",		"Alias":["VOXBONE","voxbone","VB","vb"]},
 
-		"254":	{"Name":"customer",		"Alias":["Customer","CUSTOMER","BYOC","byoc"]},
-		"255":	{"Name":"internal",		"Alias":["Aspect","ASPECT","ASP","asp","Voxeo","VOXEO","VX","vx","AUDIOC"]}
+		"62":	{"Name":"customer",		"Alias":["Customer","CUSTOMER","BYOC","byoc"]},
+		"63":	{"Name":"internal",		"Alias":["Aspect","ASPECT","ASP","asp","Voxeo","VOXEO","VX","vx","AUDIOC"]}
 	}`
 
 	defaultLocations = `{
-		"0":	{"Name":"LAS",			"Alias":["las","","SBC20","SBC21"]},
-		"1":	{"Name":"ASH",			"Alias":["ash","SBC60","SBC61"]},
-		"2":	{"Name":"LHR",			"Alias":["lhr","SBC40"]},
-		"3":	{"Name":"FRA",			"Alias":["fra","SBC50"]},
+		"0":	{"Name":"ASH",			"Alias":["US primary",	"ash","",	"SBC60","SBC61"]},
+		"1":	{"Name":"LAS",			"Alias":["US standby",	"las",		"SBC20","SBC21"]},
+		"2":	{"Name":"FRA",			"Alias":["EU primary",	"fra",		"SBC50"]},
+		"3":	{"Name":"LHR",			"Alias":["EU standby",	"lhr",		"SBC40"]},
 
-		"16":	{"Name":"LGW",			"Alias":["lgw","UKSSPRD2A1RBBN","UKSSPRD2B1RBBN","UKSSPRD2C1RBBN"]},
+		"7":	{"Name":"LGW",			"Alias":["UK primary",	"lgw",		"UKSSPRD2A1RBBN","UKSSPRD2B1RBBN","UKSSPRD2C1RBBN"]},
 
-		"254":	{"Name":"AWS lab",		"Alias":["AWS LAB","SSD1A1RBBN","SSD1A2RBBN","SSD1B1RBBN","SSD1B2RBBN","SSD1D1RBBN","SSD1D2RBBN"]},
-		"255":	{"Name":"lab",			"Alias":["LAB","SBC1"]}
+		"62":	{"Name":"AWS lab",		"Alias":["AWS LAB",	"soft lab",		"SSD1A1RBBN","SSD1A2RBBN","SSD1B1RBBN","SSD1B2RBBN","SSD1D1RBBN","SSD1D2RBBN"]},
+		"63":	{"Name":"lab",			"Alias":["LAB",	"hard lab",			"SBC1"]}
 	}`
 
 	defaultEncodings = `{

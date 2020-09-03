@@ -17,9 +17,9 @@ import (
 
 type (
 	trigItem struct {
-		Name     string
-		SnapCond map[string][]string
-		Action   []string
+		Name   string
+		Snap   map[string][][]string
+		Action []string
 	}
 	trigModel struct {
 		Placeholder string
@@ -130,23 +130,22 @@ type (
 		CDR     hiC   // map by hour/CDR ID
 	}
 	cdrWork struct {
-		decoder tel.Decoder
-		trates  tel.Rater
-		orates  tel.Rater
-		sp      tel.SPmap
-		sl      tel.SLmap
-		tn      tel.E164full
+		decoder, nadecoder tel.Decoder
+		trates, orates     tel.Rater
+		sp                 tel.SPmap
+		sl                 tel.SLmap
+		tn                 tel.E164full
 	}
 )
 
 const (
-	gwlocShift = 64 - 14            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
-	shelfShift = 50 - 2             // CDR ID shelf (only 1 observed)
-	shelfMask  = 0x3                // CDR ID shelf (only 1 observed)
+	gwlocShift = 64 - 13            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
+	shelfShift = 51 - 3             // CDR ID shelf (GSX could have 6)
+	shelfMask  = 0x3                // CDR ID shelf (GSX could have 6)
 	bootShift  = 48 - 16            // CDR ID boot sequence number
 	bootMask   = 0xffff             // CDR ID boot sequence number
 	callMask   = 0xffff_ffff        // CDR ID call sequence number
-	idMask     = 0x3_ffff_ffff_ffff // CDR ID (Ribbon value without added location)
+	idMask     = 0x7_ffff_ffff_ffff // CDR ID (Ribbon value without added location)
 
 	durShift = 32 - 20 // CDR Time actual duration (0.1s)
 	offMask  = 0xfff   // CDR Time call begin-hour offset (s)
@@ -639,11 +638,13 @@ func cdraspBoot(n string, ctl chan string) {
 	m.persist = len(m.data)
 	sync(n, m)
 
-	work.decoder.NANPbias = true
+	work.nadecoder.NANPbias = true
 	work.trates.Default, work.orates.Default = tel.DefaultTermRates, tel.DefaultOrigRates
 	work.trates.DefaultRate, work.orates.DefaultRate = 0.01, 0.005
 	if err := work.decoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
+	} else if err := work.nadecoder.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load NANP-biased E.164 decoder: %v", n, err)
 	} else if err = work.trates.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load termination rates: %v", n, err)
 	} else if err = work.orates.Load(nil); err != nil {
@@ -708,6 +709,13 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		return
 	}
 	begin, dur, loc := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10, work.sl.Code(item["loc"])
+	var decoder *tel.Decoder
+	switch work.sl.Name(loc) {
+	case "ASH", "LAS", "lab":
+		decoder = &work.nadecoder
+	default:
+		decoder = &work.decoder
+	}
 	cdr, hr := &cdrItem{
 		Time: dur<<durShift | uint32(begin%3600),
 		Info: loc << locShift,
@@ -715,10 +723,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 
 	switch typ, ip := item["type"], item["IP"]; {
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
-		if cdr.To = work.decoder.Digest(item["to"]); cdr.To == 0 {
+		if cdr.To = decoder.Digest(item["to"]); cdr.To == 0 {
 			break
 		}
-		work.decoder.Full(item["from"], &work.tn)
+		decoder.Full(item["from"], &work.tn)
 		cdr.From = work.tn.Digest(len(work.tn.Num))
 		cdr.Cost = float32(dur) / 600 * work.orates.Lookup(&work.tn)
 		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
@@ -735,9 +743,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 	case typ == "CORE":
 	default:
-		cdr.From = work.decoder.Digest(item["from"])
-		if len(item["dip"]) < 20 || work.decoder.Full(item["dip"][:10], &work.tn) != nil {
-			work.decoder.Full(item["to"], &work.tn)
+		cdr.From = decoder.Digest(item["from"])
+		if len(item["dip"]) < 20 || decoder.Full(item["dip"][:10], &work.tn) != nil {
+			decoder.Full(item["to"], &work.tn)
 		}
 		if cdr.To = work.tn.Digest(len(work.tn.Num)); cdr.To == 0 {
 			break
