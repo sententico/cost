@@ -4,9 +4,11 @@
 	"WorkDir": "/var/opt/sententix/aspect",
 	"BinDir": "/opt/sententix/bin",
 	"Models": {
+		"trig.cmon": ".cmon_trigcmon.json",
 		"ec2.aws": ".cmon_ec2aws.json",
 		"ebs.aws": ".cmon_ebsaws.json",
-		"rds.aws": ".cmon_rdsaws.json"
+		"rds.aws": ".cmon_rdsaws.json",
+		"cdr.asp": ".cmon_cdrasp.json"
 	},
 	"AWS": {
 		"Options": "<placeholder>",

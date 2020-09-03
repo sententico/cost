@@ -16,6 +16,10 @@ import (
 )
 
 type (
+	trigModel struct {
+		Placeholder string
+	}
+
 	statItem struct {
 		Period []int
 		Value  []float32
@@ -128,7 +132,7 @@ type (
 )
 
 const (
-	idLocShift = 64 - 14            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
+	gwlocShift = 64 - 14            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
 	shelfShift = 50 - 2             // CDR ID shelf (only 1 observed)
 	shelfMask  = 0x3                // CDR ID shelf (only 1 observed)
 	bootShift  = 48 - 16            // CDR ID boot sequence number
@@ -195,6 +199,7 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 			token = <-acc
 			insert(m, nil, start)
 			m.rel <- token
+			evt <- src
 		}
 	}()
 	if sb, e := json.MarshalIndent(settings, "", "\t"); e != nil {
@@ -280,6 +285,46 @@ func flush(n string, m *model, at accTyp, release bool) {
 	}
 }
 
+func trigcmonBoot(n string, ctl chan string) {
+	trig, m := &trigModel{}, mMod[n]
+	m.data = append(m.data, trig)
+	m.persist = len(m.data)
+	sync(n, m)
+	ctl <- n
+}
+func trigcmonClean(m *model) {
+	acc := make(chan accTok, 1)
+	m.req <- modRq{atEXCL, acc}
+	token := <-acc
+
+	// clean expired/invalid data
+	// trig := m.data[0].(*trigModel)
+	m.rel <- token
+}
+func trigcmonMaint(n string) {
+	m := mMod[n]
+	goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
+	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
+	for cl, fl :=
+		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
+		select {
+		case <-cl.C:
+			goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
+		case <-fl.C:
+			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
+		case e := <-m.evt:
+			// TODO: process event notification
+			logI.Printf("%q notified of changes in %q", n, e)
+		}
+	}
+}
+func trigcmonTerm(n string, ctl chan string) {
+	flush(n, mMod[n], atEXCL, false)
+	ctl <- n
+}
+
 func ec2awsBoot(n string, ctl chan string) {
 	ec2, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, mMod[n]
 	m.data = append(m.data, ec2)
@@ -347,6 +392,7 @@ func ec2awsMaint(n string) {
 	goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsInsert) })
 	goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
 	for g, sg, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
@@ -359,6 +405,9 @@ func ec2awsMaint(n string) {
 			goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
+		case <-m.evt:
+			// TODO: process event notification
 		}
 	}
 }
@@ -443,6 +492,7 @@ func ebsawsMaint(n string) {
 	goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsInsert) })
 	goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
 	for g, sg, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
@@ -455,6 +505,9 @@ func ebsawsMaint(n string) {
 			goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
+		case <-m.evt:
+			// TODO: process event notification
 		}
 	}
 }
@@ -533,6 +586,7 @@ func rdsawsMaint(n string) {
 	goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsInsert) })
 	goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
 	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
 	for g, sg, cl, fl :=
 		time.NewTicker(720*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
@@ -545,6 +599,9 @@ func rdsawsMaint(n string) {
 			goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
+		case <-m.evt:
+			// TODO: process event notification
 		}
 	}
 }
@@ -664,7 +721,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if hr > osum.Current {
 			osum.Current, odetail.Current = hr, hr
 		}
-		if odetail.CDR.add(hr, uint64(loc)<<idLocShift|id&idMask, cdr) {
+		if odetail.CDR.add(hr, uint64(loc)<<gwlocShift|id&idMask, cdr) {
 			osum.ByHour.add(hr, cdr)
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
@@ -691,7 +748,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if hr > tsum.Current {
 			tsum.Current, tdetail.Current = hr, hr
 		}
-		if tdetail.CDR.add(hr, uint64(loc)<<idLocShift|id&idMask, cdr) {
+		if tdetail.CDR.add(hr, uint64(loc)<<gwlocShift|id&idMask, cdr) {
 			tsum.ByHour.add(hr, cdr)
 			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
 			tsum.ByFrom.add(hr, cdr.From, cdr)
@@ -750,6 +807,9 @@ func cdraspMaint(n string) {
 			goAfter(240*time.Second, 270*time.Second, func() { cdraspClean(m) })
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+
+		case <-m.evt:
+			// TODO: process event notification
 		}
 	}
 }

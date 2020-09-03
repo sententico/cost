@@ -45,6 +45,7 @@ type (
 		state      modSt
 		req        chan modRq
 		rel        chan accTok
+		evt        chan string
 		boot, term func(string, chan string)
 		maint      func(string)
 		persist    int
@@ -68,6 +69,7 @@ const (
 var (
 	// cloud monitor globals
 	sig                    chan os.Signal    // termination signal channel
+	evt                    chan string       // event broadcast channel
 	seID, seB, seE         chan int64        // session counters
 	sfile, port            string            // ...
 	srv                    *http.Server      // HTTP server
@@ -89,10 +91,11 @@ func init() {
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
 	m, val := map[string]*model{
-		"ec2.aws": {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
-		"ebs.aws": {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
-		"rds.aws": {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
-		"cdr.asp": {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
+		"trig.cmon": {boot: trigcmonBoot, maint: trigcmonMaint, term: trigcmonTerm},
+		"ec2.aws":   {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
+		"ebs.aws":   {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
+		"rds.aws":   {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
+		"cdr.asp":   {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
 	}, func(pri string, dflt string) string {
 		if strings.HasPrefix(pri, "CMON_") {
 			pri = os.Getenv(pri)
@@ -118,6 +121,7 @@ func init() {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 
+	evt = make(chan string, 4)
 	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	seInit = time.Now().UnixNano()
 	seSeq = seInit
@@ -149,6 +153,7 @@ func modManager(m *model, n string, ctl chan string) {
 	var accessors, token accTok
 	m.req = make(chan modRq, 16)
 	m.rel = make(chan accTok, 16)
+	m.evt = make(chan string, 4)
 	m.boot(n, ctl)
 
 	for token++; ; token++ { // loop indefinitely as model access manager when boot complete
@@ -185,14 +190,27 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 			}
 		case <-to:
 			break nextSelect
+
+		case e := <-evt:
+			// broadcast event to all other models
+			for n, m := range mMod {
+				if n != e {
+					select {
+					case m.evt <- e:
+					default:
+					}
+				}
+			}
+
 		case <-seB:
 			seOpen++
 		case <-seE:
 			seOpen--
 		case seID <- seSeq:
 			seSeq++
+
 		case <-quit:
-			seID, to = nil, time.After(3000*time.Millisecond)
+			evt, seID, to = nil, nil, time.After(3000*time.Millisecond)
 			seSeq -= int64(len(id))
 			t.Stop()
 		}
