@@ -308,6 +308,15 @@ func trigcmonClean(m *model) {
 	// trig := m.data[0].(*trigModel)
 	m.rel <- token
 }
+func trigcmonScan(m *model, evt string) {
+	acc := make(chan accTok, 1)
+	m.req <- modRq{atEXCL, acc}
+	token := <-acc
+
+	// TODO: process triggers after event notification; treat as "session"; recover() wrapper
+	// trig := m.data[0].(*trigModel)
+	m.rel <- token
+}
 func trigcmonMaint(n string) {
 	m := mMod[n]
 	goAfter(240*time.Second, 270*time.Second, func() { trigcmonClean(m) })
@@ -321,9 +330,8 @@ func trigcmonMaint(n string) {
 		case <-fl.C:
 			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
 
-		case e := <-m.evt:
-			// TODO: process event notification
-			logI.Printf("%q notified of changes in %q", n, e)
+		case evt := <-m.evt:
+			go trigcmonScan(m, evt)
 		}
 	}
 }
