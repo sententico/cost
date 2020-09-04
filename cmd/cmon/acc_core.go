@@ -777,7 +777,7 @@ func cdraspClean(n string, deep bool) {
 	token := <-acc
 
 	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
-	texp, oexp := tdetail.Current-24, odetail.Current-24
+	texp, oexp := tdetail.Current-36, odetail.Current-36
 	for hr := range tdetail.CDR {
 		if hr <= texp {
 			delete(tdetail.CDR, hr)
@@ -788,12 +788,45 @@ func cdraspClean(n string, deep bool) {
 			delete(odetail.CDR, hr)
 		}
 	}
-	tsum, _ := m.data[0].(*termSum), m.data[1].(*origSum)
+	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
 	for hr := range tsum.ByTo {
 		if hr <= texp {
 			delete(tsum.ByTo, hr)
 		}
 	}
+	for hr := range tsum.ByFrom {
+		if hr <= texp {
+			delete(tsum.ByFrom, hr)
+		}
+	}
+
+	texp, oexp = tsum.Current-24*60, osum.Current-24*60
+	for hr := range tsum.ByLoc {
+		if hr <= texp {
+			delete(tsum.ByLoc, hr)
+		}
+	}
+	for hr := range tsum.ByGeo {
+		if hr <= texp {
+			delete(tsum.ByGeo, hr)
+		}
+	}
+	for hr := range tsum.BySP {
+		if hr <= texp {
+			delete(tsum.BySP, hr)
+		}
+	}
+	for hr := range osum.ByLoc {
+		if hr <= oexp {
+			delete(osum.ByLoc, hr)
+		}
+	}
+	for hr := range osum.ByTo {
+		if hr <= oexp {
+			delete(osum.ByTo, hr)
+		}
+	}
+
 	m.rel <- token
 	evt <- n
 }
