@@ -178,7 +178,9 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 		select {
 		case <-t.C:
 			if nc := seSeq - seInit - int64(len(seID)); nc > lc {
-				logI.Printf("handled %v sessions", nc-lc)
+				if sh := nc - lc; sh > 12 {
+					logI.Printf("handled %v sessions", sh)
+				}
 				lc = nc
 			}
 		case <-to:
