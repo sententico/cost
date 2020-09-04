@@ -122,7 +122,7 @@ func init() {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 
-	evt = make(chan string, 4)
+	evt = make(chan string, len(mMod)+2)
 	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	seInit = time.Now().UnixNano()
 	seSeq = seInit

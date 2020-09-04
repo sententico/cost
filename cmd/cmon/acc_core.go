@@ -313,11 +313,10 @@ func trigcmonScan(n string, evt string) {
 	// TODO: process triggers on event; recover() wrapper; release models before other accesses
 }
 func trigcmonMaint(n string) {
-	m := mMod[n]
 	goaftSession(240*time.Second, 270*time.Second, func() { trigcmonClean(n, true) })
 	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
-	for cl, fl :=
+	for m, cl, fl := mMod[n],
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
 		case <-cl.C:
@@ -400,12 +399,11 @@ func ec2awsClean(n string, deep bool) {
 	evt <- n
 }
 func ec2awsMaint(n string) {
-	m := mMod[n]
 	goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert) })
 	goaftSession(240*time.Second, 270*time.Second, func() { ec2awsClean(n, true) })
 	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
-	for g, sg, cl, fl :=
+	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
@@ -502,12 +500,11 @@ func ebsawsClean(n string, deep bool) {
 	evt <- n
 }
 func ebsawsMaint(n string) {
-	m := mMod[n]
 	goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert) })
 	goaftSession(240*time.Second, 270*time.Second, func() { ebsawsClean(n, true) })
 	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
-	for g, sg, cl, fl :=
+	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
@@ -598,12 +595,11 @@ func rdsawsClean(n string, deep bool) {
 	evt <- n
 }
 func rdsawsMaint(n string) {
-	m := mMod[n]
 	goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert) })
 	goaftSession(240*time.Second, 270*time.Second, func() { rdsawsClean(n, true) })
 	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
-	for g, sg, cl, fl :=
+	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(720*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
@@ -802,7 +798,7 @@ func cdraspClean(n string, deep bool) {
 	evt <- n
 }
 func cdraspMaint(n string) {
-	m, goGo := mMod[n], make(chan bool, 1)
+	goGo := make(chan bool, 1)
 	goaftSession(0, 60*time.Second, func() {
 		gopher(n, cdraspInsert)
 		goGo <- true
@@ -810,7 +806,7 @@ func cdraspMaint(n string) {
 	goaftSession(240*time.Second, 270*time.Second, func() { cdraspClean(n, true) })
 	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
-	for g, cl, fl :=
+	for m, g, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second),
 		time.NewTicker(21600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
