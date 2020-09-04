@@ -141,14 +141,6 @@ func init() {
 	}
 }
 
-func goAfter(a time.Duration, b time.Duration, f func()) {
-	if b > a {
-		time.AfterFunc(a+time.Duration(rand.Int63n(int64(b-a))), f)
-	} else {
-		time.AfterFunc(b+time.Duration(rand.Int63n(int64(a-b))), f)
-	}
-}
-
 func modManager(m *model, n string, ctl chan string) {
 	var mr modRq
 	var accessors, token accTok
@@ -193,9 +185,8 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 			break nextSelect
 
 		case e := <-evt:
-			// broadcast event to all other models
 			for n, m := range mMod {
-				if n != e {
+				if n != e { // broadcast events to all other models
 					select {
 					case m.evt <- e:
 					default:
@@ -211,12 +202,37 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 			seSeq++
 
 		case <-quit:
-			evt, seID, to = nil, nil, time.After(3000*time.Millisecond)
+			seID, to = nil, time.After(3000*time.Millisecond)
 			seSeq -= int64(len(id))
 			t.Stop()
 		}
 	}
 	ok <- true
+}
+
+func goAfter(low time.Duration, high time.Duration, f func()) {
+	if low == 0 && high == 0 || low < 0 {
+		go f()
+	} else if low >= high {
+		time.AfterFunc(low, f)
+	} else {
+		time.AfterFunc(low+time.Duration(rand.Int63n(int64(high-low))), f)
+	}
+}
+
+func goaftSession(low time.Duration, high time.Duration, f func()) {
+	if g := func() {
+		id := <-seID
+		seB <- id
+		f()
+		seE <- id
+	}; low == 0 && high == 0 || low < 0 {
+		go g()
+	} else if low >= high {
+		time.AfterFunc(low, g)
+	} else {
+		time.AfterFunc(low+time.Duration(rand.Int63n(int64(high-low))), g)
+	}
 }
 
 func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.HandlerFunc {

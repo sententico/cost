@@ -184,8 +184,8 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 	}
 }
 
-func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
-	goph, eb, start, now := unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
+func gopher(src string, insert func(*model, map[string]string, int)) {
+	m, goph, eb, start, now := mMod[src], unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
 	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	acc, token, pages, items, meta := make(chan accTok, 1), accTok(0), 0, 0, false
 	defer func() {
@@ -248,8 +248,8 @@ func gopher(src string, m *model, insert func(*model, map[string]string, int)) {
 	}
 }
 
-func sync(n string, m *model) {
-	if fn := settings.Models[n]; fn == "" {
+func sync(n string) {
+	if m, fn := mMod[n], settings.Models[n]; fn == "" {
 		logE.Fatalf("no resource configured into which %q state may persist", n)
 	} else if f, err := os.Open(fn); os.IsNotExist(err) {
 		logW.Printf("no %q state found at %q", n, fn)
@@ -262,8 +262,8 @@ func sync(n string, m *model) {
 	}
 }
 
-func flush(n string, m *model, at accTyp, release bool) {
-	acc := make(chan accTok, 1)
+func flush(n string, at accTyp, release bool) {
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{at, acc}
 	token := <-acc
 
@@ -296,47 +296,43 @@ func trigcmonBoot(n string, ctl chan string) {
 	trig, m := &trigModel{}, mMod[n]
 	m.data = append(m.data, trig)
 	m.persist = len(m.data)
-	sync(n, m)
+	sync(n)
 	ctl <- n
 }
-func trigcmonClean(m *model) {
-	acc := make(chan accTok, 1)
+func trigcmonClean(n string, deep bool) {
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
 	// clean expired/invalid data
 	// trig := m.data[0].(*trigModel)
 	m.rel <- token
+	evt <- n
 }
-func trigcmonScan(m *model, evt string) {
-	acc := make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
-	token := <-acc
-
-	// TODO: process triggers after event notification; treat as "session"; recover() wrapper
-	// trig := m.data[0].(*trigModel)
-	m.rel <- token
+func trigcmonScan(n string, evt string) {
+	// TODO: process triggers on event; recover() wrapper; release models before other accesses
 }
 func trigcmonMaint(n string) {
 	m := mMod[n]
-	goAfter(240*time.Second, 270*time.Second, func() { trigcmonClean(m) })
-	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	goaftSession(240*time.Second, 270*time.Second, func() { trigcmonClean(n, true) })
+	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 	for cl, fl :=
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
 		case <-cl.C:
-			goAfter(240*time.Second, 270*time.Second, func() { trigcmonClean(m) })
+			goaftSession(240*time.Second, 270*time.Second, func() { trigcmonClean(n, true) })
 		case <-fl.C:
-			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 		case evt := <-m.evt:
-			go trigcmonScan(m, evt)
+			goaftSession(0, 0, func() { trigcmonScan(n, evt) })
 		}
 	}
 }
 func trigcmonTerm(n string, ctl chan string) {
-	flush(n, mMod[n], atEXCL, false)
+	trigcmonClean(n, false)
+	flush(n, atEXCL, false)
 	ctl <- n
 }
 
@@ -344,7 +340,7 @@ func ec2awsBoot(n string, ctl chan string) {
 	ec2, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, mMod[n]
 	m.data = append(m.data, ec2)
 	m.persist = len(m.data)
-	sync(n, m)
+	sync(n)
 	ctl <- n
 }
 func ec2awsInsert(m *model, item map[string]string, now int) {
@@ -388,8 +384,8 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	}
 	inst.Last = now
 }
-func ec2awsClean(m *model) {
-	acc := make(chan accTok, 1)
+func ec2awsClean(n string, deep bool) {
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
@@ -401,33 +397,35 @@ func ec2awsClean(m *model) {
 		}
 	}
 	m.rel <- token
+	evt <- n
 }
 func ec2awsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsInsert) })
-	goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
-	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert) })
+	goaftSession(240*time.Second, 270*time.Second, func() { ec2awsClean(n, true) })
+	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 	for g, sg, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
 		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, ec2awsInsert) })
+			goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert) })
 		case <-sg.C:
-			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ec2awsSInsert)})
+			//goaftSession(0, 60*time.Second, func() {gopher(n+"/stats", ec2awsSInsert)})
 		case <-cl.C:
-			goAfter(240*time.Second, 270*time.Second, func() { ec2awsClean(m) })
+			goaftSession(240*time.Second, 270*time.Second, func() { ec2awsClean(n, true) })
 		case <-fl.C:
-			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
-			// TODO: process event notification
+			// TODO: process event notifications
 		}
 	}
 }
 func ec2awsTerm(n string, ctl chan string) {
-	flush(n, mMod[n], atEXCL, false)
+	ec2awsClean(n, false)
+	flush(n, atEXCL, false)
 	ctl <- n
 }
 
@@ -435,7 +433,7 @@ func ebsawsBoot(n string, ctl chan string) {
 	ebs, m := &ebsModel{Vol: make(map[string]*ebsItem, 1024)}, mMod[n]
 	m.data = append(m.data, ebs)
 	m.persist = len(m.data)
-	sync(n, m)
+	sync(n)
 	ctl <- n
 }
 func ebsawsInsert(m *model, item map[string]string, now int) {
@@ -481,8 +479,8 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	}
 	vol.Last = now
 }
-func ebsawsClean(m *model) {
-	acc := make(chan accTok, 1)
+func ebsawsClean(n string, deep bool) {
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
@@ -501,33 +499,35 @@ func ebsawsClean(m *model) {
 		}
 	}
 	m.rel <- token
+	evt <- n
 }
 func ebsawsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsInsert) })
-	goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
-	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert) })
+	goaftSession(240*time.Second, 270*time.Second, func() { ebsawsClean(n, true) })
+	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 	for g, sg, cl, fl :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
 		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, ebsawsInsert) })
+			goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert) })
 		case <-sg.C:
-			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, ebsawsSInsert)})
+			//goaftSession(0, 60*time.Second, func() {gopher(n+"/stats", ebsawsSInsert)})
 		case <-cl.C:
-			goAfter(240*time.Second, 270*time.Second, func() { ebsawsClean(m) })
+			goaftSession(240*time.Second, 270*time.Second, func() { ebsawsClean(n, true) })
 		case <-fl.C:
-			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
-			// TODO: process event notification
+			// TODO: process event notifications
 		}
 	}
 }
 func ebsawsTerm(n string, ctl chan string) {
-	flush(n, mMod[n], atEXCL, false)
+	ebsawsClean(n, false)
+	flush(n, atEXCL, false)
 	ctl <- n
 }
 
@@ -535,7 +535,7 @@ func rdsawsBoot(n string, ctl chan string) {
 	rds, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, mMod[n]
 	m.data = append(m.data, rds)
 	m.persist = len(m.data)
-	sync(n, m)
+	sync(n)
 	ctl <- n
 }
 func rdsawsInsert(m *model, item map[string]string, now int) {
@@ -582,8 +582,8 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	}
 	db.Last = now
 }
-func rdsawsClean(m *model) {
-	acc := make(chan accTok, 1)
+func rdsawsClean(n string, deep bool) {
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
@@ -595,33 +595,35 @@ func rdsawsClean(m *model) {
 		}
 	}
 	m.rel <- token
+	evt <- n
 }
 func rdsawsMaint(n string) {
 	m := mMod[n]
-	goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsInsert) })
-	goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
-	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert) })
+	goaftSession(240*time.Second, 270*time.Second, func() { rdsawsClean(n, true) })
+	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 	for g, sg, cl, fl :=
 		time.NewTicker(720*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
 		case <-g.C:
-			goAfter(0, 60*time.Second, func() { gopher(n, m, rdsawsInsert) })
+			goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert) })
 		case <-sg.C:
-			//goAfter(0, 60*time.Second, func() {gopher(n+"/stats", m, rdsawsSInsert)})
+			//goaftSession(0, 60*time.Second, func() {gopher(n+"/stats", rdsawsSInsert)})
 		case <-cl.C:
-			goAfter(240*time.Second, 270*time.Second, func() { rdsawsClean(m) })
+			goaftSession(240*time.Second, 270*time.Second, func() { rdsawsClean(n, true) })
 		case <-fl.C:
-			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
-			// TODO: process event notification
+			// TODO: process event notifications
 		}
 	}
 }
 func rdsawsTerm(n string, ctl chan string) {
-	flush(n, mMod[n], atEXCL, false)
+	rdsawsClean(n, false)
+	flush(n, atEXCL, false)
 	ctl <- n
 }
 
@@ -645,7 +647,7 @@ func cdraspBoot(n string, ctl chan string) {
 	m.data = append(m.data, tdetail)
 	m.data = append(m.data, odetail)
 	m.persist = len(m.data)
-	sync(n, m)
+	sync(n)
 
 	work.nadecoder.NANPbias = true
 	work.trates.Default, work.orates.Default = tel.DefaultTermRates, tel.DefaultOrigRates
@@ -773,8 +775,8 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 	}
 }
-func cdraspClean(m *model) {
-	acc := make(chan accTok, 1)
+func cdraspClean(n string, deep bool) {
+	m, acc := mMod[n], make(chan accTok, 1)
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
@@ -797,41 +799,43 @@ func cdraspClean(m *model) {
 		}
 	}
 	m.rel <- token
+	evt <- n
 }
 func cdraspMaint(n string) {
 	m, goGo := mMod[n], make(chan bool, 1)
-	goAfter(0, 60*time.Second, func() {
-		gopher(n, m, cdraspInsert)
+	goaftSession(0, 60*time.Second, func() {
+		gopher(n, cdraspInsert)
 		goGo <- true
 	})
-	goAfter(240*time.Second, 270*time.Second, func() { cdraspClean(m) })
-	goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+	goaftSession(240*time.Second, 270*time.Second, func() { cdraspClean(n, true) })
+	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 	for g, cl, fl :=
 		time.NewTicker(360*time.Second),
 		time.NewTicker(21600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
-			goAfter(0, 60*time.Second, func() {
+			goaftSession(0, 60*time.Second, func() {
 				select {
 				case <-goGo: // serialize cdr.asp gophers
-					gopher(n, m, cdraspInsert)
+					gopher(n, cdraspInsert)
 					goGo <- true
 				default:
 				}
 			})
 		case <-cl.C:
-			goAfter(240*time.Second, 270*time.Second, func() { cdraspClean(m) })
+			goaftSession(240*time.Second, 270*time.Second, func() { cdraspClean(n, true) })
 		case <-fl.C:
-			goAfter(300*time.Second, 330*time.Second, func() { flush(n, m, 0, true) })
+			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
-			// TODO: process event notification
+			// TODO: process event notifications
 		}
 	}
 }
 func cdraspTerm(n string, ctl chan string) {
-	flush(n, mMod[n], atEXCL, false)
+	cdraspClean(n, false)
+	flush(n, atEXCL, false)
 	ctl <- n
 }
 
