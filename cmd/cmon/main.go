@@ -122,7 +122,7 @@ func init() {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 
-	evt = make(chan string, len(mMod)+2)
+	evt = make(chan string, 4)
 	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	seInit = time.Now().UnixNano()
 	seSeq = seInit
@@ -170,11 +170,9 @@ func modManager(m *model, n string, ctl chan string) {
 }
 
 func seManager(quit <-chan bool, ok chan<- bool) {
-	var lc int64
 	var to <-chan time.Time
 
-	for id, t := seID, time.NewTicker(60*time.Second); seID != nil || seOpen > 0; {
-	nextSelect:
+	for t, id, lc := time.NewTicker(60*time.Second), seID, int64(0); ; {
 		select {
 		case <-t.C:
 			if nc := seSeq - seInit - int64(len(seID)); nc > lc {
@@ -184,7 +182,8 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 				lc = nc
 			}
 		case <-to:
-			break nextSelect
+			ok <- true
+			to = nil
 
 		case e := <-evt:
 			for n, m := range mMod {
@@ -196,20 +195,26 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 				}
 			}
 
+		case seID <- seSeq:
+			seSeq++
 		case <-seB:
 			seOpen++
 		case <-seE:
-			seOpen--
-		case seID <- seSeq:
-			seSeq++
+			if seOpen--; seID == nil && to != nil && seOpen == 0 {
+				ok <- true
+				to = nil
+			}
 
 		case <-quit:
-			seID, to = nil, time.After(3000*time.Millisecond)
-			seSeq -= int64(len(id))
+			if seID, quit = nil, nil; seOpen > 0 {
+				to = time.After(3000 * time.Millisecond)
+			} else {
+				ok <- true
+			}
 			t.Stop()
+			seSeq -= int64(len(id))
 		}
 	}
-	ok <- true
 }
 
 func goAfter(low time.Duration, high time.Duration, f func()) {
