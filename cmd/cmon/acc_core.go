@@ -94,7 +94,7 @@ type (
 	}
 
 	cdrStat struct {
-		Calls uint32  `json:"N"` // total number of calls (high-order 4 bit unused)
+		Calls uint32  `json:"N"` // total number of calls (high-order 4 bits unused)
 		Dur   uint64  `json:"D"` // total 0.1s actual duration (high-order 24 bits unused)
 		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
 	}
@@ -314,7 +314,7 @@ func trigcmonScan(n string, evt string) {
 }
 func trigcmonMaint(n string) {
 	goaftSession(240*time.Second, 270*time.Second, func() { trigcmonClean(n, true) })
-	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 	for m, cl, fl := mMod[n],
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
@@ -322,7 +322,7 @@ func trigcmonMaint(n string) {
 		case <-cl.C:
 			goaftSession(240*time.Second, 270*time.Second, func() { trigcmonClean(n, true) })
 		case <-fl.C:
-			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+			goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 		case evt := <-m.evt:
 			goaftSession(0, 0, func() { trigcmonScan(n, evt) })
@@ -401,7 +401,7 @@ func ec2awsClean(n string, deep bool) {
 func ec2awsMaint(n string) {
 	goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert) })
 	goaftSession(240*time.Second, 270*time.Second, func() { ec2awsClean(n, true) })
-	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
@@ -414,7 +414,7 @@ func ec2awsMaint(n string) {
 		case <-cl.C:
 			goaftSession(240*time.Second, 270*time.Second, func() { ec2awsClean(n, true) })
 		case <-fl.C:
-			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+			goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -502,7 +502,7 @@ func ebsawsClean(n string, deep bool) {
 func ebsawsMaint(n string) {
 	goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert) })
 	goaftSession(240*time.Second, 270*time.Second, func() { ebsawsClean(n, true) })
-	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
@@ -515,7 +515,7 @@ func ebsawsMaint(n string) {
 		case <-cl.C:
 			goaftSession(240*time.Second, 270*time.Second, func() { ebsawsClean(n, true) })
 		case <-fl.C:
-			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+			goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -597,7 +597,7 @@ func rdsawsClean(n string, deep bool) {
 func rdsawsMaint(n string) {
 	goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert) })
 	goaftSession(240*time.Second, 270*time.Second, func() { rdsawsClean(n, true) })
-	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(720*time.Second), time.NewTicker(7200*time.Second),
@@ -610,7 +610,7 @@ func rdsawsMaint(n string) {
 		case <-cl.C:
 			goaftSession(240*time.Second, 270*time.Second, func() { rdsawsClean(n, true) })
 		case <-fl.C:
-			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+			goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -687,6 +687,13 @@ func (m hsS) add(hr int32, k string, cdr *cdrItem) {
 		s.Cost += float64(cdr.Cost)
 	}
 }
+func (m hsS) clean(exp int32) {
+	for hr := range m {
+		if hr <= exp {
+			delete(m, hr)
+		}
+	}
+}
 func (m hnS) add(hr int32, k tel.E164digest, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[tel.E164digest]*cdrStat)
@@ -697,6 +704,13 @@ func (m hnS) add(hr int32, k tel.E164digest, cdr *cdrItem) {
 		s.Calls++
 		s.Dur += uint64(cdr.Time >> durShift)
 		s.Cost += float64(cdr.Cost)
+	}
+}
+func (m hnS) clean(exp int32) {
+	for hr := range m {
+		if hr <= exp {
+			delete(m, hr)
+		}
 	}
 }
 func cdraspInsert(m *model, item map[string]string, now int) {
@@ -789,43 +803,14 @@ func cdraspClean(n string, deep bool) {
 		}
 	}
 	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
-	for hr := range tsum.ByTo {
-		if hr <= texp {
-			delete(tsum.ByTo, hr)
-		}
-	}
-	for hr := range tsum.ByFrom {
-		if hr <= texp {
-			delete(tsum.ByFrom, hr)
-		}
-	}
-
+	tsum.ByFrom.clean(texp)
+	tsum.ByTo.clean(texp)
 	texp, oexp = tsum.Current-24*60, osum.Current-24*60
-	for hr := range tsum.ByLoc {
-		if hr <= texp {
-			delete(tsum.ByLoc, hr)
-		}
-	}
-	for hr := range tsum.ByGeo {
-		if hr <= texp {
-			delete(tsum.ByGeo, hr)
-		}
-	}
-	for hr := range tsum.BySP {
-		if hr <= texp {
-			delete(tsum.BySP, hr)
-		}
-	}
-	for hr := range osum.ByLoc {
-		if hr <= oexp {
-			delete(osum.ByLoc, hr)
-		}
-	}
-	for hr := range osum.ByTo {
-		if hr <= oexp {
-			delete(osum.ByTo, hr)
-		}
-	}
+	tsum.ByLoc.clean(texp)
+	tsum.ByGeo.clean(texp)
+	tsum.BySP.clean(texp)
+	osum.ByLoc.clean(oexp)
+	osum.ByTo.clean(oexp)
 
 	m.rel <- token
 	evt <- n
@@ -837,11 +822,11 @@ func cdraspMaint(n string) {
 		goGo <- true
 	})
 	goaftSession(240*time.Second, 270*time.Second, func() { cdraspClean(n, true) })
-	goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 	for m, g, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second),
-		time.NewTicker(21600*time.Second), time.NewTicker(10800*time.Second); ; {
+		time.NewTicker(21600*time.Second), time.NewTicker(21600*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 60*time.Second, func() {
@@ -855,7 +840,7 @@ func cdraspMaint(n string) {
 		case <-cl.C:
 			goaftSession(240*time.Second, 270*time.Second, func() { cdraspClean(n, true) })
 		case <-fl.C:
-			goaftSession(300*time.Second, 330*time.Second, func() { flush(n, 0, true) })
+			goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 		case <-m.evt:
 			// TODO: process event notifications

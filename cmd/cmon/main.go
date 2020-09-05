@@ -171,31 +171,11 @@ func modManager(m *model, n string, ctl chan string) {
 
 func seManager(quit <-chan bool, ok chan<- bool) {
 	var to <-chan time.Time
+	min, id, lc := time.NewTicker(60*time.Second), seID, int64(0)
 
-	for t, id, lc := time.NewTicker(60*time.Second), seID, int64(0); ; {
+	for {
 		select {
-		case <-t.C:
-			if nc := seSeq - seInit - int64(len(seID)); nc > lc {
-				if sh := nc - lc; sh > 12 {
-					logI.Printf("handled %v sessions", sh)
-				}
-				lc = nc
-			}
-		case <-to:
-			ok <- true
-			to = nil
-
-		case e := <-evt:
-			for n, m := range mMod {
-				if n != e { // broadcast events to all other models
-					select {
-					case m.evt <- e:
-					default:
-					}
-				}
-			}
-
-		case seID <- seSeq:
+		case seID <- seSeq: // serve session IDs until quit signaled
 			seSeq++
 		case <-seB:
 			seOpen++
@@ -205,13 +185,34 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 				to = nil
 			}
 
+		case e := <-evt:
+			for n, m := range mMod {
+				if n != e { // broadcast model events to all other models
+					select {
+					case m.evt <- e:
+					default:
+					}
+				}
+			}
+
+		case <-min.C:
+			if nc := seSeq - seInit - int64(len(seID)); nc > lc {
+				if sh := nc - lc; sh > 12 {
+					logI.Printf("handled %v sessions", sh)
+				}
+				lc = nc
+			}
+		case <-to: // after quit requested, ack once no open sessions or timeout
+			ok <- true
+			to = nil
+
 		case <-quit:
 			if seID, quit = nil, nil; seOpen > 0 {
 				to = time.After(3000 * time.Millisecond)
 			} else {
 				ok <- true
 			}
-			t.Stop()
+			min.Stop()
 			seSeq -= int64(len(id))
 		}
 	}
