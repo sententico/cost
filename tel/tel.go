@@ -51,14 +51,14 @@ type (
 		Geo     string // geographic zone (with NANP subtypes)
 		CC      string // country/service code
 		CCn     string // country/service code name
-		ISO3166 string // ISO 3166-2 alpha country code
+		ISO3166 string // ISO 3166-2 alpha country code (XC if n/a)
 		P       string // national-scope prefix (including area codes)
 		Pn      string // national-scope prefix name (unimplemented)
-		Sub     string // subscriber number
+		Sub     string // subscriber suffix
 	}
 
 	// E164digest ...
-	E164digest uint64 // high 14 bits: Geo code + CC, P & Sub digits; low 50 bits: E.164 Num
+	E164digest uint64 // high 50 bits: E.164 Num; low 14 bits: CC len | P len | Sub len | Geo code
 )
 
 // Load method on Rater ...
@@ -154,10 +154,10 @@ func (d *Decoder) Load(dr io.Reader) (err error) {
 func (d *Decoder) Full(n string, tn *E164full) error {
 	n, intl := strings.Map(func(r rune) rune {
 		switch r {
-		case '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return r
+		case ' ', '(', ')', '-', '.', '[', ']', '\t':
+			return -1
 		}
-		return -1
+		return r
 	}, n), false
 	if len(n) > 0 && n[0] == '+' {
 		n, intl = n[1:], true
@@ -169,13 +169,19 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 
 	var cc string
 	if tn == nil {
-		return fmt.Errorf("missing E.164")
+		return fmt.Errorf("missing E.164 target")
 	} else if d == nil {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
-		return fmt.Errorf("no decoder specified")
-	} else if (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
+		return fmt.Errorf("no E.164 decoder specified")
+	} else if n := strings.Map(func(r rune) rune {
+		switch r {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return r
+		}
+		return -1
+	}, n); (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
-		return fmt.Errorf("invalid E.164 length: %v", len(n))
+		return fmt.Errorf("invalid E.164 filtered length: %v", len(n))
 	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[1] != '9' && n[3] != '0' && n[3] != '1' {
 		n, cc = "1"+n, "1"
 	} else if d.ccI[n[:1]] != nil {
@@ -186,12 +192,12 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 		cc = n[:3]
 	} else {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
-		return fmt.Errorf("prefix [%v...] not a valid CC", n[:3])
+		return fmt.Errorf("prefix [%v...] not a valid E.164 CC", n[:3])
 	}
 
-	if i, p, s := d.ccInfo(n, cc); i == nil {
+	if i, p, s := d.ccInfo(n, cc); i == nil || s == "" {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
-		return fmt.Errorf("missing encodings for CC %v", cc)
+		return fmt.Errorf("cannot decode %q as E.164 CC", cc)
 	} else {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, cc, i.Geo, i.CCn, i.ISO3166, p, s
 		return nil
@@ -202,10 +208,10 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 func (d *Decoder) Digest(n string) E164digest {
 	n, intl := strings.Map(func(r rune) rune {
 		switch r {
-		case '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return r
+		case ' ', '(', ')', '-', '.', '[', ']', '\t':
+			return -1
 		}
-		return -1
+		return r
 	}, n), false
 	if len(n) > 0 && n[0] == '+' {
 		n, intl = n[1:], true
@@ -216,7 +222,8 @@ func (d *Decoder) Digest(n string) E164digest {
 	}
 
 	var cc string
-	if d == nil || (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
+	np, _ := strconv.ParseUint(n, 10, 64)
+	if d == nil || np == 0 || (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
 		return 0
 	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[1] != '9' && n[3] != '0' && n[3] != '1' {
 		n, cc = "1"+n, "1"
@@ -230,13 +237,10 @@ func (d *Decoder) Digest(n string) E164digest {
 		return 0
 	}
 
-	if i, p, s := d.ccInfo(n, cc); i == nil {
-		return 0
-	} else if d, _ := strconv.ParseUint(n, 10, 64); d == 0 {
+	if i, p, s := d.ccInfo(n, cc); i == nil || s == "" {
 		return 0
 	} else {
-		d = d<<numShift | uint64(len(cc))<<ccShift | uint64(len(p))<<pShift | uint64(len(s))<<subShift | uint64(geoEncode[i.Geo])&geoMask
-		return E164digest(d)
+		return E164digest(np<<numShift | uint64(len(cc))<<ccShift | uint64(len(p))<<pShift | uint64(len(s))<<subShift | uint64(geoEncode[i.Geo])&geoMask)
 	}
 }
 
@@ -318,22 +322,33 @@ func (sl *SLmap) Name(co uint16) string {
 
 // Digest method on E164full ...
 func (tn *E164full) Digest(pre int) E164digest {
-	if tn == nil || tn.Num == "" || pre < len(tn.CC) || pre > len(tn.Num) {
+	if tn == nil || pre < len(tn.CC) || pre > len(tn.Num) || len(tn.CC) == 0 || len(tn.CC) > 3 ||
+		len(tn.Num) < len(tn.CC) || len(tn.Num) > 15 || len(tn.CC)+len(tn.P)+len(tn.Sub) != len(tn.Num) {
 		return 0
-	} else if d, _ := strconv.ParseUint(tn.Num[:pre], 10, 64); d == 0 {
+	} else if np, _ := strconv.ParseUint(tn.Num[:pre], 10, 64); np == 0 {
 		return 0
 	} else if pre < len(tn.Num) {
-		d = d<<numShift | uint64(len(tn.CC))<<ccShift | uint64(pre-len(tn.CC))<<pShift | uint64(geoEncode[tn.Geo])&geoMask
-		return E164digest(d)
+		return E164digest(np<<numShift | uint64(len(tn.CC))<<ccShift | uint64(pre-len(tn.CC))<<pShift | uint64(geoEncode[tn.Geo])&geoMask)
 	} else {
-		d = d<<numShift | uint64(len(tn.CC))<<ccShift | uint64(len(tn.P))<<pShift | uint64(len(tn.Sub))<<subShift | uint64(geoEncode[tn.Geo])&geoMask
-		return E164digest(d)
+		return E164digest(np<<numShift | uint64(len(tn.CC))<<ccShift | uint64(len(tn.P))<<pShift | uint64(len(tn.Sub))<<subShift | uint64(geoEncode[tn.Geo])&geoMask)
 	}
 }
 
 // Full method on E164digest ...
 func (tnd E164digest) Full(d *Decoder, tn *E164full) error {
-	// TODO: implement
+	if tn == nil {
+		return fmt.Errorf("missing E.164 target")
+	} else if n, ccl, pl, subl := strconv.FormatUint(uint64(tnd>>numShift), 10), int(tnd>>ccShift&ccMask), int(tnd>>pShift&pMask),
+		int(tnd>>subShift&subMask); ccl == 0 || len(n) > 15 || ccl+pl+subl != len(n) {
+		return fmt.Errorf("invalid E.164 digest")
+	} else if d == nil {
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], tnd.Geo(), "", "", n[ccl:ccl+pl], n[ccl+pl:]
+	} else if i, _, _ := d.ccInfo(n, n[:ccl]); i == nil {
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
+		return fmt.Errorf("cannot decode %q as E.164 CC", n[:ccl])
+	} else {
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], i.Geo, i.CCn, i.ISO3166, n[ccl:ccl+pl], n[ccl+pl:]
+	}
 	return nil
 }
 

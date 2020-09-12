@@ -186,6 +186,7 @@ const (
 								"P":["869"]},
 				{"Geo":"car",   "ISO3166":"JM",	"Pl":3,	"CCn":"Jamaica",
 								"P":["876"]} ]},
+
 		"20":	{"Geo":"afr",	"ISO3166":"EG",	"Pl":3,	"CCn":"Egypt"},
 		"211":	{"Geo":"afr",	"ISO3166":"SS",	"Pl":3,	"CCn":"South Sudan"},
 		"212":	{"Geo":"afr",	"ISO3166":"MA",	"Pl":3,	"CCn":"Morocco"},
@@ -247,6 +248,7 @@ const (
 		"297":	{"Geo":"lam",	"ISO3166":"AW",	"Pl":3,	"CCn":"Aruba"},
 		"298":	{"Geo":"eur",	"ISO3166":"FO",	"Pl":3,	"CCn":"Faroe Islands"},
 		"299":	{"Geo":"eur",	"ISO3166":"GL",	"Pl":3,	"CCn":"Greenland"},
+
 		"30":	{"Geo":"eur",	"ISO3166":"GR",	"Pl":3,	"CCn":"Greece"},
 		"31":	{"Geo":"eur",	"ISO3166":"NL",	"Pl":3,	"CCn":"Netherlands"},
 		"32":	{"Geo":"eur",	"ISO3166":"BE",	"Pl":3,	"CCn":"Belgium"},
@@ -282,6 +284,7 @@ const (
 		"388":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"EU shared"},
 		"389":	{"Geo":"eur",	"ISO3166":"MK",	"Pl":3,	"CCn":"Macedonia"},
 		"39":	{"Geo":"eur",	"ISO3166":"IT",	"Pl":3,	"CCn":"Italy"},
+
 		"40":	{"Geo":"eur",	"ISO3166":"RO",	"Pl":3,	"CCn":"Romania"},
 		"41":	{"Geo":"eur",	"ISO3166":"CH",	"Pl":3,	"CCn":"Switzerland"},
 		"420":	{"Geo":"eur",	"ISO3166":"CZ",	"Pl":3,	"CCn":"Czech Republic"},
@@ -294,6 +297,7 @@ const (
 		"47":	{"Geo":"eur",	"ISO3166":"NO",	"Pl":3,	"CCn":"Norway"},
 		"48":	{"Geo":"eur",	"ISO3166":"PL",	"Pl":3,	"CCn":"Poland"},
 		"49":	{"Geo":"eur",	"ISO3166":"DE",	"Pl":3,	"CCn":"Germany"},
+
 		"500":	{"Geo":"lam",	"ISO3166":"FK",	"Pl":3,	"CCn":"Falkland Islands"},
 		"501":	{"Geo":"lam",	"ISO3166":"BZ",	"Pl":3,	"CCn":"Belize"},
 		"502":	{"Geo":"lam",	"ISO3166":"GT",	"Pl":3,	"CCn":"Guatemala"},
@@ -322,6 +326,7 @@ const (
 		"597":	{"Geo":"lam",	"ISO3166":"SR",	"Pl":3,	"CCn":"Suriname"},
 		"598":	{"Geo":"lam",	"ISO3166":"UY",	"Pl":3,	"CCn":"Uruguay"},
 		"599":	{"Geo":"lam",	"ISO3166":"CW",	"Pl":3,	"CCn":"Caribbean Netherlands"},
+
 		"60":	{"Geo":"apac",	"ISO3166":"MY",	"Pl":3,	"CCn":"Malaysia"},
 		"61":	{"Geo":"apac",	"ISO3166":"AU",	"Pl":3,	"CCn":"Australia"},
 		"62":	{"Geo":"apac",	"ISO3166":"ID",	"Pl":3,	"CCn":"Indonesia"},
@@ -350,11 +355,13 @@ const (
 		"690":	{"Geo":"apac",	"ISO3166":"TK",	"Pl":3,	"CCn":"Tokelau"},
 		"691":	{"Geo":"apac",	"ISO3166":"FM",	"Pl":3,	"CCn":"Micronesia"},
 		"692":	{"Geo":"apac",	"ISO3166":"MH",	"Pl":3,	"CCn":"Marshall Islands"},
+
 		"7":	{"Geo":"rus",	"ISO3166":"XC",	"Pl":1,	"CCn":"Russia & Kazakhstan", "Sub":[
 				{"Geo":"rus",	"ISO3166":"KZ",	"Pl":3, "CCn":"Kazakhstan",
 								"P":["6","7"]},
 				{"Geo":"rus",	"ISO3166":"RU",	"Pl":3, "CCn":"Russia",
 								"P":[""]} ]},
+
 		"800":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global freephone"},
 		"808":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global shared cost"},
 		"81":	{"Geo":"apac",	"ISO3166":"JP",	"Pl":3,	"CCn":"Japan"},
@@ -374,6 +381,7 @@ const (
 		"883":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global 883"},
 		"886":	{"Geo":"apac",	"ISO3166":"TW",	"Pl":3,	"CCn":"Taiwan"},
 		"888":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global disaster relief"},
+
 		"90":	{"Geo":"mea",	"ISO3166":"TR",	"Pl":3,	"CCn":"Turkey"},
 		"91":	{"Geo":"mea",	"ISO3166":"IN",	"Pl":3,	"CCn":"India"},
 		"92":	{"Geo":"mea",	"ISO3166":"PK",	"Pl":3,	"CCn":"Pakistan"},
@@ -418,12 +426,12 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		i = mi.subI[""]
 	}
 	if i == nil || i.Pl >= len(nat) {
-		return nil, "", ""
+		return
 	}
 
 	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc {
 	case "xx":
-		// TODO: insert rules per CC for more precise P/Sub partitioning
+		// TODO: insert rules per CC for more precise P/Sub (p/s) partitioning
 	default:
 	}
 	return

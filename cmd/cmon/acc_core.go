@@ -118,7 +118,7 @@ type (
 		To   tel.E164digest `json:"To"` // decoded to number
 		Time uint32         `json:"T"`  // actual duration (0.1s) | begin hour offset (s)
 		Cost float32        `json:"C"`  // rated USD cost (7-digit precision)
-		Info uint16         `json:"I"`  // other info: loc code | tries | service provider code
+		Info uint16         `json:"I"`  // other info: loc code | tries (orig=0) | svc provider code
 	}
 	hiC        map[int32]map[uint64]*cdrItem // CDRs by hour/ID
 	termDetail struct {
