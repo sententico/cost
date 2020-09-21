@@ -138,7 +138,6 @@ func getRes(scache *csv.Settings, fn string) {
 		} else if rateFlag {
 			switch filtered++; rfmt {
 			case "Intelepeer CDR":
-				// Route: "1" (0/1/3:INTRA, 2/4/5/6/7:INTER/INTL)
 				if err := decoder.Full(row["To Country Code"]+row["Terminating Phone Number"], &tn); err != nil {
 					failed++
 					continue
@@ -185,8 +184,8 @@ func getRes(scache *csv.Settings, fn string) {
 	if e := <-err; e != nil {
 		panic(fmt.Errorf("error reading %q: %v", fn, e))
 	} else if rateFlag {
-		fmt.Printf("filtered %d records (%d failed); $%.2f charged -- rerated to $%.2f\n",
-			filtered, failed, charged, rated)
+		fmt.Printf("filtered %d %q records (%d failed); $%.2f charged -- rerated to $%.2f\n",
+			filtered, rfmt, failed, charged, rated)
 	} else if !csvFlag {
 		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, fn)
 	}
