@@ -97,20 +97,14 @@ func getRes(scache *csv.Settings, fn string) {
 		wg.Done()
 	}()
 	var (
-		r       io.ReadCloser
-		decoder tel.Decoder
-		rater   tel.Rater
-		tn      tel.E164full
+		r               io.ReadCloser
+		decoder         tel.Decoder
+		rater, altrater tel.Rater
+		tn              tel.E164full
+		rfmt            string
 	)
 	if fn == "" {
 		fn, r = "<stdin>", os.Stdin
-	}
-	if rateFlag {
-		if e := decoder.Load(nil); e != nil {
-			panic(e)
-		} else if e := rater.Load(nil); e != nil {
-			panic(e)
-		}
 	}
 
 	res, rows := csv.Resource{Location: fn, Comment: "#", Shebang: "#!", SettingsCache: scache}, 0
@@ -118,42 +112,74 @@ func getRes(scache *csv.Settings, fn string) {
 		panic(fmt.Errorf("error opening %q: %v", fn, e))
 	}
 	defer res.Close()
+	if rateFlag {
+		switch rfmt = res.Settings.Format; rfmt {
+		case "Intelepeer CDR":
+			rater.Default, altrater.Default = tel.T1stdTermRates, tel.T1altTermRates
+		case "Aspect CDR":
+		}
+		if e := decoder.Load(nil); e != nil {
+			panic(e)
+		} else if e := rater.Load(nil); e != nil {
+			panic(e)
+		} else if e := altrater.Load(nil); e != nil {
+			panic(e)
+		}
+	}
 	res.Cols = updateSettings(&res, colsFlag, forceFlag)
 	in, err := res.Get()
 
-	filtered, failed, charged, rated := 0, 0, 0.0, 0.0
+	filtered, failed, charged, rated, ch, ra := 0, 0, 0.0, 0.0, 0.0, 0.0
 	for row := range in {
 		if rows++; csvFlag {
 			writeCSV(&res, row)
-		} else if rateFlag && row["callDirection"] == "PSTN_OUTBOUND" {
-			filtered++
-			if err := decoder.Full(row["toNumber"], &tn); err != nil {
-				failed++
-				continue
-			}
-			d, _ := strconv.ParseFloat(row["rawDuration"], 64)
-			d /= 60000
-			c, _ := strconv.ParseFloat(row["charges"], 64)
-			r := float64(rater.Lookup(&tn)) * d
-			charged += c
-			rated += r
-			fmt.Printf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%.3f\n",
-				row["gatewayAccountingId"],
-				row["startTime"],
-				row["endTime"],
-				row["fromNumber"],
-				row["toNumber"],
-				tn.ISO3166,
-				row["callDirection"],
-				row["rawDuration"],
-				row["meteredDuration"],
-				row["charges"],
-				r,
-			)
-			//fmt.Printf("re-rated %.1fm call to +%v (+%v %v) at $%.3f (billed at $%.3f)\n",
-			//	d, tn.Num, tn.CC, tn.ISO3166, r, c)
 		} else if debugFlag {
 			fmt.Println(row)
+		} else if rateFlag {
+			switch filtered++; rfmt {
+			case "Intelepeer CDR":
+				// Route: "1" (0/1/3:INTRA, 2/4/5/6/7:INTER/INTL)
+				if err := decoder.Full(row["To Country Code"]+row["Terminating Phone Number"], &tn); err != nil {
+					failed++
+					continue
+				}
+				switch d, _ := strconv.ParseFloat(row["Billable Time"], 64); row["Route"] {
+				case "0", "1", "3":
+					ra = float64(altrater.Lookup(&tn)) * d
+				default:
+					ra = float64(rater.Lookup(&tn)) * d
+				}
+				if ch, _ = strconv.ParseFloat(row["Billable Amount"], 64); ra == 0 && tn.Geo != "natf" {
+					failed++
+					continue
+				}
+				charged += ch
+				rated += ra
+			case "Aspect CDR":
+				if err := decoder.Full(row["toNumber"], &tn); err != nil {
+					failed++
+					continue
+				}
+				d, _ := strconv.ParseFloat(row["rawDuration"], 64)
+				d /= 60000
+				c, _ := strconv.ParseFloat(row["charges"], 64)
+				ra := float64(rater.Lookup(&tn)) * d
+				charged += c
+				rated += ra
+				fmt.Printf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%.3f\n",
+					row["gatewayAccountingId"],
+					row["startTime"],
+					row["endTime"],
+					row["fromNumber"],
+					row["toNumber"],
+					tn.ISO3166,
+					row["callDirection"],
+					row["rawDuration"],
+					row["meteredDuration"],
+					row["charges"],
+					ra,
+				)
+			}
 		}
 	}
 	if e := <-err; e != nil {
