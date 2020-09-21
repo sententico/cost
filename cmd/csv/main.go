@@ -97,11 +97,11 @@ func getRes(scache *csv.Settings, fn string) {
 		wg.Done()
 	}()
 	var (
-		r               io.ReadCloser
-		decoder         tel.Decoder
-		rater, altrater tel.Rater
-		tn              tel.E164full
-		rfmt            string
+		r       io.ReadCloser
+		decoder tel.Decoder
+		rater   tel.Rater
+		tn      tel.E164full
+		rfmt    string
 	)
 	if fn == "" {
 		fn, r = "<stdin>", os.Stdin
@@ -115,14 +115,12 @@ func getRes(scache *csv.Settings, fn string) {
 	if rateFlag {
 		switch rfmt = res.Settings.Format; rfmt {
 		case "Intelepeer CDR":
-			rater.Default, altrater.Default = tel.T1stdTermRates, tel.T1altTermRates
+			rater.Default = tel.T1intlTermRates
 		case "Aspect CDR":
 		}
 		if e := decoder.Load(nil); e != nil {
 			panic(e)
 		} else if e := rater.Load(nil); e != nil {
-			panic(e)
-		} else if e := altrater.Load(nil); e != nil {
 			panic(e)
 		}
 	}
@@ -142,17 +140,14 @@ func getRes(scache *csv.Settings, fn string) {
 					failed++
 					continue
 				}
-				switch d, _ := strconv.ParseFloat(row["Billable Time"], 64); row["Route"] {
-				case "0", "1", "3":
-					ra = float64(altrater.Lookup(&tn)) * d
-				default:
-					ra = float64(rater.Lookup(&tn)) * d
-				}
-				if ch, _ = strconv.ParseFloat(row["Billable Amount"], 64); ra == 0 {
+				d, _ := strconv.ParseFloat(row["Billable Time"], 64)
+				ch, _ = strconv.ParseFloat(row["Billable Amount"], 64)
+				if ra = float64(rater.Lookup(&tn)) * d; ra > 0 {
+					rated += ra
+				} else {
 					rated += ch
 				}
 				charged += ch
-				rated += ra
 			case "Aspect CDR":
 				if err := decoder.Full(row["toNumber"], &tn); err != nil {
 					failed++
