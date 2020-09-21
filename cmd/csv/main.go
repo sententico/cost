@@ -129,7 +129,7 @@ func getRes(scache *csv.Settings, fn string) {
 	res.Cols = updateSettings(&res, colsFlag, forceFlag)
 	in, err := res.Get()
 
-	filtered, failed, charged, rated, ch, ra := 0, 0, 0.0, 0.0, 0.0, 0.0
+	filtered, dfailed, rfailed, charged, rated, ch, ra := 0, 0, 0, 0.0, 0.0, 0.0, 0.0
 	for row := range in {
 		if rows++; csvFlag {
 			writeCSV(&res, row)
@@ -139,7 +139,7 @@ func getRes(scache *csv.Settings, fn string) {
 			switch filtered++; rfmt {
 			case "Intelepeer CDR":
 				if err := decoder.Full(row["To Country Code"]+row["Terminating Phone Number"], &tn); err != nil {
-					failed++
+					dfailed++
 					continue
 				}
 				switch d, _ := strconv.ParseFloat(row["Billable Time"], 64); row["Route"] {
@@ -149,14 +149,14 @@ func getRes(scache *csv.Settings, fn string) {
 					ra = float64(rater.Lookup(&tn)) * d
 				}
 				if ch, _ = strconv.ParseFloat(row["Billable Amount"], 64); ra == 0 && tn.Geo != "natf" {
-					failed++
+					rfailed++
 					continue
 				}
 				charged += ch
 				rated += ra
 			case "Aspect CDR":
 				if err := decoder.Full(row["toNumber"], &tn); err != nil {
-					failed++
+					dfailed++
 					continue
 				}
 				d, _ := strconv.ParseFloat(row["rawDuration"], 64)
@@ -184,8 +184,8 @@ func getRes(scache *csv.Settings, fn string) {
 	if e := <-err; e != nil {
 		panic(fmt.Errorf("error reading %q: %v", fn, e))
 	} else if rateFlag {
-		fmt.Printf("filtered %d %q records (%d failed); $%.2f charged -- rerated to $%.2f\n",
-			filtered, rfmt, failed, charged, rated)
+		fmt.Printf("filtered %d %q records (%d/%d failed); $%.2f charged -- rerated to $%.2f\n",
+			filtered, rfmt, dfailed, rfailed, charged, rated)
 	} else if !csvFlag {
 		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, fn)
 	}
