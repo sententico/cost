@@ -431,7 +431,11 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 
 	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc {
 	case "1":
-		if len(s) != 7 {
+		if len(nat) != 10 {
+			return i, p, ""
+		}
+	case "20":
+		if len(nat) < 8 || len(nat) > 10 {
 			return i, p, ""
 		}
 	default:
