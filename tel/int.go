@@ -430,9 +430,12 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	}
 
 	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc {
-	case "xx":
-		// TODO: insert rules per CC for more precise P/Sub (p/s) partitioning
+	case "1":
+		if len(s) != 7 {
+			return i, p, ""
+		}
 	default:
+		// TODO: insert rules per CC for more precise P/Sub (p/s) partitioning
 	}
 	return
 }
