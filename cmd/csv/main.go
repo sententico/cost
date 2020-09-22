@@ -177,7 +177,7 @@ func getRes(scache *csv.Settings, fn string) {
 				}
 				d, _ := strconv.ParseFloat(row["Billable Time"], 64)
 				ch, _ = strconv.ParseFloat(row["Billable Amount"], 64)
-				if ra = float64(rater.Lookup(&tn)) * d; ra == 0 || ch-ra < 0.1 {
+				if ra = float64(rater.Lookup(&tn)) * d; ra == 0 {
 					ra = ch
 				} else {
 					ra = math.Trunc(ra*1e4+0.9999) / 1e4
