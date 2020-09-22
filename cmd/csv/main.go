@@ -185,7 +185,6 @@ func getRes(scache *csv.Settings, fn string) {
 				rated += ra
 				charged += ch
 				row["Re-rated Amount"] = fmt.Sprintf("%.4f", ra)
-				write(row)
 			case "Aspect CDR":
 				if err := decoder.Full(row["toNumber"], &tn); err != nil {
 					failed++
@@ -198,8 +197,8 @@ func getRes(scache *csv.Settings, fn string) {
 				charged += ch
 				rated += ra
 				row["ISO3166"], row["reratedCharges"] = tn.ISO3166, fmt.Sprintf("%.3f", ra)
-				write(row)
 			}
+			write(row)
 		}
 	}
 	if e := <-err; e != nil {
