@@ -180,7 +180,7 @@ func getRes(scache *csv.Settings, fn string) {
 				if ra = float64(rater.Lookup(&tn)) * d; ra == 0 || ch-ra < 0.1 {
 					ra = ch
 				} else {
-					ra = math.Round(ra*1e4) / 1e4
+					ra = math.Trunc(ra*1e4+0.9999) / 1e4
 				}
 				rated += ra
 				charged += ch
