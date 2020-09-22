@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -21,7 +22,6 @@ var (
 	debugFlag    bool
 	rateFlag     bool
 	forceFlag    bool
-	heading      bool
 	colsFlag     string
 	wg           sync.WaitGroup
 )
@@ -77,16 +77,22 @@ func updateSettings(res *csv.Resource, cflag string, force bool) (cols string) {
 	return
 }
 
-func writeCSV(res *csv.Resource, row map[string]string) {
-	if !heading {
-		fmt.Println(`"` + strings.Join(res.Heads, `","`) + `"`)
-		heading = true
+func csvWriter(res *csv.Resource, heads []string) func(map[string]string) {
+	var heading bool
+	if heads == nil {
+		heads = res.Heads
 	}
-	var col []string
-	for _, h := range res.Heads {
-		col = append(col, strings.Replace(row[h], `"`, `""`, -1))
+	return func(row map[string]string) {
+		if !heading {
+			fmt.Println(`"` + strings.Join(heads, `","`) + `"`)
+			heading = true
+		}
+		var col []string
+		for _, h := range heads {
+			col = append(col, strings.Replace(row[h], `"`, `""`, -1))
+		}
+		fmt.Println(`"` + strings.Join(col, `","`) + `"`)
 	}
-	fmt.Println(`"` + strings.Join(col, `","`) + `"`)
 }
 
 func getRes(scache *csv.Settings, fn string) {
@@ -100,6 +106,7 @@ func getRes(scache *csv.Settings, fn string) {
 		r       io.ReadCloser
 		decoder tel.Decoder
 		rater   tel.Rater
+		write   func(map[string]string)
 		tn      tel.E164full
 		rfmt    string
 	)
@@ -112,11 +119,39 @@ func getRes(scache *csv.Settings, fn string) {
 		panic(fmt.Errorf("error opening %q: %v", fn, e))
 	}
 	defer res.Close()
-	if rateFlag {
+	if csvFlag {
+		write = csvWriter(&res, nil)
+	} else if rateFlag {
 		switch rfmt = res.Settings.Format; rfmt {
 		case "Intelepeer CDR":
 			rater.Default = tel.T1intlTermRates
+			write = csvWriter(&res, []string{
+				"Call Date",
+				"Call Time",
+				"Customer Account ID",
+				"To Country Code",
+				"Terminating Phone Number",
+				"Route",
+				"Billable Time",
+				"Rate Per Minute",
+				"Billable Amount",
+				"Unique CDR ID",
+				"Re-rated Amount",
+			})
 		case "Aspect CDR":
+			write = csvWriter(&res, []string{
+				"gatewayAccountingId",
+				"startTime",
+				"endTime",
+				"fromNumber",
+				"toNumber",
+				"ISO3166",
+				"callDirection",
+				"rawDuration",
+				"meteredDuration",
+				"charges",
+				"reratedCharges",
+			})
 		}
 		if e := decoder.Load(nil); e != nil {
 			panic(e)
@@ -130,7 +165,7 @@ func getRes(scache *csv.Settings, fn string) {
 	filtered, failed, charged, rated, ch, ra := 0, 0, 0.0, 0.0, 0.0, 0.0
 	for row := range in {
 		if rows++; csvFlag {
-			writeCSV(&res, row)
+			write(row)
 		} else if debugFlag {
 			fmt.Println(row)
 		} else if rateFlag {
@@ -142,12 +177,15 @@ func getRes(scache *csv.Settings, fn string) {
 				}
 				d, _ := strconv.ParseFloat(row["Billable Time"], 64)
 				ch, _ = strconv.ParseFloat(row["Billable Amount"], 64)
-				if ra = float64(rater.Lookup(&tn)) * d; ra > 0 {
-					rated += ra
+				if ra = float64(rater.Lookup(&tn)) * d; ra == 0 || ch-ra < 0.1 {
+					ra = ch
 				} else {
-					rated += ch
+					ra = math.Round(ra*1e4) / 1e4
 				}
+				rated += ra
 				charged += ch
+				row["Re-rated Amount"] = fmt.Sprintf("%.4f", ra)
+				write(row)
 			case "Aspect CDR":
 				if err := decoder.Full(row["toNumber"], &tn); err != nil {
 					failed++
@@ -155,23 +193,12 @@ func getRes(scache *csv.Settings, fn string) {
 				}
 				d, _ := strconv.ParseFloat(row["rawDuration"], 64)
 				d /= 60000
-				c, _ := strconv.ParseFloat(row["charges"], 64)
+				ch, _ := strconv.ParseFloat(row["charges"], 64)
 				ra := float64(rater.Lookup(&tn)) * d
-				charged += c
+				charged += ch
 				rated += ra
-				fmt.Printf("%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%.3f\n",
-					row["gatewayAccountingId"],
-					row["startTime"],
-					row["endTime"],
-					row["fromNumber"],
-					row["toNumber"],
-					tn.ISO3166,
-					row["callDirection"],
-					row["rawDuration"],
-					row["meteredDuration"],
-					row["charges"],
-					ra,
-				)
+				row["ISO3166"], row["reratedCharges"] = tn.ISO3166, fmt.Sprintf("%.3f", ra)
+				write(row)
 			}
 		}
 	}
