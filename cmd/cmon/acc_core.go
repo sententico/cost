@@ -744,7 +744,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		cdr.Cost = float32(dur) / 600 * work.orates.Lookup(&work.tn)
 		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
-		} else if len(tg) > 4 && tg[:4] == "BYOC" {
+		} else if len(tg) > 4 {
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if hr > osum.Current {
@@ -770,7 +770,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		if tg := item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
-		} else if len(tg) > 4 && tg[:4] == "BYOC" {
+		} else if len(tg) > 4 {
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if hr > tsum.Current {

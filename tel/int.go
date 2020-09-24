@@ -106,7 +106,7 @@ const (
 		"12":	{"Name":"Verizon",		"Alias":["VERIZON","verizon","VZ","vz"]},
 		"13":	{"Name":"Voxbone",		"Alias":["VOXBONE","voxbone","VB","vb"]},
 
-		"62":	{"Name":"customer",		"Alias":["Customer","CUSTOMER","BYOC","byoc"]},
+		"62":	{"Name":"customer",		"Alias":["Customer","CUSTOMER","Cust","CUST","cust","BYOC","byoc","PBXC","pbxc"]},
 		"63":	{"Name":"internal",		"Alias":["Aspect","ASPECT","ASP","asp","Voxeo","VOXEO","VX","vx","AUDIOC"]}
 	}`
 
