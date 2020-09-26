@@ -41,6 +41,13 @@
 		"Date": "2020-04-30T14:11:43.164540361-04:00",
 		"Lock": true
 	},
+	"488a0fab6cf97efb0464f4dd0bcdc4dd": {
+		"Cols": "Start,Duration,From,To,Dial Status:={ANSWER},Call Status:={success},Cost,Record Type:={Voice},Zone",
+		"Format": "Voxbone CDR",
+		"Ver": "Nov18",
+		"Date": "2020-09-26T18:25:53.526069748-04:00",
+		"Lock": true
+	},
 	"559a360493ec00f29648c21a17d77064": {
 		"Cols": "Billed_TN,Other_TN,Orig_IP_Address,Term_IP_Address,Other_Country,Rated OCN,Rated LATA,Call_Date,Charge,Description,Direction,Duration",
 		"Format": "NuWave CDR",
@@ -49,7 +56,7 @@
 		"Lock": true
 	},
 	"55cc8bd07b58e215ba935231534cdff6": {
-		"Cols": "Call Date,Call Time,Originating Phone Number,Originating Lata,Originating OCN,To Country Code,Dialed Number,Terminating Phone Number,Terminating Lata,Terminating OCN,Route,Call Duration,Billable Time,Billable Amount,Call Type",
+		"Cols": "Call Date,Call Time,Originating Phone Number,Originating Lata,Originating OCN,To Country Code,Dialed Number,Terminating Phone Number,Terminating Lata,Terminating OCN,Route,Call Duration,Billable Time,Billable Amount,Call Type,Customer Account ID,Rate Per Minute,Unique CDR ID",
 		"Format": "Intelepeer CDR",
 		"Ver": "Sep14",
 		"Date": "2020-04-30T14:38:05.475374797-04:00",
@@ -205,7 +212,7 @@
 	"f50ff06fcc7f4f701283249ba6732681": {
 		"Cols": "Start,Duration,From,To,Dial Status:={ANSWER},Call Status:={success},Cost,Record Type:={Voice},Zone",
 		"Format": "Voxbone CDR",
-		"Ver": "Nov18",
+		"Ver": "Mar20",
 		"Date": "2020-04-30T17:21:36.577480348-04:00",
 		"Lock": true
 	},
