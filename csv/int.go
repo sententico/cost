@@ -34,7 +34,6 @@ const (
 const (
 	previewLines = 24       // maximum preview lines returned in Resource on Open (must be >2)
 	sepSet       = ",\t|;:" // priority of separator runes automatically checked if none specified
-	maxFieldLen  = 2048     // maximum field size allowed for Peek to qualify a separator
 	bigFieldLen  = 36       // mean field length above which CSV column-density is suspiciously low
 )
 
@@ -95,17 +94,12 @@ nextLine:
 nextSep:
 	for _, r := range string(res.Sep) + sepSet {
 		c, sl, sh := 0, []string{}, []string{}
-		for i, ln := range res.Preview {
+		for _, ln := range res.Preview {
 			if sl = io.SplitCSV(ln, r); len(sl) <= max || c > 0 && len(sl) != c {
 				continue nextSep
 			}
-			for _, f := range sl {
-				if len(f) > maxFieldLen { // TODO: remove or modify this check?
-					continue nextSep
-				}
-			}
-			if i == 0 {
-				sh, c = sl, len(sl)
+			if c == 0 {
+				c, sh = len(sl), sl
 			}
 		}
 		if sep, max, hash = r, c, fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(sh, string(r))))); res.SettingsCache.Find(hash) {
@@ -130,19 +124,19 @@ nextSep:
 	case res.Sep == '\x00' && fix == 0:
 		// unknown resource type
 		res.Typ = RTunk
-	case res.Sep != '\x00' && fix != 0 && (res.Typ == RTfixed || res.Typ == RTunk && hash == "" && fix/max > bigFieldLen):
+	case res.Sep != '\x00' && fix != 0 && (res.Typ == RTfixed || res.Typ == RTunk && (hash == "" || fix/max > bigFieldLen)):
 		// ambigious resource type, but evidence for CSV is weak
 		fallthrough
 	case res.Sep == '\x00':
 		// fixed-field resource type
-		res.Typ, res.Heading = RTfixed, len(res.Preview[0]) != fix
+		res.Typ, res.Heading = RTfixed, res.Heading || len(res.Preview[0]) != fix
 		res.Sig, res.Heading = res.findFSpec()
 	default:
 		// CSV resource type
 		for _, r := range res.Preview {
 			res.Split = append(res.Split, io.SplitCSV(r, res.Sep))
 		}
-		if res.Typ, res.Sig, res.Heading = RTcsv, hash, hash != ""; !res.SettingsCache.Find(res.Sig) {
+		if res.Typ, res.Sig, res.Heading = RTcsv, hash, res.Heading || hash != ""; !res.SettingsCache.Find(res.Sig) {
 			if spec := res.findSpec(); spec != "" {
 				res.Sig, res.Heading = spec, spec[2] == '{'
 			}

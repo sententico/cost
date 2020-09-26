@@ -223,7 +223,7 @@ func (set *Settings) Sync() error {
 
 // Find method on Settings returns true if format signature exists in the cache.
 func (set *Settings) Find(sig string) (found bool) {
-	if set == nil || set.cache == nil {
+	if set == nil || set.cache == nil || sig == "" {
 		return
 	}
 	defer set.mutex.Unlock()
@@ -235,7 +235,7 @@ func (set *Settings) Find(sig string) (found bool) {
 
 // Get method on Settings returns cache item located by format signature.
 func (set *Settings) Get(sig string) (i SettingsItem) {
-	if set == nil || set.cache == nil {
+	if set == nil || set.cache == nil || sig == "" {
 		return
 	}
 	defer set.mutex.Unlock()
