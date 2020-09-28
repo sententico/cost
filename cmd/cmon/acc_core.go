@@ -111,6 +111,7 @@ type (
 	origSum struct {
 		Current int32 // hour cursor in orig summary maps (Unix time, hours past epoch)
 		ByLoc   hsS   // map by hour (Unix time, hours past epoch) / service location
+		BySP    hsS   // map by hour / service provider
 		ByTo    hnS   // map by hour / full to number
 	}
 	cdrItem struct {
@@ -632,6 +633,7 @@ func cdraspBoot(n string, ctl chan string) {
 		ByTo:   make(hnS, 2184),
 	}, &origSum{
 		ByLoc: make(hsS, 2184),
+		BySP:  make(hsS, 2184),
 		ByTo:  make(hnS, 2184),
 	}, &termDetail{
 		CDR: make(hiC, 2184),
@@ -752,6 +754,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		if odetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
 			osum.ByLoc.add(hr, ln, cdr)
+			osum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
 	default:
@@ -810,6 +813,7 @@ func cdraspClean(n string, deep bool) {
 	tsum.ByGeo.clean(texp)
 	tsum.BySP.clean(texp)
 	osum.ByLoc.clean(oexp)
+	osum.BySP.clean(oexp)
 	osum.ByTo.clean(oexp)
 
 	m.rel <- token
