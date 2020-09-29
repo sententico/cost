@@ -135,6 +135,7 @@ func getRes(scache *csv.Settings, fn string) {
 				"Billable Time",
 				"Rate Per Minute",
 				"Billable Amount",
+				"Call Type",
 				"Unique CDR ID",
 				"Re-rated Amount",
 			})

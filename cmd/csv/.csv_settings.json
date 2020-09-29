@@ -56,7 +56,7 @@
 		"Lock": true
 	},
 	"55cc8bd07b58e215ba935231534cdff6": {
-		"Cols": "Call Date,Call Time,Originating Phone Number,Originating Lata,Originating OCN,To Country Code,Dialed Number,Terminating Phone Number,Terminating Lata,Terminating OCN,Route,Call Duration,Billable Time,Billable Amount,Call Type,Customer Account ID,Rate Per Minute,Unique CDR ID",
+		"Cols": "Call Date,Call Time,Customer Account ID,Originating Phone Number,Originating Lata,Originating OCN,To Country Code,Dialed Number,Terminating Phone Number,Terminating Lata,Terminating OCN,Route,Call Duration,Billable Time,Rate Per Minute,Billable Amount,Call Type,Unique CDR ID",
 		"Format": "Intelepeer CDR",
 		"Ver": "Sep14",
 		"Date": "2020-04-30T14:38:05.475374797-04:00",
