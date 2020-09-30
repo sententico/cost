@@ -132,13 +132,6 @@
 		"Date": "2020-05-03T15:11:49.8202887-04:00",
 		"Lock": true
 	},
-	"a52c1efa1adcb960d8d8398339aaafba": {
-		"Cols": "gatewayAccountingId,startTime,,fromNumber,toNumber,callDirection,rawDuration,meteredDuration,charges",
-		"Format": "Aspect CDR",
-		"Ver": "2018 Mercury",
-		"Date": "2020-08-21T10:38:52.047231142-04:00",
-		"Lock": true
-	},
 	"ab41c1eab7ab7d06e9ac0a17d5f948ab": {
 		"Cols": "animal,value",
 		"Format": "test CSV",
@@ -151,6 +144,13 @@
 		"Format": "AWS EC2 usage",
 		"Ver": "2019",
 		"Date": "2020-05-06T13:58:42.983402224-04:00",
+		"Lock": true
+	},
+	"=,{gatewayAccountingId,startTime,fromNumber,toNumber,callDirection,rawDuration,meteredDuration,charges}": {
+		"Cols": "gatewayAccountingId,startTime,,fromNumber,toNumber,callDirection,rawDuration,meteredDuration,charges",
+		"Format": "Aspect CDR",
+		"Ver": "2018 Mercury",
+		"Date": "2020-09-30T14:12:54.125854909-04:00",
 		"Lock": true
 	},
 	"bc468c72378979f9ca4f5918941216e3": {

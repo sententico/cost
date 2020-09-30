@@ -153,6 +153,8 @@ func getRes(scache *csv.Settings, fn string) {
 				"charges",
 				"reratedCharges",
 			})
+		default:
+			write = csvWriter(&res, nil)
 		}
 		if e := decoder.Load(nil); e != nil {
 			panic(e)
