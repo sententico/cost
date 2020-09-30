@@ -172,7 +172,9 @@ func getRes(scache *csv.Settings, fn string) {
 		} else if rateFlag {
 			switch filtered++; rfmt {
 			case "Intelepeer CDR":
-				if err := decoder.Full(row["To Country Code"]+row["Terminating Phone Number"], &tn); err != nil {
+				if row["Call Type"] != "" {
+					break
+				} else if err := decoder.Full(row["To Country Code"]+row["Terminating Phone Number"], &tn); err != nil {
 					failed++
 					continue
 				}
@@ -187,9 +189,11 @@ func getRes(scache *csv.Settings, fn string) {
 				charged += ch
 				row["Re-rated Amount"] = fmt.Sprintf("%.4f", ra)
 			case "Aspect CDR":
-				if err := decoder.Full(row["toNumber"], &tn); err != nil {
+				if row["callDirection"] != "PSTN_OUTBOUND" {
+					break
+				} else if err := decoder.Full(row["toNumber"], &tn); err != nil {
 					failed++
-					continue
+					break
 				}
 				d, _ := strconv.ParseFloat(row["rawDuration"], 64)
 				d /= 60000
