@@ -200,7 +200,7 @@ func getRes(scache *csv.Settings, fn string) {
 				d, _ := strconv.ParseFloat(row["rawDuration"], 64)
 				d /= 60000
 				ch, _ := strconv.ParseFloat(row["charges"], 64)
-				ra := float64(rater.Lookup(&tn)) * d
+				ra := float64(rater.Lookup(&tn)) * d * 0.86 // convert USD to EUR
 				charged += ch
 				rated += ra
 				row["ISO3166"], row["reratedCharges"] = tn.ISO3166, fmt.Sprintf("%.3f", ra)
