@@ -103,12 +103,12 @@ func getRes(scache *csv.Settings, fn string) {
 		wg.Done()
 	}()
 	var (
-		r       io.ReadCloser
-		decoder tel.Decoder
-		rater   tel.Rater
-		write   func(map[string]string)
-		tn      tel.E164full
-		rfmt    string
+		r              io.ReadCloser
+		decoder        tel.Decoder
+		rater          tel.Rater
+		write          func(map[string]string)
+		tn             tel.E164full
+		rfmt, currency string
 	)
 	if fn == "" {
 		fn, r = "<stdin>", os.Stdin
@@ -125,7 +125,7 @@ func getRes(scache *csv.Settings, fn string) {
 		switch rfmt = res.Settings.Format; rfmt {
 		case "Intelepeer CDR":
 			rater.Default = tel.T1intlTermRates
-			write = csvWriter(&res, []string{
+			currency, write = "USD", csvWriter(&res, []string{
 				"Call Date",
 				"Call Time",
 				"Customer Account ID",
@@ -140,7 +140,7 @@ func getRes(scache *csv.Settings, fn string) {
 				"Re-rated Amount",
 			})
 		case "Aspect CDR":
-			write = csvWriter(&res, []string{
+			currency, write = "EUR", csvWriter(&res, []string{
 				"gatewayAccountingId",
 				"startTime",
 				"endTime",
@@ -154,7 +154,7 @@ func getRes(scache *csv.Settings, fn string) {
 				"reratedCharges",
 			})
 		default:
-			write = csvWriter(&res, nil)
+			currency, write = "USD", csvWriter(&res, nil)
 		}
 		if e := decoder.Load(nil); e != nil {
 			panic(e)
@@ -211,8 +211,8 @@ func getRes(scache *csv.Settings, fn string) {
 	if e := <-err; e != nil {
 		panic(fmt.Errorf("error reading %q: %v", fn, e))
 	} else if rateFlag {
-		fmt.Printf("filtered %d %q records (%d failed); $%.2f charged -- rerated to $%.2f\n",
-			filtered, rfmt, failed, charged, rated)
+		fmt.Printf("filtered %d %q records (%d failed); %.2f%v charged -- rerated to %.2f%v\n",
+			filtered, rfmt, failed, charged, currency, rated, currency)
 	} else if !csvFlag {
 		fmt.Printf("read %d rows from [%s %s] resource at %q\n", rows, res.Settings.Format, res.Settings.Ver, fn)
 	}
