@@ -185,7 +185,7 @@ func getRes(scache *csv.Settings, fn string) {
 				if ra = float64(rater.Lookup(&tn)) * d; ra == 0 {
 					ra = ch
 				} else {
-					ra = math.Trunc(ra*1e4+0.999999) / 1e4
+					ra = math.Trunc(ra*1e4+0.999999999) / 1e4
 				}
 				rated += ra
 				charged += ch
@@ -201,7 +201,7 @@ func getRes(scache *csv.Settings, fn string) {
 				if ra = float64(rater.Lookup(&tn)) * d; ra == 0 {
 					ra = ch
 				} else {
-					ra = math.Trunc(ra*0.86*1e3+0.999999) / 1e3 // convert USD to EUR
+					ra = math.Trunc(ra*0.86*1e3+0.999999999) / 1e3 // convert USD to EUR
 				}
 				charged += ch
 				rated += ra
