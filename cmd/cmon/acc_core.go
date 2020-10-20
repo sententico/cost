@@ -392,7 +392,7 @@ func ec2awsClean(n string, deep bool) {
 	// clean expired/invalid data
 	ec2 := m.data[0].(*ec2Model)
 	for id, inst := range ec2.Inst {
-		if id == "" || ec2.Current-inst.Last > 86400*365 { // placeholder
+		if id == "" || ec2.Current-inst.Last > 86400*8 {
 			delete(ec2.Inst, id)
 		}
 	}
@@ -486,7 +486,7 @@ func ebsawsClean(n string, deep bool) {
 	// clean expired/invalid data
 	ebs := m.data[0].(*ebsModel)
 	for id, vol := range ebs.Vol {
-		if id == "" || ebs.Current-vol.Last > 86400*365 { // placeholder
+		if id == "" || ebs.Current-vol.Last > 86400*8 {
 			delete(ebs.Vol, id)
 		} else {
 			if vol.IOPS < 0 {
@@ -588,7 +588,7 @@ func rdsawsClean(n string, deep bool) {
 	// clean expired/invalid data
 	rds := m.data[0].(*rdsModel)
 	for id, db := range rds.DB {
-		if id == "" || rds.Current-db.Last > 86400*365 { // placeholder
+		if id == "" || rds.Current-db.Last > 86400*8 {
 			delete(rds.DB, id)
 		}
 	}
@@ -601,7 +601,7 @@ func rdsawsMaint(n string) {
 	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 	for m, g, sg, cl, fl := mMod[n],
-		time.NewTicker(720*time.Second), time.NewTicker(7200*time.Second),
+		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
 		select {
 		case <-g.C:
