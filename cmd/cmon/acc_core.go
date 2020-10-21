@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sententico/cost/csv"
+	"github.com/sententico/cost/ec2"
 	"github.com/sententico/cost/tel"
 )
 
@@ -50,6 +51,9 @@ type (
 	ec2Model struct {
 		Current int
 		Inst    map[string]*ec2Item
+	}
+	ec2Work struct {
+		rates ec2.Rater
 	}
 
 	ebsItem struct {
@@ -337,10 +341,16 @@ func trigcmonTerm(n string, ctl chan string) {
 }
 
 func ec2awsBoot(n string, ctl chan string) {
-	ec2, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, mMod[n]
+	ec2, work, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, &ec2Work{}, mMod[n]
 	m.data = append(m.data, ec2)
 	m.persist = len(m.data)
 	sync(n)
+
+	if err := work.rates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load EC2 rates: %v", n, err)
+	}
+
+	m.data = append(m.data, work)
 	ctl <- n
 }
 func ec2awsInsert(m *model, item map[string]string, now int) {
