@@ -2,26 +2,26 @@ package aws
 
 type (
 	rateInfo struct {
-		Region string
-		Typ    string
-		Plat   string
-		Terms  string
-		Core   float32
-		ECU    string
-		Clock  string
-		Proc   string
-		Feat   string
-		Mem    string
-		Sto    string
-		EBS    string
-		Net    string
-		Rate   float32
+		Region string  `json:"Rg"`
+		Typ    string  `json:"T"`
+		Plat   string  `json:"P"`
+		Terms  string  `json:"Tm"`
+		Rate   float32 `json:"R"`
+		Core   float32 `json:"C"`
+		ECU    string  `json:"ECU"`
+		Clock  string  `json:"Cl"`
+		Proc   string  `json:"Pr"`
+		Feat   string  `json:"Fe"`
+		Mem    string  `json:"M"`
+		Sto    string  `json:"St"`
+		EBS    string  `json:"EBS"`
+		Net    string  `json:"Nw"`
 	}
 )
 
 const (
 	defaultRates = `[
-		{"Region":"us-east-1", "Typ":"c5n.18xlarge", "Plat":"Lin", "Terms":"OD", "Rate":3.888},
-		{"Region":"us-east-1", "Typ":"c5n.18xlarge", "Plat":"Lin", "Terms":"RI1ns", "Rate":2.449}
+		{"Rg":"us-east-1", "T":"c5n.18xlarge", "P":"Lin", "Tm":"OD", "R":3.888},
+		{"Rg":"us-east-1", "T":"c5n.18xlarge", "P":"Lin", "Tm":"RI1ns", "R":2.449}
 	]`
 )

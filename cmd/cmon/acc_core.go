@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sententico/cost/aws"
 	"github.com/sententico/cost/csv"
-	"github.com/sententico/cost/ec2"
 	"github.com/sententico/cost/tel"
 )
 
@@ -53,7 +53,7 @@ type (
 		Inst    map[string]*ec2Item
 	}
 	ec2Work struct {
-		rates ec2.Rater
+		rates aws.Rater
 	}
 
 	ebsItem struct {
@@ -95,6 +95,9 @@ type (
 	rdsModel struct {
 		Current int
 		DB      map[string]*rdsItem
+	}
+	rdsWork struct {
+		rates aws.Rater
 	}
 
 	cdrStat struct {
@@ -540,10 +543,16 @@ func ebsawsTerm(n string, ctl chan string) {
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	rds, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, mMod[n]
+	rds, work, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, &rdsWork{}, mMod[n]
 	m.data = append(m.data, rds)
 	m.persist = len(m.data)
 	sync(n)
+
+	if err := work.rates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load RDS rates: %v", n, err)
+	}
+
+	m.data = append(m.data, work)
 	ctl <- n
 }
 func rdsawsInsert(m *model, item map[string]string, now int) {

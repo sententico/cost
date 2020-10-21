@@ -20,6 +20,7 @@ type (
 
 	// RateValue ...
 	RateValue struct {
+		Rate  float32
 		Core  float32
 		ECU   string
 		Clock string
@@ -29,7 +30,6 @@ type (
 		Sto   string
 		EBS   string
 		Net   string
-		Rate  float32
 	}
 
 	// Rater ...
