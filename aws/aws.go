@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	iio "github.com/sententico/cost/internal/io"
 )
@@ -42,7 +43,7 @@ type (
 )
 
 // Load method on Rater ...
-func (r *Rater) Load(rr io.Reader) (err error) {
+func (r *Rater) Load(rr io.Reader, filter string) (err error) {
 	res, b := []rateInfo{}, []byte{}
 	if r == nil {
 		return fmt.Errorf("no rater specified")
@@ -63,6 +64,9 @@ func (r *Rater) Load(rr io.Reader) (err error) {
 
 	r.kRV = make(map[RateKey]RateValue)
 	for _, info := range res {
+		if filter != "" && strings.HasPrefix(info.Typ, "db.") == (filter != "rds" && filter != "RDS") {
+			continue
+		}
 		r.kRV[RateKey{
 			Region: info.Region,
 			Typ:    info.Typ,
@@ -89,17 +93,22 @@ func (r *Rater) Lookup(k *RateKey) (v RateValue) {
 	if r == nil || k == nil || k.Typ == "" {
 		return
 	} else if k.Region == "" || k.Plat == "" || k.Terms == "" {
-		dk := *k
 		if k.Region == "" {
-			dk.Region = "us-east-1"
+			k.Region = "us-east-1"
 		}
 		if k.Plat == "" {
-			dk.Plat = "Lin"
+			k.Plat = "Lin"
 		}
 		if k.Terms == "" {
-			dk.Terms = "OD"
+			k.Terms = "OD"
 		}
-		k = &dk
 	}
+	if k.Region[len(k.Region)-1] > '9' {
+		k.Region = k.Region[:len(k.Region)-1]
+	}
+	if v = r.kRV[*k]; v.Rate != 0.0 {
+		return
+	}
+	k.Region = "us-east-1"
 	return r.kRV[*k]
 }

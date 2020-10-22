@@ -349,7 +349,7 @@ func ec2awsBoot(n string, ctl chan string) {
 	m.persist = len(m.data)
 	sync(n)
 
-	if err := work.rates.Load(nil); err != nil {
+	if err := work.rates.Load(nil, "EC2"); err != nil {
 		logE.Fatalf("%q cannot load EC2 rates: %v", n, err)
 	}
 
@@ -548,7 +548,7 @@ func rdsawsBoot(n string, ctl chan string) {
 	m.persist = len(m.data)
 	sync(n)
 
-	if err := work.rates.Load(nil); err != nil {
+	if err := work.rates.Load(nil, "RDS"); err != nil {
 		logE.Fatalf("%q cannot load RDS rates: %v", n, err)
 	}
 
