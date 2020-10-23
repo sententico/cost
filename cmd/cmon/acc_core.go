@@ -29,14 +29,25 @@ type (
 		tMap map[int64]*trigItem
 	}
 
-	statItem struct {
-		Period []int
-		Value  []float32
+	perfItem struct {
+		Period []int     `json:"P"`
+		Value  []float32 `json:"V"`
 	}
+	usageItem struct {
+		Usage uint64  `json:"U"` // total unit-seconds of usage
+		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
+	}
+	hsU map[int32]map[string]*usageItem // usage by hour/string descriptor
 
+	ec2Sum struct {
+		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		ByAcct   hsU   // map by hour / account
+		ByRegion hsU   // map by hour / region
+		BySKU    hsU   // map by hour / region+type+platform
+	}
 	ec2Item struct {
 		Acct   string
-		Type   string
+		Typ    string
 		Plat   string            `json:",omitempty"`
 		AZ     string            `json:",omitempty"`
 		AMI    string            `json:",omitempty"`
@@ -45,10 +56,10 @@ type (
 		State  string
 		Since  int
 		Last   int
-		Active []int               `json:",omitempty"`
-		Stats  map[string]statItem `json:",omitempty"`
+		Active []int                `json:",omitempty"`
+		Perf   map[string]*perfItem `json:",omitempty"`
 	}
-	ec2Model struct {
+	ec2Detail struct {
 		Current int
 		Inst    map[string]*ec2Item
 	}
@@ -56,9 +67,15 @@ type (
 		rates aws.Rater
 	}
 
+	ebsSum struct {
+		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		ByAcct   hsU   // map by hour / account
+		ByRegion hsU   // map by hour / region
+		BySKU    hsU   // map by hour / region+type
+	}
 	ebsItem struct {
 		Acct   string
-		Type   string
+		Typ    string
 		Size   int               `json:",omitempty"`
 		IOPS   int               `json:",omitempty"`
 		AZ     string            `json:",omitempty"`
@@ -67,18 +84,27 @@ type (
 		State  string
 		Since  int
 		Last   int
-		Active []int               `json:",omitempty"`
-		Stats  map[string]statItem `json:",omitempty"`
+		Active []int                `json:",omitempty"`
+		Perf   map[string]*perfItem `json:",omitempty"`
 	}
-	ebsModel struct {
+	ebsDetail struct {
 		Current int
 		Vol     map[string]*ebsItem
 	}
+	ebsWork struct {
+		rates aws.EBSRater
+	}
 
+	rdsSum struct {
+		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		ByAcct   hsU   // map by hour / account
+		ByRegion hsU   // map by hour / region
+		BySKU    hsU   // map by hour / region+type+engine
+	}
 	rdsItem struct {
 		Acct    string
-		Type    string
-		SType   string            `json:",omitempty"`
+		Typ     string
+		STyp    string            `json:",omitempty"`
 		Size    int               `json:",omitempty"`
 		Engine  string            `json:",omitempty"`
 		Ver     string            `json:",omitempty"`
@@ -89,10 +115,10 @@ type (
 		State   string
 		Since   int
 		Last    int
-		Active  []int               `json:",omitempty"`
-		Stats   map[string]statItem `json:",omitempty"`
+		Active  []int                `json:",omitempty"`
+		Perf    map[string]*perfItem `json:",omitempty"`
 	}
-	rdsModel struct {
+	rdsDetail struct {
 		Current int
 		DB      map[string]*rdsItem
 	}
@@ -100,26 +126,10 @@ type (
 		rates aws.Rater
 	}
 
-	cdrStat struct {
+	callsItem struct {
 		Calls uint32  `json:"N"` // total number of calls (high-order 4 bits unused)
 		Dur   uint64  `json:"D"` // total 0.1s actual duration (high-order 24 bits unused)
 		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
-	}
-	hsS     map[int32]map[string]*cdrStat         // stats by hour/string value
-	hnS     map[int32]map[tel.E164digest]*cdrStat // stats by hour/E.164 digest number
-	termSum struct {
-		Current int32 // hour cursor in term summary maps (Unix time, hours past epoch)
-		ByLoc   hsS   // map by hour (Unix time, hours past epoch) / service location
-		ByGeo   hsS   // map by hour / to geo zone
-		BySP    hsS   // map by hour / service provider
-		ByFrom  hnS   // map by hour / full from number
-		ByTo    hnS   // map by hour / to prefix (CC+P)
-	}
-	origSum struct {
-		Current int32 // hour cursor in orig summary maps (Unix time, hours past epoch)
-		ByLoc   hsS   // map by hour (Unix time, hours past epoch) / service location
-		BySP    hsS   // map by hour / service provider
-		ByTo    hnS   // map by hour / full to number
 	}
 	cdrItem struct {
 		From tel.E164digest `json:"Fr"` // decoded from number
@@ -128,14 +138,30 @@ type (
 		Cost float32        `json:"C"`  // rated USD cost (7-digit precision)
 		Info uint16         `json:"I"`  // other info: loc code | tries (orig=0) | svc provider code
 	}
-	hiC        map[int32]map[uint64]*cdrItem // CDRs by hour/ID
+	hsC     map[int32]map[string]*callsItem         // calls by hour/string descriptor
+	hnC     map[int32]map[tel.E164digest]*callsItem // calls by hour/E.164 digest number
+	hiD     map[int32]map[uint64]*cdrItem           // CDRs (details) by hour/ID
+	termSum struct {
+		Current int32 // hour cursor in term summary maps (Unix time, hours past epoch)
+		ByLoc   hsC   // map by hour (Unix time, hours past epoch) / service location
+		ByGeo   hsC   // map by hour / to geo zone
+		BySP    hsC   // map by hour / service provider
+		ByFrom  hnC   // map by hour / full from number
+		ByTo    hnC   // map by hour / to prefix (CC+P)
+	}
+	origSum struct {
+		Current int32 // hour cursor in orig summary maps (Unix time, hours past epoch)
+		ByLoc   hsC   // map by hour (Unix time, hours past epoch) / service location
+		BySP    hsC   // map by hour / service provider
+		ByTo    hnC   // map by hour / full to number
+	}
 	termDetail struct {
 		Current int32 // hour cursor in term CDR map (Unix time)
-		CDR     hiC   // map by hour/CDR ID
+		CDR     hiD   // map by hour/CDR ID
 	}
 	origDetail struct {
 		Current int32 // hour cursor in orig CDR map (Unix time)
-		CDR     hiC   // map by hour/CDR ID
+		CDR     hiD   // map by hour/CDR ID
 	}
 	cdrWork struct {
 		decoder, nadecoder tel.Decoder
@@ -343,39 +369,64 @@ func trigcmonTerm(n string, ctl chan string) {
 	ctl <- n
 }
 
+func (m hsU) add(hr int32, k string, usage uint64, cost float32) {
+	if hm := m[hr]; hm == nil {
+		hm = make(map[string]*usageItem)
+		m[hr], hm[k] = hm, &usageItem{Usage: usage, Cost: float64(cost)}
+	} else if u := hm[k]; u == nil {
+		hm[k] = &usageItem{Usage: usage, Cost: float64(cost)}
+	} else {
+		u.Usage += usage
+		u.Cost += float64(cost)
+	}
+}
+func (m hsU) clean(exp int32) {
+	for hr := range m {
+		if hr <= exp {
+			delete(m, hr)
+		}
+	}
+}
+
 func ec2awsBoot(n string, ctl chan string) {
-	ec2, work, m := &ec2Model{Inst: make(map[string]*ec2Item, 512)}, &ec2Work{}, mMod[n]
-	m.data = append(m.data, ec2)
+	sum, detail, work, m := &ec2Sum{
+		ByAcct:   make(hsU, 2184),
+		ByRegion: make(hsU, 2184),
+		BySKU:    make(hsU, 2184),
+	}, &ec2Detail{
+		Inst: make(map[string]*ec2Item, 512),
+	}, &ec2Work{}, mMod[n]
+	m.data = append(m.data, sum)
+	m.data = append(m.data, detail)
 	m.persist = len(m.data)
 	sync(n)
 
 	if err := work.rates.Load(nil, "EC2"); err != nil {
 		logE.Fatalf("%q cannot load EC2 rates: %v", n, err)
 	}
-
 	m.data = append(m.data, work)
 	ctl <- n
 }
 func ec2awsInsert(m *model, item map[string]string, now int) {
-	ec2, id := m.data[0].(*ec2Model), item["id"]
+	sum, detail, id := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail), item["id"]
 	if item == nil {
-		if now > ec2.Current {
-			ec2.Current = now
+		if now > detail.Current {
+			detail.Current = now
 		}
 		return
 	} else if id == "" {
 		return
 	}
-	inst := ec2.Inst[id]
+	inst := detail.Inst[id]
 	if inst == nil {
 		inst = &ec2Item{
-			Type:  item["type"],
+			Typ:   item["type"],
 			Plat:  item["plat"],
 			AMI:   item["ami"],
 			Spot:  item["spot"],
 			Since: now,
 		}
-		ec2.Inst[id] = inst
+		detail.Inst[id] = inst
 	}
 	inst.Acct = item["acct"]
 	inst.AZ = item["az"]
@@ -388,14 +439,26 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	} else {
 		inst.Tag = nil
 	}
+	var usage uint64
 	if inst.State = item["state"]; inst.State == "running" {
 		if inst.Active == nil || inst.Last > inst.Active[len(inst.Active)-1] {
 			inst.Active = append(inst.Active, now, now)
 		} else {
 			inst.Active[len(inst.Active)-1] = now
+			usage = uint64(now - inst.Last)
 		}
 	}
 	inst.Last = now
+
+	if usage > 0 {
+		hr := int32(now / 3600)
+		if hr > sum.Current {
+			sum.Current = hr
+		}
+		sum.ByAcct.add(hr, inst.Acct, usage, 0)
+		sum.ByRegion.add(hr, inst.AZ, usage, 0)
+		sum.BySKU.add(hr, inst.Typ, usage, 0)
+	}
 }
 func ec2awsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
@@ -403,12 +466,17 @@ func ec2awsClean(n string, deep bool) {
 	token := <-acc
 
 	// clean expired/invalid data
-	ec2 := m.data[0].(*ec2Model)
-	for id, inst := range ec2.Inst {
-		if id == "" || ec2.Current-inst.Last > 86400*8 {
-			delete(ec2.Inst, id)
+	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
+	for id, inst := range detail.Inst {
+		if id == "" || detail.Current-inst.Last > 86400*8 {
+			delete(detail.Inst, id)
 		}
 	}
+	exp := sum.Current - 24*90
+	sum.ByAcct.clean(exp)
+	sum.ByRegion.clean(exp)
+	sum.BySKU.clean(exp)
+
 	m.rel <- token
 	evt <- n
 }
@@ -442,29 +510,41 @@ func ec2awsTerm(n string, ctl chan string) {
 }
 
 func ebsawsBoot(n string, ctl chan string) {
-	ebs, m := &ebsModel{Vol: make(map[string]*ebsItem, 1024)}, mMod[n]
-	m.data = append(m.data, ebs)
+	sum, detail, work, m := &ebsSum{
+		ByAcct:   make(hsU, 2184),
+		ByRegion: make(hsU, 2184),
+		BySKU:    make(hsU, 2184),
+	}, &ebsDetail{
+		Vol: make(map[string]*ebsItem, 1024),
+	}, &ebsWork{}, mMod[n]
+	m.data = append(m.data, sum)
+	m.data = append(m.data, detail)
 	m.persist = len(m.data)
 	sync(n)
+
+	if err := work.rates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load EBS rates: %v", n, err)
+	}
+	m.data = append(m.data, work)
 	ctl <- n
 }
 func ebsawsInsert(m *model, item map[string]string, now int) {
-	ebs, id := m.data[0].(*ebsModel), item["id"]
+	sum, detail, id := m.data[0].(*ebsSum), m.data[1].(*ebsDetail), item["id"]
 	if item == nil {
-		if now > ebs.Current {
-			ebs.Current = now
+		if now > detail.Current {
+			detail.Current = now
 		}
 		return
 	} else if id == "" {
 		return
 	}
-	vol := ebs.Vol[id]
+	vol := detail.Vol[id]
 	if vol == nil {
 		vol = &ebsItem{
-			Type:  item["type"],
+			Typ:   item["type"],
 			Since: now,
 		}
-		ebs.Vol[id] = vol
+		detail.Vol[id] = vol
 	}
 	vol.Acct = item["acct"]
 	vol.Size = atoi(item["size"], 0)
@@ -482,14 +562,32 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	} else {
 		vol.Tag = nil
 	}
-	if vol.State = item["state"]; vol.State == "in-use" {
+	usage := uint64(now - vol.Last)
+	switch vol.State = item["state"]; vol.State {
+	case "in-use":
 		if vol.Active == nil || vol.Last > vol.Active[len(vol.Active)-1] {
 			vol.Active = append(vol.Active, now, now)
 		} else {
 			vol.Active[len(vol.Active)-1] = now
 		}
+	case "available":
+	default:
+		usage = 0
 	}
 	vol.Last = now
+
+	if usage > 0 {
+		w, hr, k := m.data[2].(*ebsWork), int32(now/3600), aws.EBSRateKey{Region: vol.AZ, Typ: vol.Typ}
+		if hr > sum.Current {
+			sum.Current = hr
+		}
+		r := w.rates.Lookup(&k)
+		c := (float32(vol.Size)*r.SZrate + float32(vol.IOPS)*r.IOrate) * float32(usage) / 3600
+		usage *= uint64(vol.Size)
+		sum.ByAcct.add(hr, vol.Acct, usage, c)
+		sum.ByRegion.add(hr, k.Region, usage, c)
+		sum.BySKU.add(hr, k.Region+" "+k.Typ, usage, c)
+	}
 }
 func ebsawsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
@@ -497,19 +595,17 @@ func ebsawsClean(n string, deep bool) {
 	token := <-acc
 
 	// clean expired/invalid data
-	ebs := m.data[0].(*ebsModel)
-	for id, vol := range ebs.Vol {
-		if id == "" || ebs.Current-vol.Last > 86400*8 {
-			delete(ebs.Vol, id)
-		} else {
-			if vol.IOPS < 0 {
-				vol.IOPS = 0
-			}
-			if vol.Mount == "0 attachments" {
-				vol.Mount = ""
-			}
+	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
+	for id, vol := range detail.Vol {
+		if id == "" || detail.Current-vol.Last > 86400*8 {
+			delete(detail.Vol, id)
 		}
 	}
+	exp := sum.Current - 24*90
+	sum.ByAcct.clean(exp)
+	sum.ByRegion.clean(exp)
+	sum.BySKU.clean(exp)
+
 	m.rel <- token
 	evt <- n
 }
@@ -543,37 +639,43 @@ func ebsawsTerm(n string, ctl chan string) {
 }
 
 func rdsawsBoot(n string, ctl chan string) {
-	rds, work, m := &rdsModel{DB: make(map[string]*rdsItem, 128)}, &rdsWork{}, mMod[n]
-	m.data = append(m.data, rds)
+	sum, detail, work, m := &rdsSum{
+		ByAcct:   make(hsU, 2184),
+		ByRegion: make(hsU, 2184),
+		BySKU:    make(hsU, 2184),
+	}, &rdsDetail{
+		DB: make(map[string]*rdsItem, 128),
+	}, &rdsWork{}, mMod[n]
+	m.data = append(m.data, sum)
+	m.data = append(m.data, detail)
 	m.persist = len(m.data)
 	sync(n)
 
 	if err := work.rates.Load(nil, "RDS"); err != nil {
 		logE.Fatalf("%q cannot load RDS rates: %v", n, err)
 	}
-
 	m.data = append(m.data, work)
 	ctl <- n
 }
 func rdsawsInsert(m *model, item map[string]string, now int) {
-	rds, id := m.data[0].(*rdsModel), item["id"]
+	sum, detail, id := m.data[0].(*rdsSum), m.data[1].(*rdsDetail), item["id"]
 	if item == nil {
-		if now > rds.Current {
-			rds.Current = now
+		if now > detail.Current {
+			detail.Current = now
 		}
 		return
 	} else if id == "" {
 		return
 	}
-	db := rds.DB[id]
+	db := detail.DB[id]
 	if db == nil {
 		db = &rdsItem{
-			Type:   item["type"],
-			SType:  item["stype"],
+			Typ:    item["type"],
+			STyp:   item["stype"],
 			Engine: item["engine"],
 			Since:  now,
 		}
-		rds.DB[id] = db
+		detail.DB[id] = db
 	}
 	db.Acct = item["acct"]
 	db.Size = atoi(item["size"], 0)
@@ -590,14 +692,26 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	} else {
 		db.Tag = nil
 	}
+	var usage uint64
 	if db.State = item["state"]; db.State == "available" {
 		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {
 			db.Active = append(db.Active, now, now)
 		} else {
 			db.Active[len(db.Active)-1] = now
+			usage = uint64(now - db.Last)
 		}
 	}
 	db.Last = now
+
+	if usage > 0 {
+		hr := int32(now / 3600)
+		if hr > sum.Current {
+			sum.Current = hr
+		}
+		sum.ByAcct.add(hr, db.Acct, usage, 0)
+		sum.ByRegion.add(hr, db.AZ, usage, 0)
+		sum.BySKU.add(hr, db.Typ, usage, 0)
+	}
 }
 func rdsawsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
@@ -605,12 +719,17 @@ func rdsawsClean(n string, deep bool) {
 	token := <-acc
 
 	// clean expired/invalid data
-	rds := m.data[0].(*rdsModel)
-	for id, db := range rds.DB {
-		if id == "" || rds.Current-db.Last > 86400*8 {
-			delete(rds.DB, id)
+	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
+	for id, db := range detail.DB {
+		if id == "" || detail.Current-db.Last > 86400*8 {
+			delete(detail.DB, id)
 		}
 	}
+	exp := sum.Current - 24*90
+	sum.ByAcct.clean(exp)
+	sum.ByRegion.clean(exp)
+	sum.BySKU.clean(exp)
+
 	m.rel <- token
 	evt <- n
 }
@@ -645,19 +764,19 @@ func rdsawsTerm(n string, ctl chan string) {
 
 func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
-		ByLoc:  make(hsS, 2184),
-		ByGeo:  make(hsS, 2184),
-		BySP:   make(hsS, 2184),
-		ByFrom: make(hnS, 2184),
-		ByTo:   make(hnS, 2184),
+		ByLoc:  make(hsC, 2184),
+		ByGeo:  make(hsC, 2184),
+		BySP:   make(hsC, 2184),
+		ByFrom: make(hnC, 2184),
+		ByTo:   make(hnC, 2184),
 	}, &origSum{
-		ByLoc: make(hsS, 2184),
-		BySP:  make(hsS, 2184),
-		ByTo:  make(hnS, 2184),
+		ByLoc: make(hsC, 2184),
+		BySP:  make(hsC, 2184),
+		ByTo:  make(hnC, 2184),
 	}, &termDetail{
-		CDR: make(hiC, 2184),
+		CDR: make(hiD, 2184),
 	}, &origDetail{
-		CDR: make(hiC, 2184),
+		CDR: make(hiD, 2184),
 	}, &cdrWork{}, mMod[n]
 	m.data = append(m.data, tsum)
 	m.data = append(m.data, osum)
@@ -685,7 +804,7 @@ func cdraspBoot(n string, ctl chan string) {
 	m.data = append(m.data, work)
 	ctl <- n
 }
-func (m hiC) add(hr int32, id uint64, cdr *cdrItem) bool {
+func (m hiD) add(hr int32, id uint64, cdr *cdrItem) bool {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[uint64]*cdrItem, 4096)
 		m[hr], hm[id] = hm, cdr
@@ -696,38 +815,38 @@ func (m hiC) add(hr int32, id uint64, cdr *cdrItem) bool {
 	}
 	return true
 }
-func (m hsS) add(hr int32, k string, cdr *cdrItem) {
+func (m hsC) add(hr int32, k string, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
-		hm = make(map[string]*cdrStat)
-		m[hr], hm[k] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
-	} else if s := hm[k]; s == nil {
-		hm[k] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+		hm = make(map[string]*callsItem)
+		m[hr], hm[k] = hm, &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+	} else if c := hm[k]; c == nil {
+		hm[k] = &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
 	} else {
-		s.Calls++
-		s.Dur += uint64(cdr.Time >> durShift)
-		s.Cost += float64(cdr.Cost)
+		c.Calls++
+		c.Dur += uint64(cdr.Time >> durShift)
+		c.Cost += float64(cdr.Cost)
 	}
 }
-func (m hsS) clean(exp int32) {
+func (m hsC) clean(exp int32) {
 	for hr := range m {
 		if hr <= exp {
 			delete(m, hr)
 		}
 	}
 }
-func (m hnS) add(hr int32, k tel.E164digest, cdr *cdrItem) {
+func (m hnC) add(hr int32, k tel.E164digest, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
-		hm = make(map[tel.E164digest]*cdrStat)
-		m[hr], hm[k] = hm, &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
-	} else if s := hm[k]; s == nil {
-		hm[k] = &cdrStat{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+		hm = make(map[tel.E164digest]*callsItem)
+		m[hr], hm[k] = hm, &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+	} else if c := hm[k]; c == nil {
+		hm[k] = &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
 	} else {
-		s.Calls++
-		s.Dur += uint64(cdr.Time >> durShift)
-		s.Cost += float64(cdr.Cost)
+		c.Calls++
+		c.Dur += uint64(cdr.Time >> durShift)
+		c.Cost += float64(cdr.Cost)
 	}
 }
-func (m hnS) clean(exp int32) {
+func (m hnC) clean(exp int32) {
 	for hr := range m {
 		if hr <= exp {
 			delete(m, hr)
