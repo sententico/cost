@@ -538,13 +538,15 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	} else if id == "" {
 		return
 	}
-	vol := detail.Vol[id]
+	vol, usage := detail.Vol[id], uint64(0)
 	if vol == nil {
 		vol = &ebsItem{
 			Typ:   item["type"],
 			Since: now,
 		}
 		detail.Vol[id] = vol
+	} else {
+		usage = uint64(now - vol.Last)
 	}
 	vol.Acct = item["acct"]
 	vol.Size = atoi(item["size"], 0)
@@ -562,7 +564,6 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	} else {
 		vol.Tag = nil
 	}
-	usage := uint64(now - vol.Last)
 	switch vol.State = item["state"]; vol.State {
 	case "in-use":
 		if vol.Active == nil || vol.Last > vol.Active[len(vol.Active)-1] {
