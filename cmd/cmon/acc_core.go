@@ -451,13 +451,26 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	inst.Last = now
 
 	if usage > 0 {
-		hr := int32(now / 3600)
+		w, hr, k, c, cl := m.data[2].(*ec2Work), int32(now/3600), aws.RateKey{
+			Region: inst.AZ,
+			Typ:    inst.Typ,
+			Plat:   inst.Plat,
+			Terms:  "OD",
+		}, float32(usage)/3600, ""
 		if hr > sum.Current {
 			sum.Current = hr
 		}
-		sum.ByAcct.add(hr, inst.Acct, usage, 0)
-		sum.ByRegion.add(hr, inst.AZ, usage, 0)
-		sum.BySKU.add(hr, inst.Typ, usage, 0)
+		od := w.rates.Lookup(&k)
+		k.Terms = settings.AWS.SavPlan
+		if sv := w.rates.Lookup(&k); inst.Spot == "" {
+			c *= od.Rate*(1-settings.AWS.SavCov) + sv.Rate*settings.AWS.SavCov
+		} else {
+			c *= od.Rate * (1 - settings.AWS.SpotDisc)
+			cl = "sp."
+		}
+		sum.ByAcct.add(hr, inst.Acct, usage, c)
+		sum.ByRegion.add(hr, k.Region, usage, c)
+		sum.BySKU.add(hr, k.Region+" "+cl+k.Typ+" "+k.Plat, usage, c)
 	}
 }
 func ec2awsClean(n string, deep bool) {
@@ -578,7 +591,10 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	vol.Last = now
 
 	if usage > 0 {
-		w, hr, k := m.data[2].(*ebsWork), int32(now/3600), aws.EBSRateKey{Region: vol.AZ, Typ: vol.Typ}
+		w, hr, k := m.data[2].(*ebsWork), int32(now/3600), aws.EBSRateKey{
+			Region: vol.AZ,
+			Typ:    vol.Typ,
+		}
 		if hr > sum.Current {
 			sum.Current = hr
 		}
@@ -693,25 +709,34 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	} else {
 		db.Tag = nil
 	}
-	var usage uint64
+	var usage uint64 // TODO: account for EBS usage/cost
 	if db.State = item["state"]; db.State == "available" {
 		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {
 			db.Active = append(db.Active, now, now)
 		} else {
 			db.Active[len(db.Active)-1] = now
-			usage = uint64(now - db.Last)
+			if usage = uint64(now - db.Last); db.MultiAZ {
+				usage *= 2
+			}
 		}
 	}
 	db.Last = now
 
 	if usage > 0 {
-		hr := int32(now / 3600)
+		w, hr, k := m.data[2].(*rdsWork), int32(now/3600), aws.RateKey{
+			Region: db.AZ,
+			Typ:    db.Typ,
+			Plat:   db.Engine,
+			Terms:  "OD",
+		}
 		if hr > sum.Current {
 			sum.Current = hr
 		}
-		sum.ByAcct.add(hr, db.Acct, usage, 0)
-		sum.ByRegion.add(hr, db.AZ, usage, 0)
-		sum.BySKU.add(hr, db.Typ, usage, 0)
+		od := w.rates.Lookup(&k)
+		c := od.Rate * float32(usage) / 3600
+		sum.ByAcct.add(hr, db.Acct, usage, c)
+		sum.ByRegion.add(hr, k.Region, usage, c)
+		sum.BySKU.add(hr, k.Region+" "+k.Typ+" "+k.Plat, usage, c)
 	}
 }
 func rdsawsClean(n string, deep bool) {

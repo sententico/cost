@@ -109,8 +109,8 @@ func (r *Rater) Lookup(k *RateKey) (v RateValue) {
 	if r == nil || k == nil || k.Typ == "" {
 		return
 	}
-	if k.Plat == "" {
-		k.Plat = "Lin"
+	if p := platMap[k.Plat]; p != "" {
+		k.Plat = p
 	}
 	if k.Terms == "" {
 		k.Terms = "OD"

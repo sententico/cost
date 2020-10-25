@@ -1,17 +1,21 @@
 {
-	"Unit": "cmon-aspect",
-	"Port": "4414",
-	"WorkDir": "/var/opt/sententix/aspect",
-	"BinDir": "/opt/sententix/bin",
+	"Options":	"<placeholder>",
+	"Unit":		"cmon-aspect",
+	"Port":		"4414",
+	"WorkDir":	"/var/opt/sententix/aspect",
+	"BinDir":	"/opt/sententix/bin",
 	"Models": {
-		"trig.cmon": ".cmon_trigcmon.json",
-		"ec2.aws": ".cmon_ec2aws.json",
-		"ebs.aws": ".cmon_ebsaws.json",
-		"rds.aws": ".cmon_rdsaws.json",
-		"cdr.asp": ".cmon_cdrasp.json"
+		"trig.cmon":".cmon_trigcmon.json",
+		"ec2.aws":	".cmon_ec2aws.json",
+		"ebs.aws":	".cmon_ebsaws.json",
+		"rds.aws":	".cmon_rdsaws.json",
+		"cdr.asp":	".cmon_cdrasp.json"
 	},
 	"AWS": {
-		"Options": "<placeholder>",
+		"Options":	"<placeholder>",
+		"SavPlan":	"RI3nc",
+		"SavCov":	0.8,
+		"SpotDisc":	0.65,
 		"Accounts": {
 			"default": {
 				"us-east-1": 0.0001,
@@ -538,6 +542,7 @@
 		}
 	},
 	"Datadog": {
+		"Options": "<placeholder>",
 		"APIKey": "dd605d1d620eb2fb227812efe0xxxxxx",
 		"AppKey": "01688890ef0439d7530098a54c89821ecaxxxxxx"
 	}

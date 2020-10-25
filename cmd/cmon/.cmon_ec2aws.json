@@ -3,7 +3,7 @@
 	"Inst": {
 		"i-234234": {
 			"Acct": "1001",
-			"Type": "m5.large",
+			"Typ": "m5.large",
 			"Plat": "windows",
 			"AZ": "us-east-1c",
 			"AMI": "",
@@ -19,7 +19,7 @@
 				1220400190,
 				1250600250
 			],
-			"Stats": {
+			"Perf": {
 				"cpu": {
 					"Period": [
 						1220420740,

@@ -3,8 +3,8 @@
 	"DB": {
 		"arn:aws:rds:us-east-1:1001:db:name": {
 			"Acct": "1001",
-			"Type": "db.m5.xlarge",
-			"SType": "gp2",
+			"Typ": "db.m5.xlarge",
+			"STyp": "gp2",
 			"Size": 500,
 			"Engine": "postgres",
 			"Ver": "12.3",
@@ -22,7 +22,7 @@
 				1220400190,
 				1250600250
 			],
-			"Stats": {
+			"Perf": {
 				"conn": {
 					"Period": [
 						1220420740,

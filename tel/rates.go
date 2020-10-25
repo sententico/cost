@@ -1,7 +1,7 @@
 package tel
 
 const (
-	// DefaultOrigRates ...
+	// DefaultOrigRates ... requires maintenance updates (last Sep20)
 	DefaultOrigRates = `{
 		"1":[	{"Rate":0.005,	"P":["800","822","833","844","855","866","877","888"]},
 				{"Rate":0.003,	"P":["default"]}],

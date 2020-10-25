@@ -89,6 +89,7 @@ const (
 	subMask  = 0xf     // E164digest Sub length
 	geoMask  = 0xf     // E164digest Geo code
 
+	// requires maintenance updates (last Sep20)
 	defaultProviders = `{
 		"0":	{"Name":"unknown",		"Alias":["","unk","?"]},
 
@@ -110,6 +111,7 @@ const (
 		"63":	{"Name":"internal",		"Alias":["Aspect","ASPECT","ASP","asp","Voxeo","VOXEO","VX","vx","AUDIOC"]}
 	}`
 
+	// requires maintenance updates (last Sep20)
 	defaultLocations = `{
 		"0":	{"Name":"ASH",			"Alias":["#US primary",	"ash","",	"SBC60","SBC61"]},
 		"1":	{"Name":"LAS",			"Alias":["#US standby",	"las",		"SBC20","SBC21"]},
@@ -122,6 +124,7 @@ const (
 		"63":	{"Name":"lab",			"Alias":["LAB",	"hard lab",			"SBC1"]}
 	}`
 
+	// requires maintenance updates (last Sep20)
 	defaultEncodings = `{
 		"1":	{"Geo":"nanpa",	"ISO3166":"XC",	"Pl":3,	"CCn":"North America", "Sub":[
 				{"Geo":"akhi",	"ISO3166":"US",	"Pl":3,	"CCn":"United States of America",

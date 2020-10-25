@@ -17,16 +17,20 @@ import (
 type (
 	// awsService settings
 	awsService struct {
-		Options  string
-		Accounts map[string]map[string]float32
+		Options          string
+		SavPlan          string
+		SavCov, SpotDisc float32
+		Accounts         map[string]map[string]float32
 	}
 	// datadogService settings
 	datadogService struct {
+		Options        string
 		APIKey, AppKey string
 	}
 
 	// monSettings are composite settings for the cloud monitor
 	monSettings struct {
+		Options         string
 		Unit, Port      string
 		WorkDir, BinDir string
 		Models          map[string]string
@@ -78,7 +82,7 @@ var (
 	logD, logI, logW, logE *log.Logger       // ...
 	seOpen, exit           int               // ...
 	seInit, seSeq          int64             // ...
-	settings               monSettings       // ...
+	settings               monSettings       // monitor settings
 )
 
 func init() {
