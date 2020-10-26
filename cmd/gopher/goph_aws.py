@@ -70,7 +70,7 @@ def csvWriter(m, cols):
 
 def gophEC2AWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','plat','az','ami','state','spot','tag'])
+    csv = csvWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -82,6 +82,7 @@ def gophEC2AWS(m, cmon, args):
                         'acct':     a,
                         'type':     i.instance_type,
                         'plat':     '' if not i.platform else i.platform,
+                        'vol':      str(len(i.block_device_mappings)),
                         'az':       i.placement.get('AvailabilityZone',r),
                         'ami':      '' if not i.image_id else i.image_id,
                         'state':    i.state.get('Name',''),

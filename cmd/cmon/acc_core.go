@@ -49,6 +49,7 @@ type (
 		Acct   string
 		Typ    string
 		Plat   string            `json:",omitempty"`
+		Vol    int               `json:",omitempty"`
 		AZ     string            `json:",omitempty"`
 		AMI    string            `json:",omitempty"`
 		Spot   string            `json:",omitempty"`
@@ -409,6 +410,14 @@ func ec2awsBoot(n string, ctl chan string) {
 	m.data = append(m.data, work)
 	ctl <- n
 }
+func ec2awsHack(inst *ec2Item) {
+	switch settings.Unit {
+	case "cmon-aspect":
+		if inst.Plat == "windows" && inst.Vol > 4 && strings.HasSuffix(inst.Tag["app"], ".edw") {
+			inst.Plat = "sqlserver-se"
+		}
+	}
+}
 func ec2awsInsert(m *model, item map[string]string, now int) {
 	sum, detail, id := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail), item["id"]
 	if item == nil {
@@ -431,6 +440,7 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 		detail.Inst[id] = inst
 	}
 	inst.Acct = item["acct"]
+	inst.Vol = atoi(item["vol"], 0)
 	inst.AZ = item["az"]
 	if tag := item["tag"]; tag != "" {
 		inst.Tag = make(map[string]string)
@@ -452,7 +462,7 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	}
 	inst.Last = now
 
-	if usage > 0 {
+	if ec2awsHack(inst); usage > 0 {
 		w, hr, k, c, cl := m.data[2].(*ec2Work), int32(now/3600), aws.RateKey{
 			Region: inst.AZ,
 			Typ:    inst.Typ,
