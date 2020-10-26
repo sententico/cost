@@ -106,6 +106,7 @@ type (
 		Typ     string
 		STyp    string            `json:",omitempty"`
 		Size    int               `json:",omitempty"`
+		IOPS    int               `json:",omitempty"`
 		Engine  string            `json:",omitempty"`
 		Ver     string            `json:",omitempty"`
 		Lic     string            `json:",omitempty"`
@@ -123,7 +124,8 @@ type (
 		DB      map[string]*rdsItem
 	}
 	rdsWork struct {
-		rates aws.Rater
+		rates  aws.Rater
+		srates aws.EBSRater
 	}
 
 	callsItem struct {
@@ -351,7 +353,7 @@ func trigcmonMaint(n string) {
 	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
 	for m, cl, fl := mMod[n],
-		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
+		time.NewTicker(10800*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-cl.C:
 			goaftSession(240*time.Second, 270*time.Second, func() { trigcmonClean(n, true) })
@@ -500,7 +502,7 @@ func ec2awsMaint(n string) {
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
+		time.NewTicker(10800*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert) })
@@ -633,7 +635,7 @@ func ebsawsMaint(n string) {
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
+		time.NewTicker(10800*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert) })
@@ -670,6 +672,8 @@ func rdsawsBoot(n string, ctl chan string) {
 
 	if err := work.rates.Load(nil, "RDS"); err != nil {
 		logE.Fatalf("%q cannot load RDS rates: %v", n, err)
+	} else if err = work.srates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load EBS rates: %v", n, err)
 	}
 	m.data = append(m.data, work)
 	ctl <- n
@@ -684,7 +688,7 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	} else if id == "" {
 		return
 	}
-	db := detail.DB[id]
+	db, usage, susage := detail.DB[id], uint64(0), uint64(0)
 	if db == nil {
 		db = &rdsItem{
 			Typ:    item["type"],
@@ -693,13 +697,20 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 			Since:  now,
 		}
 		detail.DB[id] = db
+	} else {
+		usage = uint64(now - db.Last)
+		susage = usage
 	}
 	db.Acct = item["acct"]
 	db.Size = atoi(item["size"], 0)
+	db.IOPS = atoi(item["iops"], 0)
 	db.Ver = item["ver"]
 	db.AZ = item["az"]
 	db.Lic = item["lic"]
-	db.MultiAZ = item["multiaz"] == "True"
+	if db.MultiAZ = item["multiaz"] == "True"; db.MultiAZ {
+		usage *= 2
+		susage *= 2
+	}
 	if tag := item["tag"]; tag != "" {
 		db.Tag = make(map[string]string)
 		for _, kv := range strings.Split(tag, "\t") {
@@ -709,31 +720,35 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	} else {
 		db.Tag = nil
 	}
-	var usage uint64 // TODO: account for EBS usage/cost
-	if db.State = item["state"]; db.State == "available" {
+	switch db.State = item["state"]; db.State {
+	case "available", "backing-up":
 		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {
-			db.Active = append(db.Active, now, now)
+			db.Active, usage = append(db.Active, now, now), 0
 		} else {
 			db.Active[len(db.Active)-1] = now
-			if usage = uint64(now - db.Last); db.MultiAZ {
-				usage *= 2
-			}
 		}
+	case "stopped":
+		usage = 0
+	default:
+		usage, susage = 0, 0
 	}
 	db.Last = now
 
-	if usage > 0 {
-		w, hr, k := m.data[2].(*rdsWork), int32(now/3600), aws.RateKey{
+	if usage > 0 || susage > 0 {
+		w, hr, k, sk := m.data[2].(*rdsWork), int32(now/3600), aws.RateKey{
 			Region: db.AZ,
 			Typ:    db.Typ,
 			Plat:   db.Engine,
 			Terms:  "OD",
+		}, aws.EBSRateKey{
+			Region: db.AZ,
+			Typ:    db.STyp,
 		}
 		if hr > sum.Current {
 			sum.Current = hr
 		}
-		od := w.rates.Lookup(&k)
-		c := od.Rate * float32(usage) / 3600
+		od, r := w.rates.Lookup(&k), w.srates.Lookup(&sk)
+		c := (od.Rate*float32(usage) + (float32(db.Size)*r.SZrate+float32(db.IOPS)*r.IOrate)*float32(susage)) / 3600
 		sum.ByAcct.add(hr, db.Acct, usage, c)
 		sum.ByRegion.add(hr, k.Region, usage, c)
 		sum.BySKU.add(hr, k.Region+" "+k.Typ+" "+k.Plat, usage, c)
@@ -766,7 +781,7 @@ func rdsawsMaint(n string) {
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(86400*time.Second), time.NewTicker(1440*time.Second); ; {
+		time.NewTicker(10800*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert) })
@@ -816,7 +831,7 @@ func cdraspBoot(n string, ctl chan string) {
 	work.trates.DefaultRate, work.orates.DefaultRate = 0.01, 0.005
 	if err := work.decoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
-	} else if err := work.nadecoder.Load(nil); err != nil {
+	} else if err = work.nadecoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load NANP-biased E.164 decoder: %v", n, err)
 	} else if err = work.trates.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load termination rates: %v", n, err)

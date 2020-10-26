@@ -124,7 +124,7 @@ def gophEBSAWS(m, cmon, args):
 
 def gophRDSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','stype','size','engine','ver','lic','az','multiaz','state','tag'])
+    csv = csvWriter(m, ['id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -140,12 +140,13 @@ def gophRDSAWS(m, cmon, args):
                         'acct':     a,
                         'type':     d.get('DBInstanceClass'),
                         'stype':    d.get('StorageType'),
-                        'size':     str(d.get('AllocatedStorage')),
+                        'size':     str(d.get('AllocatedStorage',0)),
+                        'iops':     str(d.get('Iops',0)),
                         'engine':   d.get('Engine',''),
                         'ver':      d.get('EngineVersion',''),
                         'lic':      d.get('LicenseModel',''),
                         'az':       d.get('AvailabilityZone',r),
-                        'multiaz':  str(d.get('MultiAZ')),
+                        'multiaz':  str(d.get('MultiAZ',False)),
                         'state':    d.get('DBInstanceStatus',''),
                         'tag':      '' if not dtags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in dtags if

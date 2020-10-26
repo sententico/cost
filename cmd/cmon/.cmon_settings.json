@@ -13,7 +13,7 @@
 	},
 	"AWS": {
 		"Options":	"<placeholder>",
-		"SavPlan":	"RI3nc",
+		"SavPlan":	"3nc",
 		"SavCov":	0.8,
 		"SpotDisc":	0.65,
 		"Accounts": {
