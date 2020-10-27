@@ -124,18 +124,19 @@ const (
 		"63":	{"Name":"lab",			"Alias":["LAB",	"hard lab",			"SBC1"]}
 	}`
 
-	// requires maintenance updates (last Sep20)
+	// requires maintenance updates (last Oct20)
 	defaultEncodings = `{
 		"1":	{"Geo":"nanpa",	"ISO3166":"XC",	"Pl":3,	"CCn":"North America", "Sub":[
 				{"Geo":"akhi",	"ISO3166":"US",	"Pl":3,	"CCn":"United States of America",
 								"P":["808","907"]},
 				{"Geo":"natf",	"ISO3166":"XC",	"Pl":3, "CCn":"North America",
-								"P":["800","822","833","844","855","866","877","888"]},
+								"P":["800","822","833","844","855","866","877","888",
+									 "880","881","882","883","884","885","886","887","889"]},
 				{"Geo":"us48",	"ISO3166":"US",	"Pl":3, "CCn":"United States of America",
 								"P":[""]},
 				{"Geo":"ust",	"ISO3166":"VI",	"Pl":3,	"CCn":"United States Virgin Islands",
 								"P":["340"]},
-				{"Geo":"ust",	"ISO3166":"MP",	"Pl":3,	"CCn":"Northern Marianas Islands",
+				{"Geo":"ust",	"ISO3166":"MP",	"Pl":3,	"CCn":"Northern Mariana Islands",
 								"P":["670"]},
 				{"Geo":"ust",	"ISO3166":"GU",	"Pl":3,	"CCn":"Guam",
 								"P":["671"]},
@@ -145,13 +146,13 @@ const (
 								"P":["787","939"]},
 
 				{"Geo":"can",	"ISO3166":"CA",	"Pl":3,	"CCn":"Canada",
-								"P":["204","226","236","249","250","289",
-									 "306","343","365","367",
-									 "403","416","418","431","437","438","450",
-									 "506","514","519","548","579","581","587",
-									 "604","613","639","647","672",
-									 "705","709","778","780","782",
-									 "807","819","825","867","873",
+								"P":["204","226","236","249","250","263","289",
+									 "306","343","354","365","367","368","382","387",
+									 "403","416","418","428","431","437","438","450","468","474",
+									 "506","514","519","548","579","581","584","587",
+									 "600","604","613","639","647","672","683",
+									 "705","709","742","753","778","780","782",
+									 "807","819","825","867","873","879",
 									 "902","905"]},
 				{"Geo":"car",	"ISO3166":"BS",	"Pl":3,	"CCn":"Bahamas",
 								"P":["242"]},
@@ -160,7 +161,7 @@ const (
 				{"Geo":"car",	"ISO3166":"AI",	"Pl":3,	"CCn":"Anguilla",
 								"P":["264"]},
 				{"Geo":"car",	"ISO3166":"AI",	"Pl":3,	"CCn":"Antigua & Barbuda",
-								"P":["264"]},
+								"P":["268"]},
 				{"Geo":"car",   "ISO3166":"VG",	"Pl":3,	"CCn":"British Virgin Islands",
 								"P":["284"]},
 				{"Geo":"car",   "ISO3166":"KY",	"Pl":3,	"CCn":"Cayman Islands",
@@ -188,7 +189,7 @@ const (
 				{"Geo":"car",   "ISO3166":"KN",	"Pl":3,	"CCn":"Saint Kitts & Nevis",
 								"P":["869"]},
 				{"Geo":"car",   "ISO3166":"JM",	"Pl":3,	"CCn":"Jamaica",
-								"P":["876"]} ]},
+								"P":["658","876"]} ]},
 
 		"20":	{"Geo":"afr",	"ISO3166":"EG",	"Pl":3,	"CCn":"Egypt"},
 		"211":	{"Geo":"afr",	"ISO3166":"SS",	"Pl":3,	"CCn":"South Sudan"},
