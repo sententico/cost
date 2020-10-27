@@ -199,7 +199,7 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 
 	if i, p, s := d.ccInfo(n, cc); i == nil || s == "" {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
-		return fmt.Errorf("cannot decode E.164 suffix %v[%v]", cc, n[len(cc):])
+		return fmt.Errorf("cannot decode E.164 suffix %v[%v] %q", cc, n[len(cc):], n)
 	} else {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, cc, i.Geo, i.CCn, i.ISO3166, p, s
 		return nil
