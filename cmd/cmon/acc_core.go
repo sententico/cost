@@ -951,9 +951,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		// outbound/termination CDR
 		cdr.From = decoder.Digest(item["from"])
 		if len(item["dip"]) < 20 || decoder.Full(item["dip"][:10], &work.tn) != nil {
-			if e := decoder.Full(item["to"], &work.tn); e != nil {
-				logE.Printf("error decoding outbound term %q: %v", item["to"], e)
-			}
+			decoder.Full(item["to"], &work.tn)
 		}
 		if cdr.To = work.tn.Digest(len(work.tn.Num)); cdr.To == 0 {
 			break
