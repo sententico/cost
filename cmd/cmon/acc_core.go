@@ -927,6 +927,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	switch typ, ip := item["type"], item["IP"]; {
 	case typ == "CORE":
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
+		// inbound/origination CDR
 		if cdr.To = decoder.Digest(item["to"]); cdr.To == 0 {
 			break
 		}
@@ -947,9 +948,12 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
 	default:
+		// outbound/termination CDR
 		cdr.From = decoder.Digest(item["from"])
 		if len(item["dip"]) < 20 || decoder.Full(item["dip"][:10], &work.tn) != nil {
-			decoder.Full(item["to"], &work.tn)
+			if e := decoder.Full(item["to"], &work.tn); e != nil {
+				logE.Printf("error decoding outbound term %q: %v", item["to"], e)
+			}
 		}
 		if cdr.To = work.tn.Digest(len(work.tn.Num)); cdr.To == 0 {
 			break
