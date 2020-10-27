@@ -173,7 +173,7 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 	} else if d == nil {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 		return fmt.Errorf("no E.164 decoder specified")
-	} else if n := strings.Map(func(r rune) rune {
+	} else if n = strings.Map(func(r rune) rune {
 		switch r {
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return r
@@ -199,7 +199,7 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 
 	if i, p, s := d.ccInfo(n, cc); i == nil || s == "" {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
-		return fmt.Errorf("cannot decode E.164 suffix %v[%v] %q", cc, n[len(cc):], n)
+		return fmt.Errorf("cannot decode E.164 suffix %v[%v]", cc, n[len(cc):])
 	} else {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, cc, i.Geo, i.CCn, i.ISO3166, p, s
 		return nil
