@@ -17,10 +17,10 @@ import (
 type (
 	// awsService settings
 	awsService struct {
-		Options          string
-		SavPlan          string
-		SavCov, SpotDisc float32
-		Accounts         map[string]map[string]float32
+		Options                    string
+		SavPlan                    string
+		SavCov, SpotDisc, UsageAdj float32
+		Accounts                   map[string]map[string]float32
 	}
 	// datadogService settings
 	datadogService struct {

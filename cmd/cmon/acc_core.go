@@ -456,19 +456,25 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	}
 
 	ec2awsHack(inst)
-	k, cl := aws.RateKey{
+	k := aws.RateKey{
 		Region: inst.AZ,
 		Typ:    inst.Typ,
 		Plat:   inst.Plat,
 		Terms:  "OD",
-	}, ""
+	}
 	switch inst.State = item["state"]; inst.State {
 	case "running":
-		if r := work.rates.Lookup(&k); inst.Spot == "" {
+		if r := work.rates.Lookup(&k); r.Rate == 0 {
+			logE.Printf("no EC2 %v rate found for %v/%v in %v", k.Terms, k.Typ, k.Plat, inst.AZ)
+		} else if inst.Spot == "" {
 			k.Terms = settings.AWS.SavPlan
-			inst.Rate = r.Rate*(1-settings.AWS.SavCov) + work.rates.Lookup(&k).Rate*settings.AWS.SavCov
+			if s := work.rates.Lookup(&k); s.Rate == 0 {
+				inst.Rate = r.Rate * settings.AWS.UsageAdj
+			} else {
+				inst.Rate = (r.Rate*(1-settings.AWS.SavCov) + s.Rate*settings.AWS.SavCov) * settings.AWS.UsageAdj
+			}
 		} else {
-			inst.Rate, cl = r.Rate*(1-settings.AWS.SpotDisc), "sp."
+			inst.Rate = r.Rate * (1 - settings.AWS.SpotDisc) * settings.AWS.UsageAdj
 		}
 		if inst.Active == nil || inst.Last > inst.Active[len(inst.Active)-1] {
 			inst.Active = append(inst.Active, now, now)
@@ -481,7 +487,11 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 			}
 			sum.ByAcct.add(hr, inst.Acct, dur, c)
 			sum.ByRegion.add(hr, k.Region, dur, c)
-			sum.BySKU.add(hr, k.Region+" "+cl+k.Typ+" "+k.Plat, dur, c)
+			if inst.Spot == "" {
+				sum.BySKU.add(hr, k.Region+" "+k.Typ+" "+k.Plat, dur, c)
+			} else {
+				sum.BySKU.add(hr, k.Region+" sp."+k.Typ+" "+k.Plat, dur, c)
+			}
 		}
 	default:
 		inst.Rate = 0
@@ -598,6 +608,9 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		Typ:    vol.Typ,
 	}, float32(0)
 	r := work.rates.Lookup(&k)
+	if r.SZrate == 0 {
+		logE.Printf("no EBS rate found for %v in %v", k.Typ, vol.AZ)
+	}
 	switch vol.State = item["state"]; vol.State {
 	case "in-use":
 		if vol.Active == nil || vol.Last > vol.Active[len(vol.Active)-1] {
@@ -607,7 +620,7 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		}
 		fallthrough
 	case "available":
-		vol.Rate, c = r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS), vol.Rate*float32(dur)/3600
+		vol.Rate, c = (r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
 	default:
 		vol.Rate = 0
 	}
@@ -739,10 +752,13 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 		Plat:   db.Engine,
 		Terms:  "OD",
 	}
-	r, sr, u, c := work.rates.Lookup(&k), work.srates.Lookup(&aws.EBSRateKey{
+	r, s, u, c := work.rates.Lookup(&k), work.srates.Lookup(&aws.EBSRateKey{
 		Region: db.AZ,
 		Typ:    db.STyp,
 	}), uint64(0), float32(0)
+	if r.Rate == 0 || s.SZrate == 0 {
+		logE.Printf("no RDS %v rate found for %v/%v[%v] in %v", k.Terms, k.Typ, k.Plat, db.STyp, db.AZ)
+	}
 	switch db.State = item["state"]; db.State {
 	case "available", "backing-up":
 		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {
@@ -750,9 +766,9 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 		} else {
 			db.Active[len(db.Active)-1], u = now, uint64(az*dur)
 		}
-		db.Rate, c = r.Rate*float32(az)+sr.SZrate*float32(db.Size)+sr.IOrate*float32(db.IOPS), db.Rate*float32(dur)/3600
+		db.Rate, c = (r.Rate*float32(az)+s.SZrate*float32(db.Size)+s.IOrate*float32(db.IOPS))*settings.AWS.UsageAdj, db.Rate*float32(dur)/3600
 	case "stopped", "stopping":
-		db.Rate = sr.SZrate*float32(db.Size) + sr.IOrate*float32(db.IOPS)
+		db.Rate = (s.SZrate*float32(db.Size) + s.IOrate*float32(db.IOPS)) * settings.AWS.UsageAdj
 		c = db.Rate * float32(dur) / 3600
 	default:
 		db.Rate = 0

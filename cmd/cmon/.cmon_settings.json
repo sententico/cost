@@ -14,8 +14,9 @@
 	"AWS": {
 		"Options":	"<placeholder>",
 		"SavPlan":	"3nc",
-		"SavCov":	0.8,
+		"SavCov":	0.7,
 		"SpotDisc":	0.65,
+		"UsageAdj":	0.94,
 		"Accounts": {
 			"default": {
 				"us-east-1": 0.0001,
