@@ -766,9 +766,9 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 		} else {
 			db.Active[len(db.Active)-1], u = now, uint64(az*dur)
 		}
-		db.Rate, c = (r.Rate*float32(az)+s.SZrate*float32(db.Size)+s.IOrate*float32(db.IOPS))*settings.AWS.UsageAdj, db.Rate*float32(dur)/3600
+		db.Rate, c = (r.Rate*float32(az)+s.SZrate*float32(az*db.Size)+s.IOrate*float32(az*db.IOPS))*settings.AWS.UsageAdj, db.Rate*float32(dur)/3600
 	case "stopped", "stopping":
-		db.Rate = (s.SZrate*float32(db.Size) + s.IOrate*float32(db.IOPS)) * settings.AWS.UsageAdj
+		db.Rate = (s.SZrate*float32(az*db.Size) + s.IOrate*float32(az*db.IOPS)) * settings.AWS.UsageAdj
 		c = db.Rate * float32(dur) / 3600
 	default:
 		db.Rate = 0
