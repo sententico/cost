@@ -59,6 +59,7 @@ type (
 		Last   int
 		Active []int                `json:",omitempty"`
 		Perf   map[string]*perfItem `json:",omitempty"`
+		Rate   float32              `json:",omitempty"`
 	}
 	ec2Detail struct {
 		Current int
@@ -87,6 +88,7 @@ type (
 		Last   int
 		Active []int                `json:",omitempty"`
 		Perf   map[string]*perfItem `json:",omitempty"`
+		Rate   float32              `json:",omitempty"`
 	}
 	ebsDetail struct {
 		Current int
@@ -119,6 +121,7 @@ type (
 		Last    int
 		Active  []int                `json:",omitempty"`
 		Perf    map[string]*perfItem `json:",omitempty"`
+		Rate    float32              `json:",omitempty"`
 	}
 	rdsDetail struct {
 		Current int
@@ -135,11 +138,11 @@ type (
 		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
 	}
 	cdrItem struct {
-		From tel.E164digest `json:"Fr"` // decoded from number
-		To   tel.E164digest `json:"To"` // decoded to number
-		Time uint32         `json:"T"`  // actual duration (0.1s) | begin hour offset (s)
-		Cost float32        `json:"C"`  // rated USD cost (7-digit precision)
-		Info uint16         `json:"I"`  // other info: loc code | tries (orig=0) | svc provider code
+		From tel.E164digest `json:"Fr,omitempty"` // decoded from number
+		To   tel.E164digest `json:"To"`           // decoded to number
+		Time uint32         `json:"T"`            // actual duration (0.1s) | begin hour offset (s)
+		Cost float32        `json:"C"`            // rated USD cost (7-digit precision)
+		Info uint16         `json:"I"`            // other info: loc code | tries (orig=0) | svc provider code
 	}
 	hsC     map[int32]map[string]*callsItem         // calls by hour/string descriptor
 	hnC     map[int32]map[tel.E164digest]*callsItem // calls by hour/E.164 digest number
@@ -419,7 +422,7 @@ func ec2awsHack(inst *ec2Item) {
 	}
 }
 func ec2awsInsert(m *model, item map[string]string, now int) {
-	sum, detail, id := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail), item["id"]
+	sum, detail, work, id := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail), m.data[2].(*ec2Work), item["id"]
 	if item == nil {
 		if now > detail.Current {
 			detail.Current = now
@@ -432,16 +435,16 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	if inst == nil {
 		inst = &ec2Item{
 			Typ:   item["type"],
-			Plat:  item["plat"],
 			AMI:   item["ami"],
-			Spot:  item["spot"],
 			Since: now,
 		}
 		detail.Inst[id] = inst
 	}
 	inst.Acct = item["acct"]
+	inst.Plat = item["plat"]
 	inst.Vol = atoi(item["vol"], 0)
 	inst.AZ = item["az"]
+	inst.Spot = item["spot"]
 	if tag := item["tag"]; tag != "" {
 		inst.Tag = make(map[string]string)
 		for _, kv := range strings.Split(tag, "\t") {
@@ -451,39 +454,39 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	} else {
 		inst.Tag = nil
 	}
-	var usage uint64
-	if inst.State = item["state"]; inst.State == "running" {
+
+	ec2awsHack(inst)
+	k, cl := aws.RateKey{
+		Region: inst.AZ,
+		Typ:    inst.Typ,
+		Plat:   inst.Plat,
+		Terms:  "OD",
+	}, ""
+	switch inst.State = item["state"]; inst.State {
+	case "running":
+		if r := work.rates.Lookup(&k); inst.Spot == "" {
+			k.Terms = settings.AWS.SavPlan
+			inst.Rate = r.Rate*(1-settings.AWS.SavCov) + work.rates.Lookup(&k).Rate*settings.AWS.SavCov
+		} else {
+			inst.Rate, cl = r.Rate*(1-settings.AWS.SpotDisc), "sp."
+		}
 		if inst.Active == nil || inst.Last > inst.Active[len(inst.Active)-1] {
 			inst.Active = append(inst.Active, now, now)
 		} else {
 			inst.Active[len(inst.Active)-1] = now
-			usage = uint64(now - inst.Last)
+			dur := uint64(now - inst.Last)
+			hr, c := int32(now/3600), inst.Rate*float32(dur)/3600
+			if hr > sum.Current {
+				sum.Current = hr
+			}
+			sum.ByAcct.add(hr, inst.Acct, dur, c)
+			sum.ByRegion.add(hr, k.Region, dur, c)
+			sum.BySKU.add(hr, k.Region+" "+cl+k.Typ+" "+k.Plat, dur, c)
 		}
+	default:
+		inst.Rate = 0
 	}
 	inst.Last = now
-
-	if ec2awsHack(inst); usage > 0 {
-		w, hr, k, c, cl := m.data[2].(*ec2Work), int32(now/3600), aws.RateKey{
-			Region: inst.AZ,
-			Typ:    inst.Typ,
-			Plat:   inst.Plat,
-			Terms:  "OD",
-		}, float32(usage)/3600, ""
-		if hr > sum.Current {
-			sum.Current = hr
-		}
-		od := w.rates.Lookup(&k)
-		k.Terms = settings.AWS.SavPlan
-		if sv := w.rates.Lookup(&k); inst.Spot == "" {
-			c *= od.Rate*(1-settings.AWS.SavCov) + sv.Rate*settings.AWS.SavCov
-		} else {
-			c *= od.Rate * (1 - settings.AWS.SpotDisc)
-			cl = "sp."
-		}
-		sum.ByAcct.add(hr, inst.Acct, usage, c)
-		sum.ByRegion.add(hr, k.Region, usage, c)
-		sum.BySKU.add(hr, k.Region+" "+cl+k.Typ+" "+k.Plat, usage, c)
-	}
 }
 func ec2awsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
@@ -554,7 +557,7 @@ func ebsawsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func ebsawsInsert(m *model, item map[string]string, now int) {
-	sum, detail, id := m.data[0].(*ebsSum), m.data[1].(*ebsDetail), item["id"]
+	sum, detail, work, id := m.data[0].(*ebsSum), m.data[1].(*ebsDetail), m.data[2].(*ebsWork), item["id"]
 	if item == nil {
 		if now > detail.Current {
 			detail.Current = now
@@ -563,7 +566,7 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	} else if id == "" {
 		return
 	}
-	vol, usage := detail.Vol[id], uint64(0)
+	vol, dur := detail.Vol[id], 0
 	if vol == nil {
 		vol = &ebsItem{
 			Typ:   item["type"],
@@ -571,7 +574,7 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		}
 		detail.Vol[id] = vol
 	} else {
-		usage = uint64(now - vol.Last)
+		dur = now - vol.Last
 	}
 	vol.Acct = item["acct"]
 	vol.Size = atoi(item["size"], 0)
@@ -589,6 +592,12 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	} else {
 		vol.Tag = nil
 	}
+
+	k, c := aws.EBSRateKey{
+		Region: vol.AZ,
+		Typ:    vol.Typ,
+	}, float32(0)
+	r := work.rates.Lookup(&k)
 	switch vol.State = item["state"]; vol.State {
 	case "in-use":
 		if vol.Active == nil || vol.Last > vol.Active[len(vol.Active)-1] {
@@ -596,27 +605,22 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		} else {
 			vol.Active[len(vol.Active)-1] = now
 		}
+		fallthrough
 	case "available":
+		vol.Rate, c = r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS), vol.Rate*float32(dur)/3600
 	default:
-		usage = 0
+		vol.Rate = 0
 	}
-	vol.Last = now
-
-	if usage > 0 {
-		w, hr, k := m.data[2].(*ebsWork), int32(now/3600), aws.EBSRateKey{
-			Region: vol.AZ,
-			Typ:    vol.Typ,
-		}
+	if c > 0 {
+		hr, u := int32(now/3600), uint64(vol.Size*dur)
 		if hr > sum.Current {
 			sum.Current = hr
 		}
-		r := w.rates.Lookup(&k)
-		c := (float32(vol.Size)*r.SZrate + float32(vol.IOPS)*r.IOrate) * float32(usage) / 3600
-		usage *= uint64(vol.Size)
-		sum.ByAcct.add(hr, vol.Acct, usage, c)
-		sum.ByRegion.add(hr, k.Region, usage, c)
-		sum.BySKU.add(hr, k.Region+" "+k.Typ, usage, c)
+		sum.ByAcct.add(hr, vol.Acct, u, c)
+		sum.ByRegion.add(hr, k.Region, u, c)
+		sum.BySKU.add(hr, k.Region+" "+k.Typ, u, c)
 	}
+	vol.Last = now
 }
 func ebsawsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
@@ -689,7 +693,7 @@ func rdsawsBoot(n string, ctl chan string) {
 	ctl <- n
 }
 func rdsawsInsert(m *model, item map[string]string, now int) {
-	sum, detail, id := m.data[0].(*rdsSum), m.data[1].(*rdsDetail), item["id"]
+	sum, detail, work, id := m.data[0].(*rdsSum), m.data[1].(*rdsDetail), m.data[2].(*rdsWork), item["id"]
 	if item == nil {
 		if now > detail.Current {
 			detail.Current = now
@@ -698,7 +702,7 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	} else if id == "" {
 		return
 	}
-	db, usage, susage := detail.DB[id], uint64(0), uint64(0)
+	db, dur, az := detail.DB[id], 0, 1
 	if db == nil {
 		db = &rdsItem{
 			Typ:    item["type"],
@@ -708,8 +712,7 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 		}
 		detail.DB[id] = db
 	} else {
-		usage = uint64(now - db.Last)
-		susage = usage
+		dur = now - db.Last
 	}
 	db.Acct = item["acct"]
 	db.Size = atoi(item["size"], 0)
@@ -718,8 +721,7 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	db.AZ = item["az"]
 	db.Lic = item["lic"]
 	if db.MultiAZ = item["multiaz"] == "True"; db.MultiAZ {
-		usage *= 2
-		susage *= 2
+		az = 2
 	}
 	if tag := item["tag"]; tag != "" {
 		db.Tag = make(map[string]string)
@@ -730,39 +732,41 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 	} else {
 		db.Tag = nil
 	}
+
+	k := aws.RateKey{
+		Region: db.AZ,
+		Typ:    db.Typ,
+		Plat:   db.Engine,
+		Terms:  "OD",
+	}
+	r, sr, u, c := work.rates.Lookup(&k), work.srates.Lookup(&aws.EBSRateKey{
+		Region: db.AZ,
+		Typ:    db.STyp,
+	}), uint64(0), float32(0)
 	switch db.State = item["state"]; db.State {
 	case "available", "backing-up":
 		if db.Active == nil || db.Last > db.Active[len(db.Active)-1] {
-			db.Active, usage = append(db.Active, now, now), 0
+			db.Active = append(db.Active, now, now)
 		} else {
-			db.Active[len(db.Active)-1] = now
+			db.Active[len(db.Active)-1], u = now, uint64(az*dur)
 		}
-	case "stopped":
-		usage = 0
+		db.Rate, c = r.Rate*float32(az)+sr.SZrate*float32(db.Size)+sr.IOrate*float32(db.IOPS), db.Rate*float32(dur)/3600
+	case "stopped", "stopping":
+		db.Rate = sr.SZrate*float32(db.Size) + sr.IOrate*float32(db.IOPS)
+		c = db.Rate * float32(dur) / 3600
 	default:
-		usage, susage = 0, 0
+		db.Rate = 0
 	}
-	db.Last = now
-
-	if usage > 0 || susage > 0 {
-		w, hr, k, sk := m.data[2].(*rdsWork), int32(now/3600), aws.RateKey{
-			Region: db.AZ,
-			Typ:    db.Typ,
-			Plat:   db.Engine,
-			Terms:  "OD",
-		}, aws.EBSRateKey{
-			Region: db.AZ,
-			Typ:    db.STyp,
-		}
+	if c > 0 {
+		hr := int32(now / 3600)
 		if hr > sum.Current {
 			sum.Current = hr
 		}
-		od, r := w.rates.Lookup(&k), w.srates.Lookup(&sk)
-		c := (od.Rate*float32(usage) + (float32(db.Size)*r.SZrate+float32(db.IOPS)*r.IOrate)*float32(susage)) / 3600
-		sum.ByAcct.add(hr, db.Acct, usage, c)
-		sum.ByRegion.add(hr, k.Region, usage, c)
-		sum.BySKU.add(hr, k.Region+" "+k.Typ+" "+k.Plat, usage, c)
+		sum.ByAcct.add(hr, db.Acct, u, c)
+		sum.ByRegion.add(hr, k.Region, u, c)
+		sum.BySKU.add(hr, k.Region+" "+k.Typ+" "+k.Plat, u, c)
 	}
+	db.Last = now
 }
 func rdsawsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
@@ -911,7 +915,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	if err != nil || id == 0 {
 		return
 	}
-	beg, dur, lc, ln := int32(b.Unix()), uint32(atoi(item["dur"], 0)+5)/10, work.sl.Code(item["loc"]), ""
+	beg, dur, lc, ln := int32(b.Unix()), uint32(atoi(item["dur"], 0)+9)/10, work.sl.Code(item["loc"]), ""
 	var decoder *tel.Decoder
 	switch ln = work.sl.Name(lc); ln {
 	case "ASH", "LAS", "lab", "AWS lab":
