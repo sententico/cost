@@ -697,6 +697,7 @@ func rdsawsBoot(n string, ctl chan string) {
 	m.persist = len(m.data)
 	sync(n)
 
+	work.srates.Default = aws.DefaultRDSEBSRates
 	if err := work.rates.Load(nil, "RDS"); err != nil {
 		logE.Fatalf("%q cannot load RDS rates: %v", n, err)
 	} else if err = work.srates.Load(nil); err != nil {
