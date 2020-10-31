@@ -416,7 +416,9 @@ func ec2awsBoot(n string, ctl chan string) {
 func ec2awsHack(inst *ec2Item) {
 	switch settings.Unit {
 	case "cmon-aspect":
-		if inst.Plat == "windows" && inst.Vol > 4 && strings.HasSuffix(inst.Tag["app"], ".edw") {
+		if inst.Plat == "windows" && inst.Vol > 4 && (strings.HasSuffix(inst.Tag["app"], ".edw") ||
+			strings.HasSuffix(inst.Tag["app"], ".wfd") ||
+			strings.HasSuffix(inst.Tag["app"], "_db")) {
 			inst.Plat = "sqlserver-se"
 		}
 	}
