@@ -121,6 +121,8 @@ func getRes(scache *csv.Settings, fn string) {
 	defer res.Close()
 	if csvFlag {
 		write = csvWriter(&res, nil)
+	} else if debugFlag {
+		fmt.Println(res)
 	} else if rateFlag {
 		switch rfmt = res.Settings.Format; rfmt {
 		case "Intelepeer CDR":

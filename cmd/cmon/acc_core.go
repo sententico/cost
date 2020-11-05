@@ -416,6 +416,7 @@ func ec2awsBoot(n string, ctl chan string) {
 func ec2awsHack(inst *ec2Item) {
 	switch settings.Unit {
 	case "cmon-aspect":
+		// 88% of "sqlserver-se" EC2 instances identified by this hack (Oct20)
 		if inst.Plat == "windows" && inst.Vol > 4 && (strings.HasSuffix(inst.Tag["app"], ".edw") ||
 			strings.HasSuffix(inst.Tag["app"], ".wfd") ||
 			strings.HasSuffix(inst.Tag["app"], "_db")) {

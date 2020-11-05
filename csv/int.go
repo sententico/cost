@@ -448,7 +448,7 @@ func (res *Resource) getHeads() (heads []string) {
 //		"name:1,age:4,acct num:6" (same, with explicit columns)
 //		"name:={James:Mary},,,age,,acct num:!{N/A:00000}" (same with inclusive/exclusive filters)
 //		"name:20,:62,age:65,:122,acct num:127" (now in a fixed file with implicit begin columns)
-//		"name:1:20,age:63:65,!acct num:![N/A:00000:]:123:127" (same but explicit with skip/filter)
+//		"name:1:20,age:63:65,!acct num:!{N/A:00000:}:123:127" (same but explicit with skip/filter)
 func parseCMap(cmap string, fixed bool, wid int) (m map[string]cmapItem, selected int) {
 	switch {
 	case cmap == "" && fixed:
