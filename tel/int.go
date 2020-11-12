@@ -102,7 +102,7 @@ const (
 		"7":	{"Name":"Intelepeer",	"Alias":["INTELEPEER","IP","ip","IPEER"]},
 		"8":	{"Name":"Inteliquent",	"Alias":["INTELIQUENT","inteliquent","IQ","iq","NT","nt","INTLQNT"]},
 		"9":	{"Name":"Level 3",		"Alias":["LEVEL 3","level 3","LEVEL3","level3","L3","l3"]},
-		"10":	{"Name":"NuWave",		"Alias":["NUWAVE","nuwave","NW","nw"]},
+		"10":	{"Name":"NuWave",		"Alias":["NUWAVE","nuwave","NW","nw","ATTNUWAVE","VZNUWAVE"]},
 		"11":	{"Name":"Tata",			"Alias":["TATA","tata","TA","ta"]},
 		"12":	{"Name":"Verizon",		"Alias":["VERIZON","verizon","VZ","vz"]},
 		"13":	{"Name":"Voxbone",		"Alias":["VOXBONE","voxbone","VB","vb"]},
