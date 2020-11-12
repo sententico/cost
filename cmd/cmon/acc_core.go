@@ -1014,7 +1014,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			tsum.ByLoc.add(hr, ln, cdr)
 			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
 			tsum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
-			tsum.ByFrom.add(hr, cdr.From, cdr)
+			if cdr.From != 0 {
+				tsum.ByFrom.add(hr, cdr.From, cdr)
+			}
 			tsum.ByTo.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
 		}
 	}
@@ -1038,9 +1040,9 @@ func cdraspClean(n string, deep bool) {
 		}
 	}
 	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
-	tsum.ByFrom.sig(texp, 0.5)
-	tsum.ByTo.sig(texp, 0.5)
-	osum.ByTo.sig(oexp, 0.5)
+	tsum.ByFrom.sig(texp, 1.00)
+	tsum.ByTo.sig(texp, 1.00)
+	osum.ByTo.sig(oexp, 1.00)
 	texp, oexp = tsum.Current-24*90, osum.Current-24*90
 	tsum.ByLoc.clean(texp)
 	tsum.ByGeo.clean(texp)
