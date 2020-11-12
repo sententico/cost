@@ -150,8 +150,8 @@ type (
 	termSum struct {
 		Current int32 // hour cursor in term summary maps (Unix time, hours past epoch)
 		ByLoc   hsC   // map by hour (Unix time, hours past epoch) / service location
-		ByGeo   hsC   // map by hour / to geo zone
 		BySP    hsC   // map by hour / service provider
+		ByGeo   hsC   // map by hour / to geo zone
 		ByFrom  hnC   // map by hour / full from number
 		ByTo    hnC   // map by hour / to prefix (CC+P)
 	}
@@ -159,6 +159,8 @@ type (
 		Current int32 // hour cursor in orig summary maps (Unix time, hours past epoch)
 		ByLoc   hsC   // map by hour (Unix time, hours past epoch) / service location
 		BySP    hsC   // map by hour / service provider
+		ByGeo   hsC   // map by hour / from geo zone
+		ByFrom  hnC   // map by hour / from prefix (CC+P)
 		ByTo    hnC   // map by hour / full to number
 	}
 	termDetail struct {
@@ -840,18 +842,20 @@ func rdsawsTerm(n string, ctl chan string) {
 func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
 		ByLoc:  make(hsC, 2184),
-		ByGeo:  make(hsC, 2184),
 		BySP:   make(hsC, 2184),
+		ByGeo:  make(hsC, 2184),
 		ByFrom: make(hnC, 2184),
 		ByTo:   make(hnC, 2184),
 	}, &origSum{
-		ByLoc: make(hsC, 2184),
-		BySP:  make(hsC, 2184),
-		ByTo:  make(hnC, 2184),
+		ByLoc:  make(hsC, 2184),
+		BySP:   make(hsC, 2184),
+		ByGeo:  make(hsC, 2184),
+		ByFrom: make(hnC, 2184),
+		ByTo:   make(hnC, 2184),
 	}, &termDetail{
-		CDR: make(hiD, 2184),
+		CDR: make(hiD, 60),
 	}, &origDetail{
-		CDR: make(hiD, 2184),
+		CDR: make(hiD, 60),
 	}, &cdrWork{}, mMod[n]
 	m.data = append(m.data, tsum)
 	m.data = append(m.data, osum)
@@ -985,6 +989,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if odetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
 			osum.ByLoc.add(hr, ln, cdr)
 			osum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
+			if cdr.From != 0 {
+				osum.ByGeo.add(hr, work.tn.Geo, cdr)
+				osum.ByFrom.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
+			}
 			osum.ByTo.add(hr, cdr.To, cdr)
 		}
 	default:
@@ -1012,8 +1020,8 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		if tdetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
 			tsum.ByLoc.add(hr, ln, cdr)
-			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
 			tsum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
+			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
 			if cdr.From != 0 {
 				tsum.ByFrom.add(hr, cdr.From, cdr)
 			}
@@ -1042,6 +1050,7 @@ func cdraspClean(n string, deep bool) {
 	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
 	tsum.ByFrom.sig(texp, 1.00)
 	tsum.ByTo.sig(texp, 1.00)
+	osum.ByFrom.sig(oexp, 1.00)
 	osum.ByTo.sig(oexp, 1.00)
 	texp, oexp = tsum.Current-24*90, osum.Current-24*90
 	tsum.ByLoc.clean(texp)
@@ -1050,7 +1059,9 @@ func cdraspClean(n string, deep bool) {
 	tsum.ByFrom.clean(texp)
 	tsum.ByTo.clean(texp)
 	osum.ByLoc.clean(oexp)
+	osum.ByGeo.clean(oexp)
 	osum.BySP.clean(oexp)
+	osum.ByFrom.clean(oexp)
 	osum.ByTo.clean(oexp)
 
 	m.rel <- token
