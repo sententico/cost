@@ -344,7 +344,7 @@ func trigcmonClean(n string, deep bool) {
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
-	// clean expired/invalid data
+	// clean expired/invalid/insignificant data
 	// trig := m.data[0].(*trigModel)
 	m.rel <- token
 	evt <- n
@@ -506,7 +506,7 @@ func ec2awsClean(n string, deep bool) {
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
-	// clean expired/invalid data
+	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
 	for id, inst := range detail.Inst {
 		if id == "" || detail.Current-inst.Last > 86400*8 {
@@ -643,7 +643,7 @@ func ebsawsClean(n string, deep bool) {
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
-	// clean expired/invalid data
+	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
 	for id, vol := range detail.Vol {
 		if id == "" || detail.Current-vol.Last > 86400*8 {
@@ -793,7 +793,7 @@ func rdsawsClean(n string, deep bool) {
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
-	// clean expired/invalid data
+	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
 	for id, db := range detail.DB {
 		if id == "" || detail.Current-db.Last > 86400*8 {
@@ -928,6 +928,22 @@ func (m hnC) clean(exp int32) {
 		}
 	}
 }
+func (m hnC) sig(active int32, min float64) {
+	for hr, nm := range m {
+		if zc := nm[0]; zc == nil && hr < active {
+			zc = &callsItem{}
+			for n, nc := range nm {
+				if nc.Cost < min {
+					zc.Calls += nc.Calls
+					zc.Dur += nc.Dur
+					zc.Cost += nc.Cost
+					delete(nm, n)
+				}
+			}
+			nm[0] = zc
+		}
+	}
+}
 func cdraspInsert(m *model, item map[string]string, now int) {
 	id, tsum, osum := ato64(item["id"], 0), m.data[0].(*termSum), m.data[1].(*origSum)
 	tdetail, odetail, work := m.data[2].(*termDetail), m.data[3].(*origDetail), m.data[4].(*cdrWork)
@@ -1008,6 +1024,7 @@ func cdraspClean(n string, deep bool) {
 	m.req <- modRq{atEXCL, acc}
 	token := <-acc
 
+	// clean expired/invalid/insignificant data
 	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
 	texp, oexp := tdetail.Current-36, odetail.Current-36
 	for hr := range tdetail.CDR {
@@ -1021,12 +1038,15 @@ func cdraspClean(n string, deep bool) {
 		}
 	}
 	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
-	tsum.ByFrom.clean(texp)
-	tsum.ByTo.clean(texp)
-	texp, oexp = tsum.Current-24*60, osum.Current-24*60
+	tsum.ByFrom.sig(texp, 0.5)
+	tsum.ByTo.sig(texp, 0.5)
+	osum.ByTo.sig(oexp, 0.5)
+	texp, oexp = tsum.Current-24*90, osum.Current-24*90
 	tsum.ByLoc.clean(texp)
 	tsum.ByGeo.clean(texp)
 	tsum.BySP.clean(texp)
+	tsum.ByFrom.clean(texp)
+	tsum.ByTo.clean(texp)
 	osum.ByLoc.clean(oexp)
 	osum.BySP.clean(oexp)
 	osum.ByTo.clean(oexp)
