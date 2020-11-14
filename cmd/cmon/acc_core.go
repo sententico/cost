@@ -38,6 +38,7 @@ type (
 		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
 	}
 	hsU map[int32]map[string]*usageItem // usage by hour/string descriptor
+	hsA map[int32]map[string]float64    // amount (USD cost) by hour/string descriptor
 
 	ec2Sum struct {
 		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
@@ -130,6 +131,27 @@ type (
 	rdsWork struct {
 		rates  aws.Rater
 		srates aws.EBSRater
+	}
+
+	curSum struct {
+		Current  int32               // hour cursor in summary maps (Unix time, hours past epoch)
+		Months   map[string][2]int32 // month strings to hour ranges map
+		ByAcct   hsA                 // map by hour / account
+		ByRegion hsA                 // map by hour / region
+	}
+	curItem struct {
+		Acct string    `json:"A"`
+		Typ  string    `json:"T"`
+		Hour []int32   `json:"H,omitempty"`
+		HQty []float32 `json:"HQ,omitempty"`
+		Qty  float32   `json:"Q"`
+		Cost float32   `json:"C"`
+	}
+	curDetail map[string]map[string]*curItem // CUR line item map by month
+	curWork   struct {
+		imo     string    // CUR insertion month
+		isum    curSum    // CUR summary insertion maps
+		idetail curDetail // CUR line item insertion map
 	}
 
 	callsItem struct {
@@ -226,10 +248,10 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 	}
 }
 
-func gopher(src string, insert func(*model, map[string]string, int)) {
+func gopher(src string, insert func(*model, map[string]string, int), meta bool) {
 	m, goph, eb, start, now := mMod[src], unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
 	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
-	acc, token, pages, items, meta := make(chan accTok, 1), accTok(0), 0, 0, false
+	acc, token, pages, items := make(chan accTok, 1), accTok(0), 0, 0
 	defer func() {
 		if e := recover(); e != nil {
 			if token != 0 {
@@ -244,10 +266,12 @@ func gopher(src string, insert func(*model, map[string]string, int)) {
 			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
 		}
 		if items > 0 {
-			m.req <- modRq{atEXCL, acc}
-			token = <-acc
-			insert(m, nil, start)
-			m.rel <- token
+			if !meta {
+				m.req <- modRq{atEXCL, acc}
+				token = <-acc
+				insert(m, nil, start)
+				m.rel <- token
+			}
 			evt <- src
 		}
 	}()
@@ -268,7 +292,7 @@ func gopher(src string, insert func(*model, map[string]string, int)) {
 		pages++
 		m.req <- modRq{atEXCL, acc}
 		for token = <-acc; ; {
-			if _, meta = item["~meta"]; !meta {
+			if meta || item["~meta"] == "" {
 				insert(m, item, now)
 				items++
 			}
@@ -389,6 +413,21 @@ func (m hsU) add(hr int32, k string, usage uint64, cost float32) {
 	}
 }
 func (m hsU) clean(exp int32) {
+	for hr := range m {
+		if hr <= exp {
+			delete(m, hr)
+		}
+	}
+}
+func (m hsA) add(hr int32, k string, amount float32) {
+	if hm := m[hr]; hm == nil {
+		hm = make(map[string]float64)
+		m[hr], hm[k] = hm, float64(amount)
+	} else {
+		hm[k] += float64(amount)
+	}
+}
+func (m hsA) clean(exp int32) {
 	for hr := range m {
 		if hr <= exp {
 			delete(m, hr)
@@ -524,7 +563,7 @@ func ec2awsClean(n string, deep bool) {
 	evt <- n
 }
 func ec2awsMaint(n string) {
-	goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert) })
+	goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert, false) })
 	goaftSession(240*time.Second, 270*time.Second, func() { ec2awsClean(n, true) })
 	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
@@ -533,7 +572,7 @@ func ec2awsMaint(n string) {
 		time.NewTicker(10800*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
-			goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert) })
+			goaftSession(0, 60*time.Second, func() { gopher(n, ec2awsInsert, false) })
 		case <-sg.C:
 			//goaftSession(0, 60*time.Second, func() {gopher(n+"/stats", ec2awsSInsert)})
 		case <-cl.C:
@@ -661,7 +700,7 @@ func ebsawsClean(n string, deep bool) {
 	evt <- n
 }
 func ebsawsMaint(n string) {
-	goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert) })
+	goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert, false) })
 	goaftSession(240*time.Second, 270*time.Second, func() { ebsawsClean(n, true) })
 	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
@@ -670,7 +709,7 @@ func ebsawsMaint(n string) {
 		time.NewTicker(10800*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
-			goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert) })
+			goaftSession(0, 60*time.Second, func() { gopher(n, ebsawsInsert, false) })
 		case <-sg.C:
 			//goaftSession(0, 60*time.Second, func() {gopher(n+"/stats", ebsawsSInsert)})
 		case <-cl.C:
@@ -811,7 +850,7 @@ func rdsawsClean(n string, deep bool) {
 	evt <- n
 }
 func rdsawsMaint(n string) {
-	goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert) })
+	goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert, false) })
 	goaftSession(240*time.Second, 270*time.Second, func() { rdsawsClean(n, true) })
 	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
 
@@ -820,7 +859,7 @@ func rdsawsMaint(n string) {
 		time.NewTicker(10800*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-g.C:
-			goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert) })
+			goaftSession(0, 60*time.Second, func() { gopher(n, rdsawsInsert, false) })
 		case <-sg.C:
 			//goaftSession(0, 60*time.Second, func() {gopher(n+"/stats", rdsawsSInsert)})
 		case <-cl.C:
@@ -835,6 +874,98 @@ func rdsawsMaint(n string) {
 }
 func rdsawsTerm(n string, ctl chan string) {
 	rdsawsClean(n, false)
+	flush(n, atEXCL, false)
+	ctl <- n
+}
+
+func curawsBoot(n string, ctl chan string) {
+	sum, detail, work, m := &curSum{
+		Months:   make(map[string][2]int32, 6),
+		ByAcct:   make(hsA, 2184),
+		ByRegion: make(hsA, 2184),
+	}, make(curDetail, 6), &curWork{}, mMod[n]
+	m.data = append(m.data, sum)
+	m.data = append(m.data, detail)
+	m.persist = len(m.data)
+	sync(n)
+
+	m.data = append(m.data, work)
+	ctl <- n
+}
+func curawsClean(n string, deep bool) {
+	m, acc := mMod[n], make(chan accTok, 1)
+	m.req <- modRq{atEXCL, acc}
+	token := <-acc
+
+	// clean expired/invalid/insignificant data
+	sum := m.data[0].(*curSum)
+	exp := sum.Current - 24*90
+	sum.ByAcct.clean(exp)
+	sum.ByRegion.clean(exp)
+
+	m.rel <- token
+	evt <- n
+}
+func curawsInsert(m *model, item map[string]string, now int) {
+	work, id := m.data[2].(*curWork), item["id"]
+	if id == "" {
+		if meta := item["~meta"]; strings.HasPrefix(meta, "begin ") {
+			work.imo, work.idetail = "", make(curDetail, 6)
+			work.isum.ByAcct, work.isum.ByRegion = make(hsA), make(hsA)
+		} else if strings.HasPrefix(meta, "section 20") && len(meta) > 14 {
+			if work.imo = meta[8:14]; work.idetail[work.imo] == nil {
+				work.idetail[work.imo] = make(map[string]*curItem)
+			}
+		} else if strings.HasPrefix(meta, "end ") {
+			// link work areas to persisted areas; drop old month when adding new
+			// psum, pdetail := m.data[0].(*curSum), m.data[1].(curDetail)
+		}
+		return
+	} else if work.imo == "" {
+		return
+	}
+	line := work.idetail[work.imo][id]
+	if line == nil {
+		line = &curItem{
+			Acct: item["acct"],
+		}
+		work.idetail[work.imo][id] = line
+	}
+}
+func curawsMaint(n string) {
+	goGo := make(chan bool, 1)
+	goaftSession(0, 60*time.Second, func() {
+		gopher(n, curawsInsert, true)
+		goGo <- true
+	})
+	goaftSession(240*time.Second, 270*time.Second, func() { curawsClean(n, true) })
+	goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
+
+	for m, g, cl, fl := mMod[n],
+		time.NewTicker(360*time.Second),
+		time.NewTicker(21600*time.Second), time.NewTicker(21600*time.Second); ; {
+		select {
+		case <-g.C:
+			goaftSession(0, 60*time.Second, func() {
+				select {
+				case <-goGo: // serialize cur.aws gophers
+					gopher(n, curawsInsert, true)
+					goGo <- true
+				default:
+				}
+			})
+		case <-cl.C:
+			goaftSession(240*time.Second, 270*time.Second, func() { curawsClean(n, true) })
+		case <-fl.C:
+			goaftSession(300*time.Second, 320*time.Second, func() { flush(n, 0, true) })
+
+		case <-m.evt:
+			// TODO: process event notifications
+		}
+	}
+}
+func curawsTerm(n string, ctl chan string) {
+	curawsClean(n, false)
 	flush(n, atEXCL, false)
 	ctl <- n
 }
@@ -1072,7 +1203,7 @@ func cdraspClean(n string, deep bool) {
 func cdraspMaint(n string) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 60*time.Second, func() {
-		gopher(n, cdraspInsert)
+		gopher(n, cdraspInsert, false)
 		goGo <- true
 	})
 	goaftSession(240*time.Second, 270*time.Second, func() { cdraspClean(n, true) })
@@ -1086,7 +1217,7 @@ func cdraspMaint(n string) {
 			goaftSession(0, 60*time.Second, func() {
 				select {
 				case <-goGo: // serialize cdr.asp gophers
-					gopher(n, cdraspInsert)
+					gopher(n, cdraspInsert, false)
 					goGo <- true
 				default:
 				}

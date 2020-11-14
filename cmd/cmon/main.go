@@ -100,6 +100,7 @@ func init() {
 		"ec2.aws":   {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
 		"ebs.aws":   {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
 		"rds.aws":   {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
+		"cur.aws":   {boot: curawsBoot, maint: curawsMaint, term: curawsTerm},
 		"cdr.asp":   {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
 	}, func(pri string, dflt string) string {
 		if strings.HasPrefix(pri, "CMON_") {

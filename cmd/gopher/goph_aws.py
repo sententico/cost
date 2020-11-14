@@ -7,8 +7,10 @@ from    datetime                import  datetime,timedelta
 import  random
 import  signal
 import  json
+import  subprocess
 import  boto3
 from    botocore.exceptions     import  ProfileNotFound,ClientError,EndpointConnectionError,ConnectionClosedError
+import  awslib.patterns         as      aws
 #import  datadog
 
 class GError(Exception):
@@ -50,7 +52,7 @@ def ex(err, code):
     if err: sys.stderr.write(err)
     sys.exit(code)
 
-def csvWriter(m, cols):
+def getWriter(m, cols):
     section, flt = None, str.maketrans('\n',' ','\r')
     def csvWrite(s, row):
         nonlocal m, cols, section, flt
@@ -70,7 +72,7 @@ def csvWriter(m, cols):
 
 def gophEC2AWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
+    csv = getWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -97,7 +99,7 @@ def gophEC2AWS(m, cmon, args):
 
 def gophEBSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','size','iops','az','state','mount','tag'])
+    csv = getWriter(m, ['id','acct','type','size','iops','az','state','mount','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -125,7 +127,7 @@ def gophEBSAWS(m, cmon, args):
 
 def gophRDSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = csvWriter(m, ['id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag'])
+    csv = getWriter(m, ['id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -157,12 +159,31 @@ def gophRDSAWS(m, cmon, args):
                        })
     csv(None, None)
 
+def gophCURAWS(m, cmon, args):
+    if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
+    csv, s = getWriter(m, ['id','type']), ""
+
+    with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+        for l in p.stdout:
+            if not l.startswith('#!'):
+                col = l.split(',', 10)
+                if len(col) <= 10: continue
+                # TODO: filter CUR file content leveraging regex library
+
+                csv(s, {'id':       col[0],     # line item ID
+                        'type':     col[9],     # line item type
+                        })
+            elif l.startswith('#!begin '):
+                s = l[:-1].partition(' ')[2].partition('~link')[0]
+        csv(None, None)
+
 def main():
     '''Parse command line args and run gopher command'''
     gophModels = {                      # gopher model map
         'ec2.aws':      [gophEC2AWS,    'fetch EC2 instances from AWS'],
         'ebs.aws':      [gophEBSAWS,    'fetch EBS volumes from AWS'],
         'rds.aws':      [gophRDSAWS,    'fetch RDS databases from AWS'],
+        'cur.aws':      [gophCURAWS,    'fetch CUR cost/usage data from AWS'],
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')

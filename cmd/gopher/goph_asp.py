@@ -4,10 +4,10 @@ import  sys
 import  os
 import  argparse
 from    datetime                import  datetime,timedelta
-import  subprocess
 import  random
 import  signal
 import  json
+import  subprocess
 
 class GError(Exception):
     '''Module exception'''
@@ -48,7 +48,7 @@ def ex(err, code):
     if err: sys.stderr.write(err)
     sys.exit(code)
 
-def csvWriter(m, cols):
+def getWriter(m, cols):
     section, flt = None, str.maketrans('\n',' ','\r')
     def csvWrite(s, row):
         nonlocal m, cols, section, flt
@@ -68,7 +68,7 @@ def csvWriter(m, cols):
 
 def gophCDRASP(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    csv, s = csvWriter(m, ['id','loc','begin','dur','type','from','to','dip','try','iTG','eTG','IP']), ""
+    csv, s = getWriter(m, ['id','loc','begin','dur','type','from','to','dip','try','iTG','eTG','IP']), ""
 
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
