@@ -134,10 +134,9 @@ type (
 	}
 
 	curSum struct {
-		Current  int32               // hour cursor in summary maps (Unix time, hours past epoch)
-		Months   map[string][2]int32 // month strings to hour ranges map
-		ByAcct   hsA                 // map by hour / account
-		ByRegion hsA                 // map by hour / region
+		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		ByAcct   hsA   // map by hour / account
+		ByRegion hsA   // map by hour / region
 	}
 	curItem struct {
 		Acct string    `json:"A"`
@@ -147,11 +146,14 @@ type (
 		Qty  float32   `json:"Q"`
 		Cost float32   `json:"C"`
 	}
-	curDetail map[string]map[string]*curItem // CUR line item map by month
-	curWork   struct {
-		imo     string    // CUR insertion month
-		isum    curSum    // CUR summary insertion maps
-		idetail curDetail // CUR line item insertion map
+	curDetail struct {
+		Month map[string][2]int32            // month strings to hour ranges map
+		Line  map[string]map[string]*curItem // CUR line item map by month
+	}
+	curWork struct {
+		imo  string    // CUR insertion month
+		isum curSum    // CUR summary insertion maps
+		idet curDetail // CUR line item insertion map
 	}
 
 	callsItem struct {
@@ -880,10 +882,12 @@ func rdsawsTerm(n string, ctl chan string) {
 
 func curawsBoot(n string, ctl chan string) {
 	sum, detail, work, m := &curSum{
-		Months:   make(map[string][2]int32, 6),
 		ByAcct:   make(hsA, 2184),
 		ByRegion: make(hsA, 2184),
-	}, make(curDetail, 6), &curWork{}, mMod[n]
+	}, &curDetail{
+		Month: make(map[string][2]int32, 6),
+		Line:  make(map[string]map[string]*curItem, 6),
+	}, &curWork{}, mMod[n]
 	m.data = append(m.data, sum)
 	m.data = append(m.data, detail)
 	m.persist = len(m.data)
@@ -910,27 +914,29 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	work, id := m.data[2].(*curWork), item["id"]
 	if id == "" {
 		if meta := item["~meta"]; strings.HasPrefix(meta, "begin ") {
-			work.imo, work.idetail = "", make(curDetail, 6)
+			work.imo, work.idet = "", curDetail{
+				Line: make(map[string]map[string]*curItem),
+			}
 			work.isum.ByAcct, work.isum.ByRegion = make(hsA), make(hsA)
 		} else if strings.HasPrefix(meta, "section 20") && len(meta) > 14 {
-			if work.imo = meta[8:14]; work.idetail[work.imo] == nil {
-				work.idetail[work.imo] = make(map[string]*curItem)
+			if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
+				work.idet.Line[work.imo] = make(map[string]*curItem)
 			}
 		} else if strings.HasPrefix(meta, "end ") {
 			// TODO: link work areas to persisted areas; drop old month when adding new
-			_, pdetail := m.data[0].(*curSum), m.data[1].(curDetail)
-			pdetail[work.imo] = work.idetail[work.imo]
+			_, pdetail := m.data[0].(*curSum), m.data[1].(*curDetail)
+			pdetail.Line[work.imo] = work.idet.Line[work.imo]
 		}
 		return
 	} else if work.imo == "" {
 		return
 	}
-	line := work.idetail[work.imo][id]
+	line := work.idet.Line[work.imo][id]
 	if line == nil {
 		line = &curItem{
 			Acct: item["acct"],
 		}
-		work.idetail[work.imo][id] = line
+		work.idet.Line[work.imo][id] = line
 	}
 }
 func curawsMaint(n string) {
