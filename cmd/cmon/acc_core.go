@@ -917,8 +917,9 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				work.idetail[work.imo] = make(map[string]*curItem)
 			}
 		} else if strings.HasPrefix(meta, "end ") {
-			// link work areas to persisted areas; drop old month when adding new
-			// psum, pdetail := m.data[0].(*curSum), m.data[1].(curDetail)
+			// TODO: link work areas to persisted areas; drop old month when adding new
+			_, pdetail := m.data[0].(*curSum), m.data[1].(curDetail)
+			pdetail[work.imo] = work.idetail[work.imo]
 		}
 		return
 	} else if work.imo == "" {
