@@ -7,10 +7,10 @@ import  sys
 import  os
 import  argparse
 from    datetime                import  datetime,timedelta
-import  subprocess
 import  random
 import  signal
 import  json
+import  subprocess
 
 class GError(Exception):
     '''Module exception'''
@@ -51,46 +51,40 @@ def ex(err, code):
     if err: sys.stderr.write(err)
     sys.exit(code)
 
-def csvWriter(m, cols):
-    section, flt = None, str.maketrans('\n',' ','\r')
+def getWriter(m, cols):
+    section, flt, buf = '', str.maketrans('\n',' ','\r'), [
+        '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
+        '\t'.join(cols),
+    ]
     def csvWrite(s, row):
-        nonlocal m, cols, section, flt
-        if section is None:
-            sys.stdout.write('#!begin gopher {} # at {}\n{}\n'.format(m,
-                             datetime.now().isoformat(), '\t'.join(cols)))
-            section = ''
+        nonlocal m, cols, section, flt, buf
         if row:
             if s and s != section:
-                sys.stdout.write('\n#!section {}\n'.format(s))
+                buf.append('\n#!section {}'.format(s))
                 section = s
-            sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
-                                                          for n in cols])))
-        else:
+            buf.append('"{}"'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
+                                                  for n in cols])))
+            sys.stdout.write('{}\n'.format('\n'.join(buf)))
+            buf = []
+        elif not buf:
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
 def gophXXXK8s(m, cmon, args):
     if not cmon.get('K8s'): raise GError('no K8s configuration for {}'.format(m))
-    csv, s = csvWriter(m, ['id','date','time','dur','from','to','dip','egress']), ""
+    if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
+    csv, s = getWriter(m, ['id','type']), ""
 
-    with subprocess.Popen(['goph_xxxk8s.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+    # TODO: replace stub
+    with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_xxxk8s.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
-            if l.startswith('STOP,'):
-                col = l.split(',', 32)
-                if len(col) <= 32: continue
-                csv(s, {'id':       col[2],
-                        'date':     col[5],
-                        'time':     col[6],
-                        'dur':      col[13],
-                        'from':     col[19],
-                        'to':       col[20],
-                        'dip':      col[23],
-                        'egress':   col[31],
+            if not l.startswith('#!'):
+                col = l.split(',', 10)
+                if len(col) <= 10: continue
+
+                csv(s, {'id':       col[0],     # line item ID
+                        'type':     col[9],     # line item type
                         })
-                # are all STOP records termination CDRs?
-                #    if not, where is call direction indicated?
-                # where is the service provider indicated?
-                # are route attempts [29] always 1?
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
         csv(None, None)

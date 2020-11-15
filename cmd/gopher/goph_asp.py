@@ -49,20 +49,21 @@ def ex(err, code):
     sys.exit(code)
 
 def getWriter(m, cols):
-    section, flt = None, str.maketrans('\n',' ','\r')
+    section, flt, buf = '', str.maketrans('\n',' ','\r'), [
+        '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
+        '\t'.join(cols),
+    ]
     def csvWrite(s, row):
-        nonlocal m, cols, section, flt
-        if section is None:
-            sys.stdout.write('#!begin gopher {} # at {}\n{}\n'.format(m,
-                             datetime.now().isoformat(), '\t'.join(cols)))
-            section = ''
+        nonlocal m, cols, section, flt, buf
         if row:
             if s and s != section:
-                sys.stdout.write('\n#!section {}\n'.format(s))
+                buf.append('\n#!section {}'.format(s))
                 section = s
-            sys.stdout.write('"{}"\n'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
-                                                          for n in cols])))
-        else:
+            buf.append('"{}"'.format('"\t"'.join([row.get(n,'').translate(flt).replace('"','""')
+                                                  for n in cols])))
+            sys.stdout.write('{}\n'.format('\n'.join(buf)))
+            buf = []
+        elif not buf:
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
