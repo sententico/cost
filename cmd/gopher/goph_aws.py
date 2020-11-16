@@ -8,6 +8,7 @@ import  random
 import  signal
 import  json
 import  subprocess
+import  csv
 import  boto3
 from    botocore.exceptions     import  ProfileNotFound,ClientError,EndpointConnectionError,ConnectionClosedError
 import  awslib.patterns         as      aws
@@ -162,21 +163,40 @@ def gophRDSAWS(m, cmon, args):
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    csv, s = getWriter(m, ['id','type']), ""
+    out, head, s = getWriter(m, ['id','typ','hour','acct','svc','utyp','az','rid','usg','cost',
+                                 'name','env','dc','user','app','cust','team','ver']), {}, ""
 
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
-            if not l.startswith('#!'):
-                col = l.split(',', 10)
-                if len(col) <= 10: continue
+            if l.startswith('identity/LineItemId,'):
+                for col in csv.reader([l]): head = {h:i for i,h in enumerate(col)}
+            elif not l.startswith('#!'):
+                for col in csv.reader([l]): break
+                if len(col) != len(head): continue
                 # TODO: filter CUR file content leveraging regex library
 
-                csv(s, {'id':       col[0],     # line item ID
-                        'type':     col[9],     # line item type
+                out(s, {'id':       col[head['identity/LineItemId']],       # line item ID
+                        'typ':      col[head['lineItem/LineItemType']],     # line item type
+                        'hour':     col[head['lineItem/UsageStartDate']],   # ...
+                        'acct':     col[head['lineItem/UsageAccountId']],   # ...
+                        'svc':      col[head['product/ProductName']],       # ...
+                        'utyp':     col[head['lineItem/UsageType']],        # ...
+                        'az':       col[head['product/region']],            # ...
+                        'rid':      col[head['lineItem/ResourceId']],       # ...
+                        'usg':      col[head['lineItem/UsageAmount']],      # ...
+                        'cost':     col[head['lineItem/UnblendedCost']],    # ...
+                        'name':     col[head['resourceTags/user:Name']],    # ...
+                        'env':      col[head['resourceTags/user:env']],     # ...
+                        'dc':       col[head['resourceTags/user:dc']],      # ...
+                        'prod':     col[head['resourceTags/user:product']], # ...
+                        'app':      col[head['resourceTags/user:app']],     # ...
+                        'cust':     col[head['resourceTags/user:cust']],    # ...
+                        'team':     col[head['resourceTags/user:team']],    # ...
+                        'ver':      col[head['resourceTags/user:version']], # ...
                         })
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
-        csv(None, None)
+        out(None, None)
 
 def main():
     '''Parse command line args and run gopher command'''
