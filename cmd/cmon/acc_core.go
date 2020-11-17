@@ -141,9 +141,23 @@ type (
 	curItem struct {
 		Acct string    `json:"A"`
 		Typ  string    `json:"T"`
+		Svc  string    `json:"S,omitempty"`
+		UTyp string    `json:"UT,omitempty"`
+		UOp  string    `json:"UO,omitempty"`
+		AZ   string    `json:"AZ,omitempty"`
+		RID  string    `json:"R,omitempty"`
+		Desc string    `json:"De,omitempty"`
+		Name string    `json:"N,omitempty"`
+		Env  string    `json:"E,omitempty"`
+		DC   string    `json:"D,omitempty"`
+		Prod string    `json:"P,omitempty"`
+		App  string    `json:"Ap,omitempty"`
+		Cust string    `json:"Cu,omitempty"`
+		Team string    `json:"Te,omitempty"`
+		Ver  string    `json:"V,omitempty"`
 		Hour []int32   `json:"H,omitempty"`
-		HQty []float32 `json:"HQ,omitempty"`
-		Qty  float32   `json:"Q"`
+		HUsg []float32 `json:"HU,omitempty"`
+		Usg  float32   `json:"U"`
 		Cost float32   `json:"C"`
 	}
 	curDetail struct {
@@ -935,9 +949,26 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	if line == nil {
 		line = &curItem{
 			Acct: item["acct"],
+			Typ:  item["typ"],
+			Svc:  item["svc"],
+			UTyp: item["utyp"],
+			UOp:  item["uop"],
+			AZ:   item["az"],
+			RID:  item["rid"],
+			Desc: item["desc"],
+			Name: item["name"],
+			Env:  item["env"],
+			DC:   item["dc"],
+			Prod: item["prod"],
+			App:  item["app"],
+			Cust: item["cust"],
+			Team: item["team"],
+			Ver:  item["ver"],
 		}
 		work.idet.Line[work.imo][id] = line
 	}
+	line.Usg += 1
+	line.Cost += 1
 }
 func curawsMaint(n string) {
 	goGo := make(chan bool, 1)
