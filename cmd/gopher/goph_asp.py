@@ -69,8 +69,8 @@ def getWriter(m, cols):
 
 def gophCDRASP(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    csv, s = getWriter(m, ['id','loc','begin','dur','type','from','to','dip','try','iTG','eTG','IP']), ""
-
+    pipe, s = getWriter(m, ['id','loc','begin','dur','type','from','to','dip','try','iTG','eTG','IP',
+                           ]), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('STOP,'):
@@ -80,23 +80,23 @@ def gophCDRASP(m, cmon, args):
                 except  KeyboardInterrupt: raise
                 except: continue
 
-                csv(s, {'id':       col[2],     # accounting ID
-                        'loc':      col[1],     # gateway name (maps to service location)
-                        'begin':    begin,      # start date/time
-                        'dur':      col[13],    # call service duration
-                        'type':     col[17],    # service provider (CARRIER/SDENUM for inbound?)
-                        'from':     col[19],    # calling number (not always full E.164)
-                        'to':       col[20],    # called number (not always full E.164)
-                        'dip':      col[23],    # called number before translation #1 (LRN data)
-                        'try':      col[29],    # route attempt number
-                        'iTG':      col[33],    # ingress trunk group name (inbound carrier)
+                pipe(s, {'id':      col[2],     # accounting ID
+                         'loc':     col[1],     # gateway name (maps to service location)
+                         'begin':   begin,      # start date/time
+                         'dur':     col[13],    # call service duration
+                         'type':    col[17],    # service provider (CARRIER/SDENUM for inbound?)
+                         'from':    col[19],    # calling number (not always full E.164)
+                         'to':      col[20],    # called number (not always full E.164)
+                         'dip':     col[23],    # called number before translation #1 (LRN data)
+                         'try':     col[29],    # route attempt number
+                         'iTG':     col[33],    # ingress trunk group name (inbound carrier)
                                                 # gateway:trunk group (outbound carrier)
-                        'eTG':      col[30].partition(':')[2],
-                        'IP':       col[31],    # egress local signaling IP addr (non-routable for inbound)
+                         'eTG':     col[30].partition(':')[2],
+                         'IP':      col[31],    # egress local signaling IP addr (non-routable for inbound)
                         })
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
-        csv(None, None)
+        pipe(None, None)
 
 def main():
     '''Parse command line args and run gopher command'''
@@ -105,11 +105,11 @@ def main():
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
-    parser.add_argument('models',           nargs='+', choices=gophModels, metavar='model',
+    parser.add_argument('models',       nargs='+', choices=gophModels, metavar='model',
                         help='''cmon object model; {} are supported'''.format(', '.join(gophModels)))
-    parser.add_argument('-o',   '--opt',    action='append', metavar='option', default=[],
+    parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''command option''')
-    parser.add_argument('-k',   '--key',    action='append', metavar='kvp', default=[],
+    parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
                         help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
                              ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
                              if not k.startswith('_')])))

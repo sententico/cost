@@ -74,7 +74,7 @@ def getWriter(m, cols):
 
 def gophEC2AWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    out = getWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
+    pipe = getWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -82,26 +82,26 @@ def gophEC2AWS(m, cmon, args):
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
-                out(s, {'id':       i.id,
-                        'acct':     a,
-                        'type':     i.instance_type,
-                        'plat':     '' if not i.platform else i.platform,
-                        'vol':      str(len(i.block_device_mappings)),
-                        'az':       i.placement.get('AvailabilityZone',r),
-                        'ami':      '' if not i.image_id else i.image_id,
-                        'state':    i.state.get('Name',''),
-                        'spot':     '' if not i.spot_instance_request_id else i.spot_instance_request_id,
-                        'tag':      '' if not i.tags else '{}'.format('\t'.join([
+                pipe(s, {'id':      i.id,
+                         'acct':    a,
+                         'type':    i.instance_type,
+                         'plat':    '' if not i.platform else i.platform,
+                         'vol':     str(len(i.block_device_mappings)),
+                         'az':      i.placement.get('AvailabilityZone',r),
+                         'ami':     '' if not i.image_id else i.image_id,
+                         'state':   i.state.get('Name',''),
+                         'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
+                         'tag':     '' if not i.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in i.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                         })
-    out(None, None)
+    pipe(None, None)
 
 def gophEBSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    out = getWriter(m, ['id','acct','type','size','iops','az','state','mount','tag'])
+    pipe = getWriter(m, ['id','acct','type','size','iops','az','state','mount','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -109,27 +109,27 @@ def gophEBSAWS(m, cmon, args):
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for v in ec2.volumes.all():
-                out(s, {'id':       v.id,
-                        'acct':     a,
-                        'type':     v.volume_type,
-                        'size':     str(v.size),
-                        'iops':     str(v.iops),
-                        'az':       v.availability_zone,
-                        'state':    v.state,
-                        'mount':    '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
+                pipe(s, {'id':      v.id,
+                         'acct':    a,
+                         'type':    v.volume_type,
+                         'size':    str(v.size),
+                         'iops':    str(v.iops),
+                         'az':      v.availability_zone,
+                         'state':   v.state,
+                         'mount':   '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
-                        'tag':      '' if not v.tags else '{}'.format('\t'.join([
+                         'tag':     '' if not v.tags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in v.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                         })
-    out(None, None)
+    pipe(None, None)
 
 def gophRDSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    out = getWriter(m, ['id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag'])
+    pipe = getWriter(m, ['id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -141,68 +141,75 @@ def gophRDSAWS(m, cmon, args):
                 try:    dtags = rds.list_tags_for_resource(ResourceName=arn)['TagList']
                 except  KeyboardInterrupt: raise
                 except: dtags = None
-                out(s, {'id':       arn,
-                        'acct':     a,
-                        'type':     d.get('DBInstanceClass'),
-                        'stype':    d.get('StorageType'),
-                        'size':     str(d.get('AllocatedStorage',0)),
-                        'iops':     str(d.get('Iops',0)),
-                        'engine':   d.get('Engine',''),
-                        'ver':      d.get('EngineVersion',''),
-                        'lic':      d.get('LicenseModel',''),
-                        'az':       d.get('AvailabilityZone',r),
-                        'multiaz':  str(d.get('MultiAZ',False)),
-                        'state':    d.get('DBInstanceStatus',''),
-                        'tag':      '' if not dtags else '{}'.format('\t'.join([
+                pipe(s, {'id':      arn,
+                         'acct':    a,
+                         'type':    d.get('DBInstanceClass'),
+                         'stype':   d.get('StorageType'),
+                         'size':    str(d.get('AllocatedStorage',0)),
+                         'iops':    str(d.get('Iops',0)),
+                         'engine':  d.get('Engine',''),
+                         'ver':     d.get('EngineVersion',''),
+                         'lic':     d.get('LicenseModel',''),
+                         'az':      d.get('AvailabilityZone',r),
+                         'multiaz': str(d.get('MultiAZ',False)),
+                         'state':   d.get('DBInstanceStatus',''),
+                         'tag':     '' if not dtags else '{}'.format('\t'.join([
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in dtags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
-                       })
-    out(None, None)
+                        })
+    pipe(None, None)
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    out, head, s = getWriter(m, ['id',
-                                 #'typ','hour',
-                                 'acct',#'svc','utyp','az','rid','usg','cost',
-                                 #'name','env','dc','user','app','cust','team','ver'
-                                 ]), {}, ""
-
+    pipe, head, ids, s = getWriter(m, ['id','typ','hour','acct','svc','utyp','uop','az','rid','desc','usg','cost',
+                                       'name','env','dc','prod','app','cust','team','ver',
+                                      ]), {}, set(), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('identity/LineItemId,'):
                 head = {h:i for i,h in enumerate(l[:-1].split(','))}
             elif not l.startswith('#!'):
-                #col = csvSplit(l)
-                col = l[:-1].split(',')
-                #if len(col) > len(head):
-                #    for col in csv.reader([l]): break
-                #if len(col) != len(head): continue
-                # TODO: filter CUR file content leveraging regex library
+                for col in csv.reader([l]): break
+                if len(col) != len(head): continue
+                # lineItem/ProductCode (how differs from product/ProductName?)
+                # lineItem/Operation (usefully extends lineItem/UsageType?)
+                # lineItem/AvailabilityZone (ever present when product/region is not?)
+                # lineItem/UnblendedCost (how differs from lineItem/BlendedCost & pricing/publicOnDemandCost?)
+                # lineItem/LineItemDescription (useful?)
+                rec = {                 # TODO: compute line-item quantity/cost by hour
+                    'id':       col[0],                                 # line item ID
+                    'hour':     col[head['lineItem/UsageStartDate']],   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
+                    'usg':      col[head['lineItem/UsageAmount']],      # usage quantity (compute)
+                    'cost':     col[head['lineItem/UnblendedCost']],    # usage cost (compute)
+                }
 
-                out(s, {'id':        col[0],                                 # line item ID
-                        #'typ':      col[head['lineItem/LineItemType']],     # line item type
-                        #'hour':     col[head['lineItem/UsageStartDate']],   # ...
-                        'acct':      col[head['lineItem/UsageAccountId']],   # ...
-                        #'svc':      col[head['product/ProductName']],       # ...
-                        #'utyp':     col[head['lineItem/UsageType']],        # ...
-                        #'az':       col[head['product/region']],            # ...
-                        #'rid':      col[head['lineItem/ResourceId']],       # ...
-                        #'usg':      col[head['lineItem/UsageAmount']],      # ...
-                        #'cost':     col[head['lineItem/UnblendedCost']],    # ...
-                        #'name':     col[head['resourceTags/user:Name']],    # ...
-                        #'env':      col[head['resourceTags/user:env']],     # ...
-                        #'dc':       col[head['resourceTags/user:dc']],      # ...
-                        #'prod':     col[head['resourceTags/user:product']], # ...
-                        #'app':      col[head['resourceTags/user:app']],     # ...
-                        #'cust':     col[head['resourceTags/user:cust']],    # ...
-                        #'team':     col[head['resourceTags/user:team']],    # ...
-                        #'ver':      col[head['resourceTags/user:version']], # ...
-                        })
+                if col[0] not in ids:
+                    rec.update({        # TODO: process fixed line-item content leveraging regex library
+                        'typ':  col[head['lineItem/LineItemType']],     # line item type (usage, tax, ...)
+                        'acct': col[head['lineItem/UsageAccountId']],   # (not billing account)
+                        'svc':  col[head['product/ProductName']],       # service name
+                        'utyp': col[head['lineItem/UsageType']],        # usage detail (append ext utyp?)
+                        'uop':  col[head['lineItem/Operation']],        # usage operation
+                        'az':   col[head['product/region']],            # service region
+                        'rid':  col[head['lineItem/ResourceId']],       # resource ID (i-, vol-, ...)
+                        'desc': col[head['lineItem/LineItemDescription']],#service description
+
+                        'name': col[head['resourceTags/user:Name']],    # user-supplied resource name
+                        'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
+                        'dc':   col[head['resourceTags/user:dc']],      # cost location (orl, iad, ...)
+                        'prod': col[head['resourceTags/user:product']], # product (high-level)
+                        'app':  col[head['resourceTags/user:app']],     # application (low-level)
+                        'cust': col[head['resourceTags/user:cust']],    # cost or owning org
+                        'team': col[head['resourceTags/user:team']],    # operating org
+                        'ver':  col[head['resourceTags/user:version']], # major.minor
+                    })
+                    ids.add(col[0])
+                pipe(s, rec)
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
-        out(None, None)
+        pipe(None, None)
 
 def main():
     '''Parse command line args and run gopher command'''
@@ -214,11 +221,11 @@ def main():
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
-    parser.add_argument('models',           nargs='+', choices=gophModels, metavar='model',
+    parser.add_argument('models',       nargs='+', choices=gophModels, metavar='model',
                         help='''cmon object model; {} are supported'''.format(', '.join(gophModels)))
-    parser.add_argument('-o',   '--opt',    action='append', metavar='option', default=[],
+    parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''command option''')
-    parser.add_argument('-k',   '--key',    action='append', metavar='kvp', default=[],
+    parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
                         help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
                              ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
                              if not k.startswith('_')])))

@@ -73,7 +73,7 @@ def getWriter(m, cols):
 def gophXXXAZ(m, cmon, args):
     if not cmon.get('AZ'): raise GError('no AZ configuration for {}'.format(m))
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    csv, s = getWriter(m, ['id','type']), ""
+    pipe, s = getWriter(m, ['id','type']), ""
 
     # TODO: replace stub
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_xxxaz.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
@@ -82,12 +82,12 @@ def gophXXXAZ(m, cmon, args):
                 col = l.split(',', 10)
                 if len(col) <= 10: continue
 
-                csv(s, {'id':       col[0],     # line item ID
-                        'type':     col[9],     # line item type
+                pipe(s, {'id':      col[0],     # line item ID
+                         'type':    col[9],     # line item type
                         })
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
-        csv(None, None)
+        pipe(None, None)
 
 def main():
     '''Parse command line args and run gopher command'''
@@ -96,11 +96,11 @@ def main():
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
-    parser.add_argument('models',           nargs='+', choices=gophModels, metavar='model',
+    parser.add_argument('models',       nargs='+', choices=gophModels, metavar='model',
                         help='''cmon object model; {} are supported'''.format(', '.join(gophModels)))
-    parser.add_argument('-o',   '--opt',    action='append', metavar='option', default=[],
+    parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''command option''')
-    parser.add_argument('-k',   '--key',    action='append', metavar='kvp', default=[],
+    parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
                         help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
                              ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
                              if not k.startswith('_')])))
