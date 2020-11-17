@@ -73,7 +73,7 @@ def getWriter(m, cols):
     return csvWrite
 
 def csvSplit(l):
-    col, ed, q, o = l.split(','), [], -1, 0
+    col, ed, q, o = l[:-1].split(','), [], -1, 0
     for i,c in enumerate(col):
         if c.startswith('"'): q = i
         if q >= 0 and c.endswith('"'):
@@ -179,7 +179,7 @@ def gophCURAWS(m, cmon, args):
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('identity/LineItemId,'):
-                head = {h:i for i,h in enumerate(l.split(','))}
+                head = {h:i for i,h in enumerate(l[:-1].split(','))}
             elif not l.startswith('#!'):
                 col = csvSplit(l)
                 #for col in csv.reader([l]): break
