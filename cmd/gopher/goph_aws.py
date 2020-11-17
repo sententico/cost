@@ -72,16 +72,6 @@ def getWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
-def csvSplit(l):
-    col, ed, q, o = l[:-1].split(','), [], -1, 0
-    for i,c in enumerate(col):
-        if c.startswith('"'): q = i
-        if q >= 0 and c.endswith('"'):
-            ed.append((q+o, i+1+o, ','.join(col[q:i+1])[1:-1]))
-            o, q = o-i+q, -1
-    for q,i,c in ed: col[q:i] = [c]
-    return col
-
 def gophEC2AWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
     out = getWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
@@ -185,15 +175,16 @@ def gophCURAWS(m, cmon, args):
                 head = {h:i for i,h in enumerate(l[:-1].split(','))}
             elif not l.startswith('#!'):
                 #col = csvSplit(l)
-                col = l.split(',', 10)
-                #for col in csv.reader([l]): break
+                col = l[:-1].split(',')
+                #if len(col) > len(head):
+                #    for col in csv.reader([l]): break
                 #if len(col) != len(head): continue
                 # TODO: filter CUR file content leveraging regex library
 
-                out(s, {'id':       col[0],#col[head['identity/LineItemId']],       # line item ID
+                out(s, {'id':        col[0],                                 # line item ID
                         #'typ':      col[head['lineItem/LineItemType']],     # line item type
                         #'hour':     col[head['lineItem/UsageStartDate']],   # ...
-                        'acct':     col[1],#col[head['lineItem/UsageAccountId']],   # ...
+                        'acct':      col[head['lineItem/UsageAccountId']],   # ...
                         #'svc':      col[head['product/ProductName']],       # ...
                         #'utyp':     col[head['lineItem/UsageType']],        # ...
                         #'az':       col[head['product/region']],            # ...
