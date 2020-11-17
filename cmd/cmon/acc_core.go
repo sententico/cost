@@ -139,26 +139,26 @@ type (
 		ByRegion hsA   // map by hour / region
 	}
 	curItem struct {
-		Acct string    `json:"A"`
-		Typ  string    `json:"T"`
-		Svc  string    `json:"S,omitempty"`
-		UTyp string    `json:"UT,omitempty"`
-		UOp  string    `json:"UO,omitempty"`
-		AZ   string    `json:"AZ,omitempty"`
-		RID  string    `json:"R,omitempty"`
-		Desc string    `json:"De,omitempty"`
-		Name string    `json:"N,omitempty"`
-		Env  string    `json:"E,omitempty"`
-		DC   string    `json:"D,omitempty"`
-		Prod string    `json:"P,omitempty"`
-		App  string    `json:"Ap,omitempty"`
-		Cust string    `json:"Cu,omitempty"`
-		Team string    `json:"Te,omitempty"`
-		Ver  string    `json:"V,omitempty"`
-		Hour []int32   `json:"H,omitempty"`
-		HUsg []float32 `json:"HU,omitempty"`
-		Usg  float32   `json:"U"`
-		Cost float32   `json:"C"`
+		Acct string           `json:"A"`
+		Typ  string           `json:"T"`
+		Svc  string           `json:"S,omitempty"`
+		UTyp string           `json:"UT,omitempty"`
+		UOp  string           `json:"UO,omitempty"`
+		AZ   string           `json:"AZ,omitempty"`
+		RID  string           `json:"R,omitempty"`
+		Desc string           `json:"-"`
+		Name string           `json:"N,omitempty"`
+		Env  string           `json:"E,omitempty"`
+		DC   string           `json:"D,omitempty"`
+		Prod string           `json:"P,omitempty"`
+		App  string           `json:"Ap,omitempty"`
+		Cust string           `json:"Cu,omitempty"`
+		Team string           `json:"Te,omitempty"`
+		Ver  string           `json:"V,omitempty"`
+		Hour []int32          `json:"H,omitempty"`
+		HUsg map[string]int16 `json:"-"` //HUsg []float32 `json:"HU,omitempty"`
+		Usg  int16            `json:"U"` // float32
+		Cost float32          `json:"C"`
 	}
 	curDetail struct {
 		Month map[string][2]int32            // month strings to hour ranges map
@@ -964,10 +964,13 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			Cust: item["cust"],
 			Team: item["team"],
 			Ver:  item["ver"],
+
+			HUsg: make(map[string]int16),
 		}
 		work.idet.Line[work.imo][id] = line
 	}
-	line.Usg += 1
+	line.HUsg[item["usg"]]++
+	line.Usg = int16(len(line.HUsg))
 	line.Cost += 1
 }
 func curawsMaint(n string) {
