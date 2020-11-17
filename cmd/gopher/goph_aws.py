@@ -72,9 +72,19 @@ def getWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
+def csvSplit(l):
+    col, ed, q, o = l.split(','), [], -1, 0
+    for i,c in enumerate(col):
+        if c.startswith('"'): q = i
+        if q >= 0 and c.endswith('"'):
+            ed.append((q+o, i+1+o, ','.join(col[q:i+1])[1:-1]))
+            o, q = o-i+q, -1
+    for q,i,c in ed: col[q:i] = [c]
+    return col
+
 def gophEC2AWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = getWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
+    out = getWriter(m, ['id','acct','type','plat','vol','az','ami','state','spot','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -82,7 +92,7 @@ def gophEC2AWS(m, cmon, args):
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
-                csv(s, {'id':       i.id,
+                out(s, {'id':       i.id,
                         'acct':     a,
                         'type':     i.instance_type,
                         'plat':     '' if not i.platform else i.platform,
@@ -97,11 +107,11 @@ def gophEC2AWS(m, cmon, args):
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                         })
-    csv(None, None)
+    out(None, None)
 
 def gophEBSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = getWriter(m, ['id','acct','type','size','iops','az','state','mount','tag'])
+    out = getWriter(m, ['id','acct','type','size','iops','az','state','mount','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -109,7 +119,7 @@ def gophEBSAWS(m, cmon, args):
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for v in ec2.volumes.all():
-                csv(s, {'id':       v.id,
+                out(s, {'id':       v.id,
                         'acct':     a,
                         'type':     v.volume_type,
                         'size':     str(v.size),
@@ -125,11 +135,11 @@ def gophEBSAWS(m, cmon, args):
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                         })
-    csv(None, None)
+    out(None, None)
 
 def gophRDSAWS(m, cmon, args):
     if not cmon.get('AWS'): raise GError('no AWS configuration for {}'.format(m))
-    csv = getWriter(m, ['id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag'])
+    out = getWriter(m, ['id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag'])
     flt = str.maketrans('\t',' ','=')
     for a,ar in cmon['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
@@ -141,7 +151,7 @@ def gophRDSAWS(m, cmon, args):
                 try:    dtags = rds.list_tags_for_resource(ResourceName=arn)['TagList']
                 except  KeyboardInterrupt: raise
                 except: dtags = None
-                csv(s, {'id':       arn,
+                out(s, {'id':       arn,
                         'acct':     a,
                         'type':     d.get('DBInstanceClass'),
                         'stype':    d.get('StorageType'),
@@ -159,7 +169,7 @@ def gophRDSAWS(m, cmon, args):
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
                                     'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                        })
-    csv(None, None)
+    out(None, None)
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
@@ -169,9 +179,10 @@ def gophCURAWS(m, cmon, args):
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('identity/LineItemId,'):
-                for col in csv.reader([l]): head = {h:i for i,h in enumerate(col)}
+                head = {h:i for i,h in enumerate(l.split(','))}
             elif not l.startswith('#!'):
-                for col in csv.reader([l]): break
+                col = csvSplit(l)
+                #for col in csv.reader([l]): break
                 if len(col) != len(head): continue
                 # TODO: filter CUR file content leveraging regex library
 
