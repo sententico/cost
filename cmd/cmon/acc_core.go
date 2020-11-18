@@ -943,10 +943,9 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				work.idet.Line[work.imo] = make(map[string]*curItem)
 			}
 		} else if strings.HasPrefix(meta, "end ") {
-			// TODO: complete preliminary optimization pass
 			for _, m := range work.idet.Line {
 				for _, line := range m {
-					if line.Cost == 0 {
+					if line.Cost < 0.005 {
 						line.Hour, line.HUsg = nil, nil
 					}
 				}
