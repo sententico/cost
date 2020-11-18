@@ -139,26 +139,26 @@ type (
 		ByRegion hsA   // map by hour / region
 	}
 	curItem struct {
-		Acct string           `json:"A"`
-		Typ  string           `json:"T"`
-		Svc  string           `json:"S,omitempty"`
-		UTyp string           `json:"UT,omitempty"`
-		UOp  string           `json:"UO,omitempty"`
-		AZ   string           `json:"AZ,omitempty"`
-		RID  string           `json:"R,omitempty"`
-		Desc string           `json:"-"`
-		Name string           `json:"N,omitempty"`
-		Env  string           `json:"E,omitempty"`
-		DC   string           `json:"D,omitempty"`
-		Prod string           `json:"P,omitempty"`
-		App  string           `json:"Ap,omitempty"`
-		Cust string           `json:"Cu,omitempty"`
-		Team string           `json:"Te,omitempty"`
-		Ver  string           `json:"V,omitempty"`
-		Hour []int32          `json:"H,omitempty"`
-		HUsg map[string]int16 `json:"-"` //HUsg []float32 `json:"HU,omitempty"`
-		Usg  int16            `json:"U"` // float32
-		Cost float32          `json:"C"`
+		Acct string    `json:"A"`
+		Typ  string    `json:"T"`
+		Svc  string    `json:"S,omitempty"`
+		UTyp string    `json:"UT,omitempty"`
+		UOp  string    `json:"UO,omitempty"`
+		AZ   string    `json:"AZ,omitempty"`
+		RID  string    `json:"R,omitempty"`
+		Desc string    `json:"De,omitempty"`
+		Name string    `json:"N,omitempty"`
+		Env  string    `json:"E,omitempty"`
+		DC   string    `json:"D,omitempty"`
+		Prod string    `json:"P,omitempty"`
+		App  string    `json:"Ap,omitempty"`
+		Cust string    `json:"Cu,omitempty"`
+		Team string    `json:"Te,omitempty"`
+		Ver  string    `json:"V,omitempty"`
+		Hour []uint32  `json:"H,omitempty"`
+		HUsg []float32 `json:"HU,omitempty"`
+		Usg  float32   `json:"U"`
+		Cost float32   `json:"C"`
 	}
 	curDetail struct {
 		Month map[string][2]int32            // month strings to hour ranges map
@@ -219,6 +219,11 @@ type (
 )
 
 const (
+	typShift   = 32 - 2   // CUR hour range type
+	rangeShift = 30 - 10  // CUR hour range width (hours - 1)
+	rangeMask  = 0x3ff    // CUR hour range width (hours - 1)
+	baseMask   = 0xf_ffff // CUR hour range base (Unix time, hours past epoch)
+
 	gwlocShift = 64 - 13            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
 	shelfShift = 51 - 3             // CDR ID shelf (GSX could have 6)
 	shelfMask  = 0x3                // CDR ID shelf (GSX could have 6)
@@ -937,6 +942,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				work.idet.Line[work.imo] = make(map[string]*curItem)
 			}
 		} else if strings.HasPrefix(meta, "end ") {
+			// TODO: preliminary optimization pass?
 			// TODO: link work areas to persisted areas; drop old month when adding new
 			_, pdetail := m.data[0].(*curSum), m.data[1].(*curDetail)
 			pdetail.Line[work.imo] = work.idet.Line[work.imo]
@@ -946,6 +952,10 @@ func curawsInsert(m *model, item map[string]string, now int) {
 		return
 	}
 	line := work.idet.Line[work.imo][id]
+	t, _ := time.Parse(time.RFC3339, item["hour"]) // TODO: use default on error
+	h := uint32(t.Unix()/3600) & baseMask
+	u, _ := strconv.ParseFloat(item["usg"], 64)
+	c, _ := strconv.ParseFloat(item["cost"], 64)
 	if line == nil {
 		line = &curItem{
 			Acct: item["acct"],
@@ -964,14 +974,19 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			Cust: item["cust"],
 			Team: item["team"],
 			Ver:  item["ver"],
-
-			HUsg: make(map[string]int16),
+			Hour: []uint32{h},
+			HUsg: []float32{float32(u)},
 		}
 		work.idet.Line[work.imo][id] = line
+	} else if last := line.Hour[len(line.Hour)-1]; float32(u) == line.HUsg[len(line.HUsg)-1] &&
+		h == (last&baseMask)+(last>>rangeShift&rangeMask)+1 {
+		line.Hour[len(line.Hour)-1] += 1 << rangeShift
+	} else {
+		line.Hour = append(line.Hour, h)
+		line.HUsg = append(line.HUsg, float32(u))
 	}
-	line.HUsg[item["usg"]]++
-	line.Usg = int16(len(line.HUsg))
-	line.Cost += 1
+	line.Usg += float32(u)
+	line.Cost += float32(c)
 }
 func curawsMaint(n string) {
 	goGo := make(chan bool, 1)
