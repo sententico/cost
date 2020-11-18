@@ -163,7 +163,7 @@ def gophRDSAWS(m, cmon, args):
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    pipe, head, ids, s = getWriter(m, ['id','typ','hour','acct','svc','utyp','uop','az','rid','desc','usg','cost',
+    pipe, head, ids, s = getWriter(m, ['id','acct','typ','hour','svc','utyp','uop','az','rid','desc','usg','cost',
                                        'name','env','dc','prod','app','cust','team','ver',
                                       ]), {}, set(), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
@@ -178,24 +178,45 @@ def gophCURAWS(m, cmon, args):
                 # lineItem/AvailabilityZone (ever present when product/region is not?)
                 # lineItem/UnblendedCost (how differs from lineItem/BlendedCost & pricing/publicOnDemandCost?)
                 # lineItem/LineItemDescription (useful?)
-                rec = {                 # TODO: compute line-item quantity/cost by hour
-                    'id':       col[0],                                 # line item ID
+                id,typ = col[0], col[head['lineItem/LineItemType']]
+                rec = {
+                    'id':       id,                                     # line item ID
                     'hour':     col[head['lineItem/UsageStartDate']],   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
-                    'usg':      col[head['lineItem/UsageAmount']],      # usage quantity (compute)
-                    'cost':     col[head['lineItem/UnblendedCost']],    # usage cost (compute)
                 }
+                if typ != 'RIFee':
+                    ubl,fee = col[head['lineItem/UnblendedCost']], col[head['reservation/RecurringFeeForUsage']]
+                    try:    rec.update({
+                        'usg':  col[head['lineItem/UsageAmount']],      # usage quantity/cost
+                        'cost': ubl if not fee else str(float(fee)+float(ubl)),
+                    })
+                    except  (ValueError, KeyError): rec.update({
+                        'usg':  col[head['lineItem/UsageAmount']],      # usage quantity
+                        'cost': ubl                                     # usage cost w/o recurring fee
+                    })
+                else: rec.update({
+                        'usg':  col[head['reservation/UnusedQuantity']],# unused reservation quantity/cost
+                        'cost': col[head['reservation/UnusedRecurringFee']],
+                    })
 
-                if col[0] not in ids:
+                if id not in ids:
+                    uop,rid = col[head['lineItem/Operation']], col[head['lineItem/ResourceId']]
                     rec.update({        # TODO: process fixed line-item content leveraging regex library
-                        'typ':  col[head['lineItem/LineItemType']],     # line item type (usage, tax, ...)
                         'acct': col[head['lineItem/UsageAccountId']],   # (not billing account)
+                        'typ':  typ,                                    # line item type (Usage, Tax, ...)
                         'svc':  col[head['product/ProductName']],       # service name
                         'utyp': col[head['lineItem/UsageType']],        # usage detail (append ext utyp?)
-                        'uop':  col[head['lineItem/Operation']],        # usage operation
+                        'uop':  "" if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
+                                              'NoOperation','Not Applicable','N/A','n/a','Unknown','unknown',
+                                             } else uop,                # usage operation
                         'az':   col[head['product/region']],            # service region
-                        'rid':  col[head['lineItem/ResourceId']],       # resource ID (i-, vol-, ...)
-                        'desc': col[head['lineItem/LineItemDescription']],#service description
-
+                        'rid':  rid.rsplit(':',1)[-1] if rid.startswith('arn:')
+                                                      else rid,         # resource ID (i-, vol-, ...)
+                        'desc': col[head['lineItem/LineItemDescription']].replace(
+                                ' per ',                '/'     ).replace(
+                                ' - ',                  '; '    ).replace(
+                                ' reserved instance ',  ' RI '  ).replace(
+                                '$0.00 ',               '$0 '   ).replace(
+                                'USD ',                 '$'     ),      # service description
                         'name': col[head['resourceTags/user:Name']],    # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
                         'dc':   col[head['resourceTags/user:dc']],      # cost location (orl, iad, ...)
@@ -205,7 +226,7 @@ def gophCURAWS(m, cmon, args):
                         'team': col[head['resourceTags/user:team']],    # operating org
                         'ver':  col[head['resourceTags/user:version']], # major.minor
                     })
-                    ids.add(col[0])
+                    ids.add(id)
                 pipe(s, rec)
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
