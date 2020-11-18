@@ -945,7 +945,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 		} else if strings.HasPrefix(meta, "end ") {
 			for _, m := range work.idet.Line {
 				for _, line := range m {
-					if line.Cost < 0.005 {
+					if line.Cost < 0.01 && -0.01 < line.Cost {
 						line.Hour, line.HUsg = nil, nil
 					}
 				}
