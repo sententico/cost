@@ -216,9 +216,20 @@ def gophCURAWS(m, cmon, args):
                                                       else rid,         # resource ID (i-, vol-, ...)
                         'desc': col[head['lineItem/LineItemDescription']].replace(
                                 'USD ',                 '$'     ).replace(
+                                'USD',                  '$'     ).replace(
                                 '$0.00 ',               '$0 '   ).replace(
+                                '$0.0 ',                '$0 '   ).replace(
                                 ' per ',                '/'     ).replace(
                                 ' - ',                  '; '    ).replace(
+                                '  ',                   ' '     ).replace(
+                                '-month',               '-mo'   ).replace(
+                                '-Month',               '-mo'   ).replace(
+                                ' / month',             '/mo'   ).replace(
+                                '-hour',                '-hr'   ).replace(
+                                '(or partial hour)','(or partial)').replace(
+                                'Linux/UNIX',           'Linux' ).replace(
+                                'transfer',             'xfer'  ).replace(
+                                'Northern ',            'N. '   ).replace(
                                 ' reserved instance ',  ' RI '  ),      # service description
                         'name': col[head['resourceTags/user:Name']],    # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
