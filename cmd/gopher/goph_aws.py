@@ -199,11 +199,14 @@ def gophCURAWS(m, cmon, args):
                     })
 
                 if id not in ids:
-                    uop,rid = col[head['lineItem/Operation']], col[head['lineItem/ResourceId']]
+                    svc,uop,rid = col[head['product/ProductName']], col[head['lineItem/Operation']], col[head['lineItem/ResourceId']]
                     rec.update({        # TODO: process fixed line-item content leveraging regex library
                         'acct': col[head['lineItem/UsageAccountId']],   # (not billing account)
                         'typ':  typ,                                    # line item type (Usage, Tax, ...)
-                        'svc':  col[head['product/ProductName']],       # service name
+                        'svc':  {'Amazon Elastic Compute Cloud':        'AWS EC2',
+                                 'Amazon Simple Storage Service':       'AWS S3',
+                                 'Amazon Relational Database Service':  'AWS RDS',
+                                }.get(svc,svc.replace('Amazon','AWS')), # service name
                         'utyp': col[head['lineItem/UsageType']],        # usage detail (append ext utyp?)
                         'uop':  "" if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
                                               'NoOperation','Not Applicable','N/A','n/a','Unknown','unknown',
@@ -212,11 +215,11 @@ def gophCURAWS(m, cmon, args):
                         'rid':  rid.rsplit(':',1)[-1] if rid.startswith('arn:')
                                                       else rid,         # resource ID (i-, vol-, ...)
                         'desc': col[head['lineItem/LineItemDescription']].replace(
+                                'USD ',                 '$'     ).replace(
+                                '$0.00 ',               '$0 '   ).replace(
                                 ' per ',                '/'     ).replace(
                                 ' - ',                  '; '    ).replace(
-                                ' reserved instance ',  ' RI '  ).replace(
-                                '$0.00 ',               '$0 '   ).replace(
-                                'USD ',                 '$'     ),      # service description
+                                ' reserved instance ',  ' RI '  ),      # service description
                         'name': col[head['resourceTags/user:Name']],    # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
                         'dc':   col[head['resourceTags/user:dc']],      # cost location (orl, iad, ...)

@@ -157,6 +157,7 @@ type (
 		Ver  string    `json:"V,omitempty"`
 		Hour []uint32  `json:"H,omitempty"`
 		HUsg []float32 `json:"HU,omitempty"`
+		Recs int16     `json:"Re"`
 		Usg  float32   `json:"U"`
 		Cost float32   `json:"C"`
 	}
@@ -942,7 +943,14 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				work.idet.Line[work.imo] = make(map[string]*curItem)
 			}
 		} else if strings.HasPrefix(meta, "end ") {
-			// TODO: preliminary optimization pass?
+			// TODO: complete preliminary optimization pass
+			for _, m := range work.idet.Line {
+				for _, line := range m {
+					if line.Cost == 0 {
+						line.Hour, line.HUsg = nil, nil
+					}
+				}
+			}
 			// TODO: link work areas to persisted areas; drop old month when adding new
 			_, pdetail := m.data[0].(*curSum), m.data[1].(*curDetail)
 			pdetail.Line[work.imo] = work.idet.Line[work.imo]
@@ -985,6 +993,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 		line.Hour = append(line.Hour, h)
 		line.HUsg = append(line.HUsg, float32(u))
 	}
+	line.Recs++
 	line.Usg += float32(u)
 	line.Cost += float32(c)
 }
