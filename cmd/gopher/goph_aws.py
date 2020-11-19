@@ -170,6 +170,7 @@ def gophCURAWS(m, cmon, args):
         for l in p.stdout:
             if l.startswith('identity/LineItemId,'):
                 head = {h:i for i,h in enumerate(l[:-1].split(','))}
+
             elif not l.startswith('#!'):
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
@@ -189,10 +190,7 @@ def gophCURAWS(m, cmon, args):
                         'usg':  col[head['lineItem/UsageAmount']],      # usage quantity/cost
                         'cost': ubl if not fee else str(float(fee)+float(ubl)),
                     })
-                    except  (ValueError, KeyError): rec.update({
-                        'usg':  col[head['lineItem/UsageAmount']],      # usage quantity
-                        'cost': ubl                                     # usage cost w/o recurring fee
-                    })
+                    except  ValueError: continue
                 else: rec.update({
                         'usg':  col[head['reservation/UnusedQuantity']],# unused reservation quantity/cost
                         'cost': col[head['reservation/UnusedRecurringFee']],
@@ -203,10 +201,13 @@ def gophCURAWS(m, cmon, args):
                     rec.update({        # TODO: process fixed line-item content leveraging regex library
                         'acct': col[head['lineItem/UsageAccountId']],   # (not billing account)
                         'typ':  typ,                                    # line item type (Usage, Tax, ...)
-                        'svc':  {'Amazon Elastic Compute Cloud':        'AWS EC2',
-                                 'Amazon Simple Storage Service':       'AWS S3',
-                                 'Amazon Relational Database Service':  'AWS RDS',
-                                }.get(svc,svc.replace('Amazon','AWS')), # service name
+                        'svc': {'Amazon Elastic Compute Cloud':        'EC2',
+                                'Amazon Simple Storage Service':       'S3',
+                                'Amazon Relational Database Service':  'RDS',
+                                'AmazonCloudWatch':                    'CloudWatch',
+                               }.get(svc,svc.replace(
+                                'Amazon ',              ''      ).replace(
+                                'AWS ',                 ''      )),     # service name
                         'utyp': col[head['lineItem/UsageType']],        # usage detail (append ext utyp?)
                         'uop':  "" if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
                                               'NoOperation','Not Applicable','N/A','n/a','Unknown','unknown',
@@ -219,6 +220,7 @@ def gophCURAWS(m, cmon, args):
                                 'USD',                  '$'     ).replace(
                                 '$0.00 ',               '$0 '   ).replace(
                                 '$0.0 ',                '$0 '   ).replace(
+                                '$$',                   '$'     ).replace(
                                 ' per ',                '/'     ).replace(
                                 ' - ',                  '; '    ).replace(
                                 '  ',                   ' '     ).replace(
@@ -242,6 +244,7 @@ def gophCURAWS(m, cmon, args):
                     })
                     ids.add(id)
                 pipe(s, rec)
+
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
         pipe(None, None)

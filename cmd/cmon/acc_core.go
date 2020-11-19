@@ -166,9 +166,10 @@ type (
 		Line  map[string]map[string]*curItem // CUR line item map by month
 	}
 	curWork struct {
-		imo  string    // CUR insertion month
-		isum curSum    // CUR summary insertion maps
-		idet curDetail // CUR line item insertion map
+		imo   string              // CUR insertion month
+		isum  curSum              // CUR summary insertion maps
+		idet  curDetail           // CUR line item insertion map
+		idetm map[string]*curItem // CUR line item month insertion map
 	}
 
 	callsItem struct {
@@ -441,12 +442,17 @@ func (m hsU) clean(exp int32) {
 		}
 	}
 }
-func (m hsA) add(hr int32, k string, amount float32) {
+func (m hsA) add(hr int32, k string, amount float64) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[string]float64)
-		m[hr], hm[k] = hm, float64(amount)
+		m[hr], hm[k] = hm, amount
 	} else {
-		hm[k] += float64(amount)
+		hm[k] += amount
+	}
+}
+func (m hsA) update(u hsA) {
+	for hr := range u {
+		m[hr] = u[hr]
 	}
 }
 func (m hsA) clean(exp int32) {
@@ -934,14 +940,17 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	work, id := m.data[2].(*curWork), item["id"]
 	if id == "" {
 		if meta := item["~meta"]; strings.HasPrefix(meta, "begin ") {
-			work.imo, work.idet = "", curDetail{
+			work.imo, work.isum, work.idet, work.idetm = "", curSum{
+				ByAcct:   make(hsA),
+				ByRegion: make(hsA),
+			}, curDetail{
 				Line: make(map[string]map[string]*curItem),
-			}
-			work.isum.ByAcct, work.isum.ByRegion = make(hsA), make(hsA)
+			}, nil
 		} else if strings.HasPrefix(meta, "section 20") && len(meta) > 14 {
 			if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
 				work.idet.Line[work.imo] = make(map[string]*curItem)
 			}
+			work.idetm = work.idet.Line[work.imo]
 		} else if strings.HasPrefix(meta, "end ") {
 			for _, m := range work.idet.Line {
 				for _, line := range m {
@@ -950,19 +959,24 @@ func curawsInsert(m *model, item map[string]string, now int) {
 					}
 				}
 			}
-			// TODO: link work areas to persisted areas; drop old month when adding new
-			_, pdetail := m.data[0].(*curSum), m.data[1].(*curDetail)
-			pdetail.Line[work.imo] = work.idet.Line[work.imo]
+			psum, pdet := m.data[0].(*curSum), m.data[1].(*curDetail)
+			psum.ByAcct.update(work.isum.ByAcct)
+			psum.ByRegion.update(work.isum.ByRegion)
+			for mo := range work.idet.Line {
+				pdet.Line[mo] = work.idet.Line[mo]
+			}
+			// TODO: drop old month when adding new
 		}
 		return
 	} else if work.imo == "" {
 		return
 	}
-	line := work.idet.Line[work.imo][id]
+
 	t, _ := time.Parse(time.RFC3339, item["hour"]) // TODO: use default on error
 	h := uint32(t.Unix()/3600) & baseMask
 	u, _ := strconv.ParseFloat(item["usg"], 64)
 	c, _ := strconv.ParseFloat(item["cost"], 64)
+	line, hr, us, co := work.idetm[id], int32(h), float32(u), float32(c)
 	if line == nil {
 		line = &curItem{
 			Acct: item["acct"],
@@ -982,19 +996,21 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			Team: item["team"],
 			Ver:  item["ver"],
 			Hour: []uint32{h},
-			HUsg: []float32{float32(u)},
+			HUsg: []float32{us},
 		}
-		work.idet.Line[work.imo][id] = line
-	} else if last := line.Hour[len(line.Hour)-1]; float32(u) == line.HUsg[len(line.HUsg)-1] &&
+		work.idetm[id] = line
+	} else if last := line.Hour[len(line.Hour)-1]; us == line.HUsg[len(line.HUsg)-1] &&
 		h == (last&baseMask)+(last>>rangeShift&rangeMask)+1 {
 		line.Hour[len(line.Hour)-1] += 1 << rangeShift
 	} else {
 		line.Hour = append(line.Hour, h)
-		line.HUsg = append(line.HUsg, float32(u))
+		line.HUsg = append(line.HUsg, us)
 	}
 	line.Recs++
-	line.Usg += float32(u)
-	line.Cost += float32(c)
+	line.Usg += us
+	line.Cost += co
+	work.isum.ByAcct.add(hr, line.Acct, c)
+	work.isum.ByRegion.add(hr, line.AZ, c)
 }
 func curawsMaint(n string) {
 	goGo := make(chan bool, 1)
