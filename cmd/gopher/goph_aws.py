@@ -11,7 +11,7 @@ import  subprocess
 import  csv
 import  boto3
 from    botocore.exceptions     import  ProfileNotFound,ClientError,EndpointConnectionError,ConnectionClosedError
-import  awslib.patterns         as      aws
+#import  awslib.patterns         as      aws
 #import  datadog
 
 class GError(Exception):
@@ -163,7 +163,7 @@ def gophRDSAWS(m, cmon, args):
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    pipe, head, ids, s = getWriter(m, ['id','acct','typ','hour','svc','utyp','uop','az','rid','desc','usg','cost',
+    pipe, head, ids, s = getWriter(m, ['id','hour','end','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc',
                                        'name','env','dc','prod','app','cust','team','ver',
                                       ]), {}, set(), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
@@ -174,15 +174,15 @@ def gophCURAWS(m, cmon, args):
             elif not l.startswith('#!'):
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
-                # lineItem/ProductCode (how differs from product/ProductName?)
-                # lineItem/Operation (usefully extends lineItem/UsageType?)
-                # lineItem/AvailabilityZone (ever present when product/region is not?)
-                # lineItem/UnblendedCost (how differs from lineItem/BlendedCost & pricing/publicOnDemandCost?)
-                # lineItem/LineItemDescription (useful?)
+                # TODO: analysis...
+                #   lineItem/ProductCode (how differs from product/ProductName?)
+                #   lineItem/AvailabilityZone (ever present when product/region is not?)
+                #   lineItem/UnblendedCost (how differs from lineItem/BlendedCost & pricing/publicOnDemandCost?)
                 id,typ = col[0], col[head['lineItem/LineItemType']]
                 rec = {
                     'id':       id,                                     # line item ID
                     'hour':     col[head['lineItem/UsageStartDate']],   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
+                    'end':      col[head['lineItem/UsageEndDate']],     # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
                 }
                 if typ != 'RIFee':
                     ubl,fee = col[head['lineItem/UnblendedCost']], col[head['reservation/RecurringFeeForUsage']]
@@ -197,41 +197,84 @@ def gophCURAWS(m, cmon, args):
                     })
 
                 if id not in ids:
-                    svc,uop,rid = col[head['product/ProductName']], col[head['lineItem/Operation']], col[head['lineItem/ResourceId']]
-                    rec.update({        # TODO: process fixed line-item content leveraging regex library
+                    svc,uop,az,rid = col[head['product/ProductName']],  col[head['lineItem/Operation']],\
+                                     col[head['product/region']],       col[head['lineItem/ResourceId']]
+                    rec.update({
                         'acct': col[head['lineItem/UsageAccountId']],   # (not billing account)
-                        'typ':  typ,                                    # line item type (Usage, Tax, ...)
-                        'svc': {'Amazon Elastic Compute Cloud':        'EC2',
-                                'Amazon Simple Storage Service':       'S3',
-                                'Amazon Relational Database Service':  'RDS',
-                                'AmazonCloudWatch':                    'CloudWatch',
+                        'typ': {'AWS':                  '',
+                                'AWS Marketplace':      'mkt ',
+                               }.get(col[head['bill/BillingEntity']],'other ') +
+                               {'Usage':                'usage',
+                                'LineItem':             'usage',
+                                'DiscountedUsage':      'RI/SP usage',
+                                'Fee':                  'fee',
+                                'RIFee':                'unused RIs',
+                                'Tax':                  'tax',
+                                'Refund':               'EDP',
+                                'Credit':               'CSC/WMP',
+                               }.get(typ,               'unknown'),     # line item type
+                        'svc': {'Amazon Elastic Compute Cloud':         'EC2',
+                                'Amazon Simple Storage Service':        'S3',
+                                'Amazon Relational Database Service':   'RDS',
+                                'AmazonCloudWatch':                     'CloudWatch',
+                                'Amazon Simple Queue Service':          'SQS',
+                                'Amazon Simple Notification Service':   'SNS',
+                                'Amazon Virtual Private Cloud':         'VPC',
                                }.get(svc,svc.replace(
                                 'Amazon ',              ''      ).replace(
                                 'AWS ',                 ''      )),     # service name
-                        'utyp': col[head['lineItem/UsageType']],        # usage detail (append ext utyp?)
+                        'utyp': col[head['lineItem/UsageType']],        # usage detail
                         'uop':  "" if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
                                               'NoOperation','Not Applicable','N/A','n/a','Unknown','unknown',
                                              } else uop,                # usage operation
-                        'az':   col[head['product/region']],            # service region
+                        'az':   {'us-east-1':           'USE1', 'ap-east-1':            'APE1',
+                                 'us-east-2':           'USE2', 'ap-northeast-1':       'APN1',
+                                 'us-west-1':           'USW1', 'ap-northeast-2':       'APN2',
+                                 'us-west-2':           'USW2', 'ap-northeast-3':       'APN3',
+                                                                'ap-southeast-1':       'APS1',
+                                                                'ap-southeast-2':       'APS2',
+                                 'eu-central-1':        'EUC1', 'ap-south-1':           'APS3',
+                                 'eu-north-1':          'EUN1',
+                                 'eu-west-1':           'EUW1', 'ca-central-1':         'CAN1',
+                                 'eu-west-2':           'EUW2', 'me-south-1':           'MES1',
+                                 'eu-west-3':           'EUW3', 'sa-east-1':            'SAE1',
+                                }.get(az,az),                           # service region
                         'rid':  rid.rsplit(':',1)[-1] if rid.startswith('arn:')
                                                       else rid,         # resource ID (i-, vol-, ...)
                         'desc': col[head['lineItem/LineItemDescription']].replace(
-                                'USD ',                 '$'     ).replace(
                                 'USD',                  '$'     ).replace(
+                                '$ ',                   '$'     ).replace(
+                                '$0.000 ',              '$0 '   ).replace(
                                 '$0.00 ',               '$0 '   ).replace(
                                 '$0.0 ',                '$0 '   ).replace(
                                 '$$',                   '$'     ).replace(
                                 ' per ',                '/'     ).replace(
                                 ' - ',                  '; '    ).replace(
                                 '  ',                   ' '     ).replace(
-                                '-month',               '-mo'   ).replace(
-                                '-Month',               '-mo'   ).replace(
                                 ' / month',             '/mo'   ).replace(
+                                'onthly',               'o'     ).replace(
+                                'onth',                 'o'     ).replace(
+                                '/hour',                '/hr'   ).replace(
+                                ' hourly fee',          '/hr'   ).replace(
+                                'hourly',               '/hr'   ).replace(
+                                'Hourly',               '/hr'   ).replace(
+                                'or partial hour',     'or part').replace(
+                                ' hour',                'hr'    ).replace(
+                                ' Hour',                'hr'    ).replace(
                                 '-hour',                '-hr'   ).replace(
-                                '(or partial hour)','(or partial)').replace(
+                                '-Hour',                '-hr'   ).replace(
+                                ' instance',            'inst'  ).replace(
+                                ' Instance ',           'inst'  ).replace(
+                                ' Instance-',           'inst-' ).replace(
+                                ' request',             'req'   ).replace(
+                                #' Request',             'req'   ).replace(
+                                'On Demand',            'OD'    ).replace(
                                 'Linux/UNIX',           'Linux' ).replace(
+                                '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
-                                'Northern ',            'N. '   ).replace(
+                                'Northern ',            ''      ).replace(
+                                'N. ',                  ''      ).replace(
+                                'N.',                   ''      ).replace(
                                 ' reserved instance ',  ' RI '  ),      # service description
                         'name': col[head['resourceTags/user:Name']],    # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
