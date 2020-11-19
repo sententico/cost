@@ -197,8 +197,9 @@ def gophCURAWS(m, cmon, args):
                     })
 
                 if id not in ids:
-                    svc,uop,az,rid = col[head['product/ProductName']],  col[head['lineItem/Operation']],\
-                                     col[head['product/region']],       col[head['lineItem/ResourceId']]
+                    svc,uop,az,rid,nm = col[head['product/ProductName']],   col[head['lineItem/Operation']],\
+                                        col[head['product/region']],        col[head['lineItem/ResourceId']],\
+                                        col[head['resourceTags/user:Name']]
                     rec.update({
                         'acct': col[head['lineItem/UsageAccountId']],   # usage, not billing account
                         'typ': {'AWS':                  '',
@@ -207,7 +208,7 @@ def gophCURAWS(m, cmon, args):
                                {'hr':                   '',
                                 'per':                  'monthly ',     # (or non-monthly period)
                                 'yr':                   'annual ',      # (or multi-year)
-                               }.get('hr' if end.startswith(hour[:10]) or end.endswith('00:00:00') and hour.endswith('23:00:00') else (
+                               }.get('hr' if end.startswith(hour[:10]) or end.endswith('00:00:00Z') and hour.endswith('23:00:00Z') else (
                                      'yr' if end[5:10]==hour[5:10] else 'per')) +
                                {'Usage':                'usage',
                                 'LineItem':             'usage',
@@ -229,7 +230,7 @@ def gophCURAWS(m, cmon, args):
                                 'Amazon ',              ''      ).replace(
                                 'AWS ',                 ''      )),     # service name
                         'utyp': col[head['lineItem/UsageType']],        # usage detail
-                        'uop':  "" if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
+                        'uop':  '' if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
                                               'NoOperation','Not Applicable','N/A','n/a','Unknown','unknown',
                                              } else uop,                # usage operation
                         'az':   {'us-east-1':           'USE1', 'ap-east-1':            'APE1',
@@ -255,6 +256,7 @@ def gophCURAWS(m, cmon, args):
                                 '$0.0 ',                '$0 '   ).replace(
                                 '$$',                   '$'     ).replace(
                                 ' per ',                '/'     ).replace(
+                                '  ',                   ' '     ).replace(
                                 ' - ',                  '; '    ).replace(
                                 ' / month',             '/mo'   ).replace(
                                 'onthly',               'o'     ).replace(
@@ -273,6 +275,8 @@ def gophCURAWS(m, cmon, args):
                                 ' Instance-',           ' inst-').replace(
                                 ' request',             ' req'  ).replace(
                                #' Request',             ' req'  ).replace(
+                                ' million',             'M'     ).replace(
+                                '/million',             '/M'    ).replace(
                                 'On Demand',            'OD'    ).replace(
                                 ' reserved instance ',  ' RI '  ).replace(
                                 'rovisioned IOPS',      'IOPS'  ).replace(
@@ -293,9 +297,9 @@ def gophCURAWS(m, cmon, args):
                                 'Asia Pacific',         'APAC'  ).replace(
                                 'Northern ',            ''      ).replace(
                                 'N. ',                  ''      ).replace(
-                                'N.',                   ''      ).replace(
-                                '  ',                   ' '     ),      # service description
-                        'name': col[head['resourceTags/user:Name']],    # user-supplied resource name
+                                'N.',                   ''      ),      # service description
+                        'name': '' if nm in {'Unknown','unknown',
+                                            } else nm,                  # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
                         'dc':   col[head['resourceTags/user:dc']],      # cost location (orl, iad, ...)
                         'prod': col[head['resourceTags/user:product']], # product (high-level)
