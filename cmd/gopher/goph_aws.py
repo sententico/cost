@@ -163,7 +163,7 @@ def gophRDSAWS(m, cmon, args):
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    pipe, head, ids, s = getWriter(m, ['id','hour','end','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc',
+    pipe, head, ids, s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc',
                                        'name','env','dc','prod','app','cust','team','ver',
                                       ]), {}, set(), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
@@ -178,11 +178,11 @@ def gophCURAWS(m, cmon, args):
                 #   lineItem/ProductCode (how differs from product/ProductName?)
                 #   lineItem/AvailabilityZone (ever present when product/region is not?)
                 #   lineItem/UnblendedCost (how differs from lineItem/BlendedCost & pricing/publicOnDemandCost?)
-                id,typ = col[0], col[head['lineItem/LineItemType']]
+                id,hour,end,typ = col[0],                               col[head['lineItem/UsageStartDate']],\
+                                  col[head['lineItem/UsageEndDate']],   col[head['lineItem/LineItemType']]
                 rec = {
                     'id':       id,                                     # line item ID
-                    'hour':     col[head['lineItem/UsageStartDate']],   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
-                    'end':      col[head['lineItem/UsageEndDate']],     # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
+                    'hour':     hour,                                   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
                 }
                 if typ != 'RIFee':
                     ubl,fee = col[head['lineItem/UnblendedCost']], col[head['reservation/RecurringFeeForUsage']]
@@ -200,10 +200,15 @@ def gophCURAWS(m, cmon, args):
                     svc,uop,az,rid = col[head['product/ProductName']],  col[head['lineItem/Operation']],\
                                      col[head['product/region']],       col[head['lineItem/ResourceId']]
                     rec.update({
-                        'acct': col[head['lineItem/UsageAccountId']],   # (not billing account)
+                        'acct': col[head['lineItem/UsageAccountId']],   # usage, not billing account
                         'typ': {'AWS':                  '',
                                 'AWS Marketplace':      'mkt ',
                                }.get(col[head['bill/BillingEntity']],'other ') +
+                               {'hr':                   '',
+                                'per':                  'monthly ',     # (or non-monthly period)
+                                'yr':                   'annual ',      # (or multi-year)
+                               }.get('hr' if end.startswith(hour[:10]) or end.endswith('00:00:00') and hour.endswith('23:00:00') else (
+                                     'yr' if end[5:10]==hour[5:10] else 'per')) +
                                {'Usage':                'usage',
                                 'LineItem':             'usage',
                                 'DiscountedUsage':      'RI/SP usage',
@@ -244,13 +249,13 @@ def gophCURAWS(m, cmon, args):
                         'desc': col[head['lineItem/LineItemDescription']].replace(
                                 'USD',                  '$'     ).replace(
                                 '$ ',                   '$'     ).replace(
+                                '$0.0000 ',             '$0 '   ).replace(
                                 '$0.000 ',              '$0 '   ).replace(
                                 '$0.00 ',               '$0 '   ).replace(
                                 '$0.0 ',                '$0 '   ).replace(
                                 '$$',                   '$'     ).replace(
                                 ' per ',                '/'     ).replace(
                                 ' - ',                  '; '    ).replace(
-                                '  ',                   ' '     ).replace(
                                 ' / month',             '/mo'   ).replace(
                                 'onthly',               'o'     ).replace(
                                 'onth',                 'o'     ).replace(
@@ -259,23 +264,33 @@ def gophCURAWS(m, cmon, args):
                                 'hourly',               '/hr'   ).replace(
                                 'Hourly',               '/hr'   ).replace(
                                 'or partial hour',     'or part').replace(
-                                ' hour',                'hr'    ).replace(
-                                ' Hour',                'hr'    ).replace(
+                                ' hour',                ' hr'   ).replace(
+                                ' Hour',                ' hr'   ).replace(
                                 '-hour',                '-hr'   ).replace(
                                 '-Hour',                '-hr'   ).replace(
-                                ' instance',            'inst'  ).replace(
-                                ' Instance ',           'inst'  ).replace(
-                                ' Instance-',           'inst-' ).replace(
-                                ' request',             'req'   ).replace(
-                                #' Request',             'req'   ).replace(
+                                ' instance',            ' inst' ).replace(
+                                ' Instance ',           ' inst' ).replace(
+                                ' Instance-',           ' inst-').replace(
+                                ' request',             ' req'  ).replace(
+                               #' Request',             ' req'  ).replace(
                                 'On Demand',            'OD'    ).replace(
+                                ' reserved instance ',  ' RI '  ).replace(
+                                'rovisioned IOPS',      'IOPS'  ).replace(
+                                'IP address',           'IP'    ).replace(
+                                ' capacity',            ' cap'  ).replace(
                                 'Linux/UNIX',           'Linux' ).replace(
+                                'PostgreSQL',           'PSQL'  ).replace(
+                                'SQL Server',           'SQL'   ).replace(
+                                'SQL Standard',         'SQL SE').replace(
+                                'SQL Std',              'SQL SE').replace(
+                                'SQL Enterprise',       'SQL EE').replace(
                                 '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
+                                'Asia Pacific',         'APAC'  ).replace(
                                 'Northern ',            ''      ).replace(
                                 'N. ',                  ''      ).replace(
                                 'N.',                   ''      ).replace(
-                                ' reserved instance ',  ' RI '  ),      # service description
+                                '  ',                   ' '     ),      # service description
                         'name': col[head['resourceTags/user:Name']],    # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
                         'dc':   col[head['resourceTags/user:dc']],      # cost location (orl, iad, ...)
