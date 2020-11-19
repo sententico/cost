@@ -155,11 +155,11 @@ type (
 		Cust string    `json:"Cu,omitempty"`
 		Team string    `json:"Te,omitempty"`
 		Ver  string    `json:"V,omitempty"`
-		Hour []uint32  `json:"H,omitempty"`
-		HUsg []float32 `json:"HU,omitempty"`
-		Recs int16     `json:"Re"`
-		Usg  float32   `json:"U"`
-		Cost float32   `json:"C"`
+		Hour []uint32  `json:"H,omitempty"`  // hour ranges (...)
+		HUsg []float32 `json:"HU,omitempty"` // hourly usage
+		MRe  int16     `json:"M,omitempty"`  // multiple CSV records over initial record
+		Usg  float32   `json:"U,omitempty"`
+		Cost float32   `json:"C,omitempty"`
 	}
 	curDetail struct {
 		Month map[string][2]int32            // month strings to hour ranges map
@@ -1002,11 +1002,12 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	} else if last := line.Hour[len(line.Hour)-1]; us == line.HUsg[len(line.HUsg)-1] &&
 		h == (last&baseMask)+(last>>rangeShift&rangeMask)+1 {
 		line.Hour[len(line.Hour)-1] += 1 << rangeShift
+		line.MRe++
 	} else {
 		line.Hour = append(line.Hour, h)
 		line.HUsg = append(line.HUsg, us)
+		line.MRe++
 	}
-	line.Recs++
 	line.Usg += us
 	line.Cost += co
 	work.isum.ByAcct.add(hr, line.Acct, c)

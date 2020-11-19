@@ -236,7 +236,7 @@ def gophCURAWS(m, cmon, args):
                                  'us-east-2':           'USE2', 'ap-northeast-1':       'APN1',
                                  'us-west-1':           'USW1', 'ap-northeast-2':       'APN2',
                                  'us-west-2':           'USW2', 'ap-northeast-3':       'APN3',
-                                                                'ap-southeast-1':       'APS1',
+                                 '':                    'none', 'ap-southeast-1':       'APS1',
                                                                 'ap-southeast-2':       'APS2',
                                  'eu-central-1':        'EUC1', 'ap-south-1':           'APS3',
                                  'eu-north-1':          'EUN1',
@@ -269,7 +269,7 @@ def gophCURAWS(m, cmon, args):
                                 '-hour',                '-hr'   ).replace(
                                 '-Hour',                '-hr'   ).replace(
                                 ' instance',            ' inst' ).replace(
-                                ' Instance ',           ' inst' ).replace(
+                                ' Instance ',           ' inst ').replace(
                                 ' Instance-',           ' inst-').replace(
                                 ' request',             ' req'  ).replace(
                                #' Request',             ' req'  ).replace(
@@ -286,6 +286,10 @@ def gophCURAWS(m, cmon, args):
                                 'SQL Enterprise',       'SQL EE').replace(
                                 '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
+                                'Virginia',             'VA'    ).replace(
+                                'Ohio',                 'OH'    ).replace(
+                                'Oregon',               'OR'    ).replace(
+                                'California',           'CA'    ).replace(
                                 'Asia Pacific',         'APAC'  ).replace(
                                 'Northern ',            ''      ).replace(
                                 'N. ',                  ''      ).replace(
