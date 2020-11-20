@@ -164,7 +164,7 @@ def gophRDSAWS(m, cmon, args):
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
     pipe, head, ids, s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc',
-                                       'name','env','dc','prod','app','cust','team','ver','test',
+                                       'name','env','dc','prod','app','cust','team','ver',#'test',
                                       ]), {}, set(), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
@@ -305,8 +305,7 @@ def gophCURAWS(m, cmon, args):
                         'cust': col[head['resourceTags/user:cust']],    # cost or owning org
                         'team': col[head['resourceTags/user:team']],    # operating org
                         'ver':  col[head['resourceTags/user:version']], # major.minor
-
-                        'test': timedelta.total_seconds(datetime.fromisoformat(end)-datetime.fromisoformat(hour)),
+                       #'test': timedelta.total_seconds(datetime.fromisoformat(end)-datetime.fromisoformat(hour)),
                     })
                     ids.add(id)
                 pipe(s, rec)
