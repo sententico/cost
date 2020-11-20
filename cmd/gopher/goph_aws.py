@@ -163,8 +163,8 @@ def gophRDSAWS(m, cmon, args):
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    pipe, head, ids, s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc',
-                                       'name','env','dc','prod','app','cust','team','ver',#'test',
+    pipe, head, ids, s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc','ivl'
+                                       'name','env','dc','prod','app','cust','team','ver',
                                       ]), {}, set(), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
@@ -178,13 +178,12 @@ def gophCURAWS(m, cmon, args):
                 #   lineItem/ProductCode (how differs from product/ProductName?)
                 #   lineItem/AvailabilityZone (ever present when product/region is not?)
                 #   lineItem/UnblendedCost (how differs from lineItem/BlendedCost & pricing/publicOnDemandCost?)
-                id,hour,end,typ = col[0],                               col[head['lineItem/UsageStartDate']],\
-                                  col[head['lineItem/UsageEndDate']],   col[head['lineItem/LineItemType']]
-                rec = {
+                id,hour = col[0], col[head['lineItem/UsageStartDate']]
+                rec,typ = {
                     'id':       id,                                     # line item ID
                     'hour':     hour,                                   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
-                }
-                if typ != 'RIFee':
+                },  col[head['lineItem/LineItemType']]
+                if typ != 'RIFee':                                      # TODO: expand calculation for SP
                     ubl,fee = col[head['lineItem/UnblendedCost']], col[head['reservation/RecurringFeeForUsage']]
                     try:    rec.update({
                         'usg':  col[head['lineItem/UsageAmount']],      # usage quantity/cost
@@ -197,33 +196,41 @@ def gophCURAWS(m, cmon, args):
                     })
 
                 if id not in ids:
-                    svc,uop,az,rid,nm = col[head['product/ProductName']],   col[head['lineItem/Operation']],\
-                                        col[head['product/region']],        col[head['lineItem/ResourceId']],\
-                                        col[head['resourceTags/user:Name']]
+                    svc,uop,az,rid,end,nm =\
+                        col[head['product/ProductName']],   col[head['lineItem/Operation']],    col[head['product/region']],\
+                        col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']], col[head['resourceTags/user:Name']]
+                    ivl = int(timedelta.total_seconds(datetime.fromisoformat(end[:-1])-datetime.fromisoformat(hour[:-1])))
                     rec.update({
                         'acct': col[head['lineItem/UsageAccountId']],   # usage, not billing account
                         'typ': {'AWS':                  '',
                                 'AWS Marketplace':      'mkt ',         # source
                                }.get(col[head['bill/BillingEntity']],'other ') +
-                                ''          if end.startswith(hour[:10]) or end.endswith('00:00:00Z') and hour.endswith('23:00:00Z') else (
-                                'annual '   if (end[5:7]!='01' or hour[5:7]!='12' if end[3:4]!=hour[3:4] else end[5:7]=='12' and hour[5:7]=='01') else
-                                'monthly ') +                           # usage period (optimized for clean hr/mo/yr ranges)
+                               (''          if ivl < 3602       else (
+                                'monthly '  if ivl < 2678402    else (
+                                'periodic ' if ivl < 31103999   else
+                                'annual '))) +                          # usage interval category
                                {'Usage':                'usage',
-                                'LineItem':             'usage',
-                                'DiscountedUsage':      'RI/SP usage',
-                                'Fee':                  'fee',
-                                'RIFee':                'unused RIs',
                                 'Tax':                  'tax',
-                                'Refund':               'EDP',
-                                'Credit':               'CSC/WMP',
+                                'Refund':               'EDP/refund',
+                                'Credit':               'CSC/WMP/credit',
+                                'Fee':                  'fee',
+                                'SavingsPlanUpfrontFee':'fee',
+                                'DiscountedUsage':      'RI usage',
+                                'SavingsPlanCoveredUsage':'SP usage',
+                                'SavingsPlanNegation':  'SP usage',
+                                'RIFee':                'RI unused',
+                                'SavingsPlanRecurringFee':'SP unused',
                                }.get(typ,               'unknown'),     # line item type
                         'svc': {'Amazon Elastic Compute Cloud':         'EC2',
                                 'Amazon Simple Storage Service':        'S3',
-                                'Amazon Relational Database Service':   'RDS',
-                                'AmazonCloudWatch':                     'CloudWatch',
-                                'Amazon Simple Queue Service':          'SQS',
                                 'Amazon Simple Notification Service':   'SNS',
+                                'Amazon EC2 Container Service':         'ECS',
+                                'Elastic Load Balancing':               'ELB',
+                                'AmazonCloudWatch':                     'CloudWatch',
                                 'Amazon Virtual Private Cloud':         'VPC',
+                                'AWS Key Management Service':           'KMS',
+                                'Amazon Simple Queue Service':          'SQS',
+                                'Amazon Relational Database Service':   'RDS',
                                }.get(svc,svc.replace(
                                 'Amazon ',              ''      ).replace(
                                 'AWS ',                 ''      )),     # service name
@@ -296,6 +303,7 @@ def gophCURAWS(m, cmon, args):
                                 'Northern ',            ''      ).replace(
                                 'N. ',                  ''      ).replace(
                                 'N.',                   ''      ),      # service description
+                        'ivl':  str(ivl),                               # usage interval (seconds)
                         'name': '' if nm in {'Unknown','unknown',
                                             } else nm,                  # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
@@ -305,7 +313,6 @@ def gophCURAWS(m, cmon, args):
                         'cust': col[head['resourceTags/user:cust']],    # cost or owning org
                         'team': col[head['resourceTags/user:team']],    # operating org
                         'ver':  col[head['resourceTags/user:version']], # major.minor
-                       #'test': timedelta.total_seconds(datetime.fromisoformat(end)-datetime.fromisoformat(hour)),
                     })
                     ids.add(id)
                 pipe(s, rec)
