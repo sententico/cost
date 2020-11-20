@@ -164,7 +164,7 @@ def gophRDSAWS(m, cmon, args):
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
     pipe, head, ids, s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc',
-                                       'name','env','dc','prod','app','cust','team','ver',
+                                       'name','env','dc','prod','app','cust','team','ver','test',
                                       ]), {}, set(), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
@@ -203,13 +203,11 @@ def gophCURAWS(m, cmon, args):
                     rec.update({
                         'acct': col[head['lineItem/UsageAccountId']],   # usage, not billing account
                         'typ': {'AWS':                  '',
-                                'AWS Marketplace':      'mkt ',
+                                'AWS Marketplace':      'mkt ',         # source
                                }.get(col[head['bill/BillingEntity']],'other ') +
-                               {'hr':                   '',
-                                'per':                  'monthly ',     # (or non-monthly period)
-                                'yr':                   'annual ',      # (or multi-year)
-                               }.get('hr' if end.startswith(hour[:10]) or end.endswith('00:00:00Z') and hour.endswith('23:00:00Z') else (
-                                     'yr' if end[5:10]==hour[5:10] else 'per')) +
+                                ''          if end.startswith(hour[:10]) or end.endswith('00:00:00Z') and hour.endswith('23:00:00Z') else (
+                                'annual '   if (end[5:7]!='01' or hour[5:7]!='12' if end[3:4]!=hour[3:4] else end[5:7]=='12' and hour[5:7]=='01') else
+                                'monthly ') +                           # usage period (optimized for clean hr/mo/yr ranges)
                                {'Usage':                'usage',
                                 'LineItem':             'usage',
                                 'DiscountedUsage':      'RI/SP usage',
@@ -307,6 +305,8 @@ def gophCURAWS(m, cmon, args):
                         'cust': col[head['resourceTags/user:cust']],    # cost or owning org
                         'team': col[head['resourceTags/user:team']],    # operating org
                         'ver':  col[head['resourceTags/user:version']], # major.minor
+
+                        'test': timedelta.total_seconds(datetime.fromisoformat(end)-datetime.fromisoformat(hour)),
                     })
                     ids.add(id)
                 pipe(s, rec)

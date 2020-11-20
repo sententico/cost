@@ -137,6 +137,8 @@ type (
 		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
 		ByAcct   hsA   // map by hour / account
 		ByRegion hsA   // map by hour / region
+		ByTyp    hsA   // map by hour / line item type
+		BySvc    hsA   // map by hour / AWS service
 	}
 	curItem struct {
 		Acct string    `json:"A"`
@@ -157,7 +159,7 @@ type (
 		Ver  string    `json:"V,omitempty"`
 		Hour []uint32  `json:"H,omitempty"`  // hour ranges (...)
 		HUsg []float32 `json:"HU,omitempty"` // hourly usage
-		MRe  int16     `json:"M,omitempty"`  // multiple CSV records over initial record
+		Mu   int16     `json:"M,omitempty"`  // multiple CSV usage records (plus initial record)
 		Usg  float32   `json:"U,omitempty"`
 		Cost float32   `json:"C,omitempty"`
 	}
@@ -910,6 +912,8 @@ func curawsBoot(n string, ctl chan string) {
 	sum, detail, work, m := &curSum{
 		ByAcct:   make(hsA, 2184),
 		ByRegion: make(hsA, 2184),
+		ByTyp:    make(hsA, 2184),
+		BySvc:    make(hsA, 2184),
 	}, &curDetail{
 		Month: make(map[string][2]int32, 6),
 		Line:  make(map[string]map[string]*curItem, 6),
@@ -932,6 +936,8 @@ func curawsClean(n string, deep bool) {
 	exp := sum.Current - 24*90
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
+	sum.ByTyp.clean(exp)
+	sum.BySvc.clean(exp)
 
 	m.rel <- token
 	evt <- n
@@ -943,6 +949,8 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			work.imo, work.isum, work.idet, work.idetm = "", curSum{
 				ByAcct:   make(hsA),
 				ByRegion: make(hsA),
+				ByTyp:    make(hsA),
+				BySvc:    make(hsA),
 			}, curDetail{
 				Line: make(map[string]map[string]*curItem),
 			}, nil
@@ -962,6 +970,8 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			psum, pdet := m.data[0].(*curSum), m.data[1].(*curDetail)
 			psum.ByAcct.update(work.isum.ByAcct)
 			psum.ByRegion.update(work.isum.ByRegion)
+			psum.ByTyp.update(work.isum.ByRegion)
+			psum.BySvc.update(work.isum.ByRegion)
 			for mo := range work.idet.Line {
 				pdet.Line[mo] = work.idet.Line[mo]
 			}
@@ -1002,16 +1012,18 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	} else if last := line.Hour[len(line.Hour)-1]; us == line.HUsg[len(line.HUsg)-1] &&
 		h == (last&baseMask)+(last>>rangeShift&rangeMask)+1 {
 		line.Hour[len(line.Hour)-1] += 1 << rangeShift
-		line.MRe++
+		line.Mu++
 	} else {
 		line.Hour = append(line.Hour, h)
 		line.HUsg = append(line.HUsg, us)
-		line.MRe++
+		line.Mu++
 	}
 	line.Usg += us
 	line.Cost += co
 	work.isum.ByAcct.add(hr, line.Acct, c)
 	work.isum.ByRegion.add(hr, line.AZ, c)
+	work.isum.ByTyp.add(hr, line.Typ, c)
+	work.isum.BySvc.add(hr, line.Svc, c)
 }
 func curawsMaint(n string) {
 	goGo := make(chan bool, 1)
