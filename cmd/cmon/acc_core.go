@@ -961,8 +961,10 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			work.idetm = work.idet.Line[work.imo]
 		} else if strings.HasPrefix(meta, "end ") {
 			for _, m := range work.idet.Line {
-				for _, line := range m {
-					if line.Cost < 0.01 && -0.01 < line.Cost {
+				for id, line := range m {
+					if line.Cost == 0 {
+						delete(m, id)
+					} else if line.Cost < 0.01 && -0.01 < line.Cost {
 						line.Hour, line.HUsg = nil, nil
 					}
 				}
@@ -970,8 +972,8 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			psum, pdet := m.data[0].(*curSum), m.data[1].(*curDetail)
 			psum.ByAcct.update(work.isum.ByAcct)
 			psum.ByRegion.update(work.isum.ByRegion)
-			psum.ByTyp.update(work.isum.ByRegion)
-			psum.BySvc.update(work.isum.ByRegion)
+			psum.ByTyp.update(work.isum.ByTyp)
+			psum.BySvc.update(work.isum.BySvc)
 			for mo := range work.idet.Line {
 				pdet.Line[mo] = work.idet.Line[mo]
 			}

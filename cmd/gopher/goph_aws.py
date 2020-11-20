@@ -318,7 +318,8 @@ def gophCURAWS(m, cmon, args):
                 pipe(s, rec)
 
             elif l.startswith('#!begin '):
-                s = l[:-1].partition(' ')[2].partition('~link')[0]
+                ps,s = s, l[:-1].partition(' ')[2].partition('~link')[0]
+                if ps and not s.startswith(ps[:-12]): ids = set()
         pipe(None, None)
 
 def main():
