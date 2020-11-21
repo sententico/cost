@@ -163,9 +163,17 @@ def gophRDSAWS(m, cmon, args):
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    pipe, head, ids, s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','az','rid','desc','ivl'
-                                       'name','env','dc','prod','app','cust','team','ver',
-                                      ]), {}, set(), ""
+    pipe,head,ids,s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl'
+                                    'name','env','dc','prod','app','cust','team','ver',
+                                   ]), {}, {}, ""
+    def getcid(id):
+        cid = id[-9:]; fid = ids.get(cid)
+        if fid is None:
+            ids[cid] = id;  return cid, True
+        elif fid == id:     return cid, False
+        elif id in ids:     return id,  False
+        ids[id] = '';       return id,  True
+
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('identity/LineItemId,'):
@@ -174,16 +182,12 @@ def gophCURAWS(m, cmon, args):
             elif not l.startswith('#!'):
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
-                # TODO: analysis...
-                #   lineItem/ProductCode (how differs from product/ProductName?)
-                #   lineItem/AvailabilityZone (ever present when product/region is not?)
-                #   lineItem/UnblendedCost (how differs from lineItem/BlendedCost & pricing/publicOnDemandCost?)
-                id,hour = col[0], col[head['lineItem/UsageStartDate']]
+                id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]
                 rec,typ = {
                     'id':       id,                                     # line item ID
                     'hour':     hour,                                   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
                 },  col[head['lineItem/LineItemType']]
-                if typ != 'RIFee':                                      # TODO: expand calculation for SP
+                if typ != 'RIFee':                                      # TODO: expand calculation for SPs
                     ubl,fee = col[head['lineItem/UnblendedCost']], col[head['reservation/RecurringFeeForUsage']]
                     try:    rec.update({
                         'usg':  col[head['lineItem/UsageAmount']],      # usage quantity/cost
@@ -194,8 +198,7 @@ def gophCURAWS(m, cmon, args):
                         'usg':  col[head['reservation/UnusedQuantity']],# unused reservation quantity/cost
                         'cost': col[head['reservation/UnusedRecurringFee']],
                     })
-
-                if id not in ids:
+                if new:
                     svc,uop,az,rid,end,nm =\
                         col[head['product/ProductName']],   col[head['lineItem/Operation']],    col[head['product/region']],\
                         col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']], col[head['resourceTags/user:Name']]
@@ -231,6 +234,10 @@ def gophCURAWS(m, cmon, args):
                                 'AWS Key Management Service':           'KMS',
                                 'Amazon Simple Queue Service':          'SQS',
                                 'Amazon Relational Database Service':   'RDS',
+                                'Amazon EC2 Container Registry':        'ECR',
+                                'CloudEndure Disaster Recovery to AWS': 'CloudEndure',
+                                'Repstance Advanced Edition':           'Repstance AE',
+                                'Contact Center Telecommunications (service sold by AMCS, LLC) ':'Amazon Connect telecom',
                                }.get(svc,svc.replace(
                                 'Amazon ',              ''      ).replace(
                                 'AWS ',                 ''      )),     # service name
@@ -238,7 +245,7 @@ def gophCURAWS(m, cmon, args):
                         'uop':  '' if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
                                               'NoOperation','Not Applicable','N/A','n/a','Unknown','unknown',
                                              } else uop,                # usage operation
-                        'az':   {'us-east-1':           'USE1', 'ap-east-1':            'APE1',
+                        'reg':  {'us-east-1':           'USE1', 'ap-east-1':            'APE1',
                                  'us-east-2':           'USE2', 'ap-northeast-1':       'APN1',
                                  'us-west-1':           'USW1', 'ap-northeast-2':       'APN2',
                                  'us-west-2':           'USW2', 'ap-northeast-3':       'APN3',
@@ -307,19 +314,18 @@ def gophCURAWS(m, cmon, args):
                         'name': '' if nm in {'Unknown','unknown',
                                             } else nm,                  # user-supplied resource name
                         'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
-                        'dc':   col[head['resourceTags/user:dc']],      # cost location (orl, iad, ...)
+                        'dc':   col[head['resourceTags/user:dc']],      # operating loc (orl, iad, ...)
                         'prod': col[head['resourceTags/user:product']], # product (high-level)
                         'app':  col[head['resourceTags/user:app']],     # application (low-level)
                         'cust': col[head['resourceTags/user:cust']],    # cost or owning org
                         'team': col[head['resourceTags/user:team']],    # operating org
                         'ver':  col[head['resourceTags/user:version']], # major.minor
                     })
-                    ids.add(id)
                 pipe(s, rec)
 
             elif l.startswith('#!begin '):
                 ps,s = s, l[:-1].partition(' ')[2].partition('~link')[0]
-                if ps and not s.startswith(ps[:-12]): ids = set()
+                if ps and not s.startswith(ps[:-12]): ids = {}
         pipe(None, None)
 
 def main():

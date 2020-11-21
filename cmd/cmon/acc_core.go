@@ -41,7 +41,7 @@ type (
 	hsA map[int32]map[string]float64    // amount (USD cost) by hour/string descriptor
 
 	ec2Sum struct {
-		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		Current  int32 // hour cursor in summary maps (hours in Unix epoch)
 		ByAcct   hsU   // map by hour / account
 		ByRegion hsU   // map by hour / region
 		BySKU    hsU   // map by hour / region+type+platform
@@ -71,7 +71,7 @@ type (
 	}
 
 	ebsSum struct {
-		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		Current  int32 // hour cursor in summary maps (hours in Unix epoch)
 		ByAcct   hsU   // map by hour / account
 		ByRegion hsU   // map by hour / region
 		BySKU    hsU   // map by hour / region+type
@@ -100,7 +100,7 @@ type (
 	}
 
 	rdsSum struct {
-		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		Current  int32 // hour cursor in summary maps (hours in Unix epoch)
 		ByAcct   hsU   // map by hour / account
 		ByRegion hsU   // map by hour / region
 		BySKU    hsU   // map by hour / region+type+engine
@@ -134,7 +134,7 @@ type (
 	}
 
 	curSum struct {
-		Current  int32 // hour cursor in summary maps (Unix time, hours past epoch)
+		Current  int32 // hour cursor in summary maps (hours in Unix epoch)
 		ByAcct   hsA   // map by hour / account
 		ByRegion hsA   // map by hour / region
 		ByTyp    hsA   // map by hour / line item type
@@ -146,7 +146,7 @@ type (
 		Svc  string    `json:"S,omitempty"`
 		UTyp string    `json:"UT,omitempty"`
 		UOp  string    `json:"UO,omitempty"`
-		AZ   string    `json:"AZ,omitempty"`
+		Reg  string    `json:"L,omitempty"`
 		RID  string    `json:"R,omitempty"`
 		Desc string    `json:"De,omitempty"`
 		Name string    `json:"N,omitempty"`
@@ -157,9 +157,9 @@ type (
 		Cust string    `json:"Cu,omitempty"`
 		Team string    `json:"Te,omitempty"`
 		Ver  string    `json:"V,omitempty"`
-		Hour []uint32  `json:"H,omitempty"`  // hour ranges (...)
-		HUsg []float32 `json:"HU,omitempty"` // hourly usage
-		Mu   int16     `json:"M,omitempty"`  // multiple CSV usage records (plus initial record)
+		Hour []uint32  `json:"H,omitempty"`  // type | range hrs (+base) | base (hrs in Unix epoch)
+		HUsg []float32 `json:"HU,omitempty"` // hourly usage (maps to Hour ranges)
+		Mu   int16     `json:"M,omitempty"`  // multiple CSV usage record count (+initial)
 		Usg  float32   `json:"U,omitempty"`
 		Cost float32   `json:"C,omitempty"`
 	}
@@ -190,27 +190,27 @@ type (
 	hnC     map[int32]map[tel.E164digest]*callsItem // calls by hour/E.164 digest number
 	hiD     map[int32]map[uint64]*cdrItem           // CDRs (details) by hour/ID
 	termSum struct {
-		Current int32 // hour cursor in term summary maps (Unix time, hours past epoch)
-		ByLoc   hsC   // map by hour (Unix time, hours past epoch) / service location
+		Current int32 // hour cursor in term summary maps (hours in Unix epoch)
+		ByLoc   hsC   // map by hour (hours in Unix epoch) / service location
 		BySP    hsC   // map by hour / service provider
 		ByGeo   hsC   // map by hour / to geo zone
 		ByFrom  hnC   // map by hour / full from number
 		ByTo    hnC   // map by hour / to prefix (CC+P)
 	}
 	origSum struct {
-		Current int32 // hour cursor in orig summary maps (Unix time, hours past epoch)
-		ByLoc   hsC   // map by hour (Unix time, hours past epoch) / service location
+		Current int32 // hour cursor in orig summary maps (hours in Unix epoch)
+		ByLoc   hsC   // map by hour (hours in Unix epoch) / service location
 		BySP    hsC   // map by hour / service provider
 		ByGeo   hsC   // map by hour / from geo zone
 		ByFrom  hnC   // map by hour / from prefix (CC+P)
 		ByTo    hnC   // map by hour / full to number
 	}
 	termDetail struct {
-		Current int32 // hour cursor in term CDR map (Unix time)
+		Current int32 // hour cursor in term CDR map (hours in Unix epoch)
 		CDR     hiD   // map by hour/CDR ID
 	}
 	origDetail struct {
-		Current int32 // hour cursor in orig CDR map (Unix time)
+		Current int32 // hour cursor in orig CDR map (hours in Unix epoch)
 		CDR     hiD   // map by hour/CDR ID
 	}
 	cdrWork struct {
@@ -226,7 +226,7 @@ const (
 	typShift   = 32 - 2   // CUR hour range type
 	rangeShift = 30 - 10  // CUR hour range width (hours - 1)
 	rangeMask  = 0x3ff    // CUR hour range width (hours - 1)
-	baseMask   = 0xf_ffff // CUR hour range base (Unix time, hours past epoch)
+	baseMask   = 0xf_ffff // CUR hour range base (hours in Unix epoch)
 
 	gwlocShift = 64 - 13            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
 	shelfShift = 51 - 3             // CDR ID shelf (GSX could have 6)
@@ -996,7 +996,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			Svc:  item["svc"],
 			UTyp: item["utyp"],
 			UOp:  item["uop"],
-			AZ:   item["az"],
+			Reg:  item["reg"],
 			RID:  item["rid"],
 			Desc: item["desc"],
 			Name: item["name"],
@@ -1023,7 +1023,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	line.Usg += us
 	line.Cost += co
 	work.isum.ByAcct.add(hr, line.Acct, c)
-	work.isum.ByRegion.add(hr, line.AZ, c)
+	work.isum.ByRegion.add(hr, line.Reg, c)
 	work.isum.ByTyp.add(hr, line.Typ, c)
 	work.isum.BySvc.add(hr, line.Svc, c)
 }
