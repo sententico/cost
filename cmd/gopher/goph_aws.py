@@ -234,7 +234,7 @@ def gophCURAWS(m, cmon, args):
                                 'AWS Key Management Service':           'KMS',
                                 'Amazon Simple Queue Service':          'SQS',
                                 'Amazon Relational Database Service':   'RDS',
-                                'Amazon EC2 Container Registry':        'ECR',
+                                'Amazon EC2 Container Registry (ECR)':  'ECR',
                                 'CloudEndure Disaster Recovery to AWS': 'CloudEndure',
                                 'Repstance Advanced Edition':           'Repstance AE',
                                 'Contact Center Telecommunications (service sold by AMCS, LLC) ':'Amazon Connect telecom',
