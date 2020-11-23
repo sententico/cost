@@ -224,7 +224,7 @@ type (
 )
 
 const (
-	curItemMin = 0.1 // minimum CUR line item cost keeping hourly usage detail
+	curItemMin = 0.05 // minimum CUR line item cost to keep hourly usage detail
 
 	typShift   = 32 - 2   // CUR hour range type
 	rangeShift = 30 - 10  // CUR hour range width (hours - 1)

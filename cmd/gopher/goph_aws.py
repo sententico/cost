@@ -292,14 +292,17 @@ def gophCURAWS(m, cmon, args):
                                 'On Demand',            'OD'    ).replace(
                                 ' reserved instance ',  ' RI '  ).replace(
                                 'rovisioned IOPS',      'IOPS'  ).replace(
-                                'IP address',           'IP'    ).replace(
+                                'rovisioned',           'rov'   ).replace(
+                                ' storage',             ' sto'  ).replace(
                                 ' capacity',            ' cap'  ).replace(
+                                'IP address',           'IP'    ).replace(
                                 'Linux/UNIX',           'Linux' ).replace(
                                 'PostgreSQL',           'PSQL'  ).replace(
                                 'SQL Server',           'SQL'   ).replace(
                                 'SQL Standard',         'SQL SE').replace(
                                 'SQL Std',              'SQL SE').replace(
                                 'SQL Enterprise',       'SQL EE').replace(
+                                'SQL Express',          'SQL EX').replace(
                                 '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
                                 'Virginia',             'VA'    ).replace(
