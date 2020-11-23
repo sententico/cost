@@ -235,6 +235,7 @@ def gophCURAWS(m, cmon, args):
                                 'Amazon Simple Queue Service':          'SQS',
                                 'Amazon Relational Database Service':   'RDS',
                                 'Amazon EC2 Container Registry (ECR)':  'ECR',
+                                'Amazon Elastic File System':           'EFS',
                                 'CloudEndure Disaster Recovery to AWS': 'CloudEndure',
                                 'Repstance Advanced Edition':           'Repstance AE',
                                 'Contact Center Telecommunications (service sold by AMCS, LLC) ':'Amazon Connect telecom',
@@ -282,19 +283,22 @@ def gophCURAWS(m, cmon, args):
                                 ' Hour',                ' hr'   ).replace(
                                 '-hour',                '-hr'   ).replace(
                                 '-Hour',                '-hr'   ).replace(
+                                ' reserved instance ',  ' RI '  ).replace(
                                 ' instance',            ' inst' ).replace(
                                 ' Instance ',           ' inst ').replace(
                                 ' Instance-',           ' inst-').replace(
                                 ' request',             ' req'  ).replace(
+                                'Requests/',            'req/'  ).replace(
                                #' Request',             ' req'  ).replace(
                                 ' million',             'M'     ).replace(
                                 '/million',             '/M'    ).replace(
                                 'On Demand',            'OD'    ).replace(
-                                ' reserved instance ',  ' RI '  ).replace(
                                 'rovisioned IOPS',      'IOPS'  ).replace(
                                 'rovisioned',           'rov'   ).replace(
                                 ' storage',             ' sto'  ).replace(
                                 ' capacity',            ' cap'  ).replace(
+                                ' in VPC Zone',      ' VPC Zone').replace(
+                                ' Outbound',            ' out'  ).replace(
                                 'IP address',           'IP'    ).replace(
                                 'Linux/UNIX',           'Linux' ).replace(
                                 'PostgreSQL',           'PSQL'  ).replace(
@@ -305,6 +309,7 @@ def gophCURAWS(m, cmon, args):
                                 'SQL Express',          'SQL EX').replace(
                                 '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
+                                'thereafter',           'after' ).replace(
                                 'Virginia',             'VA'    ).replace(
                                 'Ohio',                 'OH'    ).replace(
                                 'Oregon',               'OR'    ).replace(
