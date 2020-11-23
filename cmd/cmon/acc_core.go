@@ -169,6 +169,7 @@ type (
 	}
 	curWork struct {
 		imo   string              // CUR insertion month
+		ihr   uint32              // CUR insertion default hour range (in Unix epoch)
 		isum  curSum              // CUR summary insertion maps
 		idet  curDetail           // CUR line item insertion map
 		idetm map[string]*curItem // CUR line item month insertion map
@@ -223,6 +224,8 @@ type (
 )
 
 const (
+	curItemMin = 0.1 // minimum CUR line item cost keeping hourly usage detail
+
 	typShift   = 32 - 2   // CUR hour range type
 	rangeShift = 30 - 10  // CUR hour range width (hours - 1)
 	rangeMask  = 0x3ff    // CUR hour range width (hours - 1)
@@ -958,13 +961,15 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
 				work.idet.Line[work.imo] = make(map[string]*curItem)
 			}
+			t, _ := time.Parse(time.RFC3339, work.imo[:4]+"-"+work.imo[4:]+"-01T00:00:00Z")
+			work.ihr = uint32(t.Unix()/3600) & baseMask
 			work.idetm = work.idet.Line[work.imo]
 		} else if strings.HasPrefix(meta, "end ") {
 			for _, m := range work.idet.Line {
 				for id, line := range m {
 					if line.Cost == 0 {
 						delete(m, id)
-					} else if line.Cost < 0.01 && -0.01 < line.Cost {
+					} else if line.Cost < curItemMin && -curItemMin < line.Cost {
 						line.Hour, line.HUsg = nil, nil
 					}
 				}
@@ -976,16 +981,33 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			psum.BySvc.update(work.isum.BySvc)
 			for mo := range work.idet.Line {
 				pdet.Line[mo] = work.idet.Line[mo]
+				bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
+				bh, eh := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600
+				for ; eh > bh && psum.ByAcct[eh] == nil; eh-- {
+				}
+				if pdet.Month[mo] = [2]int32{bh, eh}; eh > psum.Current {
+					psum.Current = eh
+				}
 			}
-			// TODO: drop old month when adding new
+			mos, exp := 0, work.imo
+			for mo := range pdet.Line {
+				if mos++; mo < exp {
+					exp = mo
+				}
+			}
+			if work.idet.Line = nil; mos > 3 {
+				delete(pdet.Line, exp)
+			}
 		}
 		return
 	} else if work.imo == "" {
 		return
 	}
 
-	t, _ := time.Parse(time.RFC3339, item["hour"]) // TODO: use default on error
-	h := uint32(t.Unix()/3600) & baseMask
+	h := work.ihr
+	if t, err := time.Parse(time.RFC3339, item["hour"]); err == nil {
+		h = uint32(t.Unix()/3600) & baseMask
+	}
 	u, _ := strconv.ParseFloat(item["usg"], 64)
 	c, _ := strconv.ParseFloat(item["cost"], 64)
 	line, hr, us, co := work.idetm[id], int32(h), float32(u), float32(c)
