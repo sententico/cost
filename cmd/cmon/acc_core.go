@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -456,8 +457,15 @@ func (m hsA) add(hr int32, k string, amount float64) {
 	}
 }
 func (m hsA) update(u hsA) {
-	for hr := range u {
-		m[hr] = u[hr]
+	for hr, hm := range u {
+		for s, a := range hm {
+			if ra := math.Round(a * 1e5); ra == 0 {
+				delete(hm, s)
+			} else {
+				hm[s] = ra / 1e5
+			}
+		}
+		m[hr] = hm
 	}
 }
 func (m hsA) clean(exp int32) {
@@ -958,12 +966,16 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				Line: make(map[string]map[string]*curItem),
 			}, nil
 		} else if strings.HasPrefix(meta, "section 20") && len(meta) > 14 {
-			if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
-				work.idet.Line[work.imo] = make(map[string]*curItem)
+			if t, err := time.Parse(time.RFC3339, meta[8:12]+"-"+meta[12:14]+"-01T00:00:00Z"); err == nil {
+				if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
+					work.idet.Line[work.imo] = make(map[string]*curItem)
+				}
+				work.ihr = uint32(t.Unix()/3600) & baseMask
+				work.idetm = work.idet.Line[work.imo]
+			} else {
+				work.imo = ""
+				logE.Printf("unrecognized AWS CUR input: %q", meta[8:])
 			}
-			t, _ := time.Parse(time.RFC3339, work.imo[:4]+"-"+work.imo[4:]+"-01T00:00:00Z")
-			work.ihr = uint32(t.Unix()/3600) & baseMask
-			work.idetm = work.idet.Line[work.imo]
 		} else if strings.HasPrefix(meta, "end ") {
 			for _, m := range work.idet.Line {
 				for id, line := range m {
