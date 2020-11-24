@@ -70,12 +70,13 @@ def getWriter(m, cols):
 def gophCDRASP(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
     pipe, s = getWriter(m, ['id','loc','begin','dur','type','from','to','dip','try','iTG','eTG','IP',
+                            'user',
                            ]), ""
     with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('STOP,'):
-                col = l.split(',', 34)
-                if len(col) <= 34: continue
+                col = l.split(',', 120)
+                if len(col) <= 120: continue
                 try:    begin = datetime.strptime(col[5]+col[6][:-2],'%m/%d/%Y%H:%M:%S').isoformat()+'Z'
                 except  KeyboardInterrupt: raise
                 except: continue
@@ -93,6 +94,8 @@ def gophCDRASP(m, cmon, args):
                                                 # gateway:trunk group (outbound carrier)
                          'eTG':     col[30].partition(':')[2],
                          'IP':      col[31],    # egress local signaling IP addr (non-routable for inbound)
+                                                # message manipulation (SMM) fields (user data)
+                         'user':    ':'.join(col[115:120])
                         })
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]

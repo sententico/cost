@@ -16,6 +16,6 @@ if [ -n "$prior" ] && [ "$prior" = "$(ls -l $CUR.csv.gz~link)" ]; then
         zcat $f
         echo "#!end $f"
     done
-    rm $links
+    trap '' 1 2 3 15; rm $links
 fi
 exit 0
