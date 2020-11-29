@@ -73,7 +73,7 @@ func (r *Rater) Load(rr io.Reader) (err error) {
 	} else if r.Default != "" {
 		b = []byte(r.Default)
 	} else {
-		b = []byte(DefaultTermRates)
+		b = []byte(DefaultTermCostNA)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot access rates resource: %v", err)
@@ -98,22 +98,18 @@ func (r *Rater) Load(rr io.Reader) (err error) {
 }
 
 // Lookup method on Rater ...
-func (r *Rater) Lookup(tn *E164full) (v float32) {
-	if r == nil {
+func (r *Rater) Lookup(tn *E164full) float32 {
+	if r == nil || tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
 		return 0
-	} else if tn == nil || tn.CC == "" || len(tn.Num) <= len(tn.CC) {
-		return r.DefaultRate
 	}
-	pr := r.ccR[tn.CC]
-	for match := tn.Num[len(tn.CC):]; ; match = match[:len(match)-1] {
-		if v = pr[match]; v > 0 {
+	for pr, match := r.ccR[tn.CC], tn.Num[len(tn.CC):]; ; match = match[:len(match)-1] {
+		if v, found := pr[match]; found {
 			return v
 		} else if match == "" {
-			if v = pr["default"]; v > 0 {
+			if v, found = pr["default"]; found {
 				return v
-			} else {
-				return r.DefaultRate
 			}
+			return r.DefaultRate
 		}
 	}
 }
@@ -250,7 +246,7 @@ func (d *Decoder) Digest(n string) E164digest {
 
 // Load method on SPmap ...
 func (sp *SPmap) Load(r io.Reader) (err error) {
-	res, b := make(map[uint16]spIDs), []byte{}
+	res, b := make(map[uint16]nameGrp), []byte{}
 	if sp == nil {
 		return fmt.Errorf("no service provider map specified")
 	} else if sp.alCo, sp.coNa = nil, nil; r != nil {
@@ -288,7 +284,7 @@ func (sp *SPmap) Name(co uint16) string {
 
 // Load method on SLmap ...
 func (sl *SLmap) Load(r io.Reader) (err error) {
-	res, b := make(map[uint16]spIDs), []byte{}
+	res, b := make(map[uint16]nameGrp), []byte{}
 	if sl == nil {
 		return fmt.Errorf("no service location map specified")
 	} else if sl.alCo, sl.coNa = nil, nil; r != nil {
@@ -326,16 +322,20 @@ func (sl *SLmap) Name(co uint16) string {
 
 // Digest method on E164full ...
 func (tn *E164full) Digest(pre int) E164digest {
-	if tn == nil || pre < len(tn.CC) || pre > len(tn.Num) || len(tn.CC) == 0 || len(tn.CC) > 3 ||
-		len(tn.Num) < len(tn.CC) || len(tn.Num) > 15 || len(tn.CC)+len(tn.P)+len(tn.Sub) != len(tn.Num) {
+	var np uint64
+	if tn == nil || len(tn.CC) == 0 || len(tn.CC) > 3 || len(tn.Num) < len(tn.CC) ||
+		len(tn.Num) > 15 || len(tn.CC)+len(tn.P)+len(tn.Sub) != len(tn.Num) {
 		return 0
-	} else if np, _ := strconv.ParseUint(tn.Num[:pre], 10, 64); np == 0 {
+	} else if pre < len(tn.CC) || pre >= len(tn.Num) {
+		if np, _ = strconv.ParseUint(tn.Num, 10, 64); np == 0 {
+			return 0
+		}
+	} else if np, _ = strconv.ParseUint(tn.Num[:pre], 10, 64); np == 0 {
 		return 0
-	} else if pre < len(tn.Num) {
-		return E164digest(np<<numShift | uint64(len(tn.CC))<<ccShift | uint64(pre-len(tn.CC))<<pShift | uint64(geoEncode[tn.Geo])&geoMask)
 	} else {
-		return E164digest(np<<numShift | uint64(len(tn.CC))<<ccShift | uint64(len(tn.P))<<pShift | uint64(len(tn.Sub))<<subShift | uint64(geoEncode[tn.Geo])&geoMask)
+		return E164digest(np<<numShift | uint64(len(tn.CC))<<ccShift | uint64(pre-len(tn.CC))<<pShift | uint64(geoEncode[tn.Geo])&geoMask)
 	}
+	return E164digest(np<<numShift | uint64(len(tn.CC))<<ccShift | uint64(len(tn.P))<<pShift | uint64(len(tn.Sub))<<subShift | uint64(geoEncode[tn.Geo])&geoMask)
 }
 
 // Full method on E164digest ...

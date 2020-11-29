@@ -1,8 +1,12 @@
 package tel
 
 const (
-	// DefaultOrigRates ... requires maintenance updates (last Sep20)
-	DefaultOrigRates = `{
+	// DefaultOrigBill ... requires maintenance updates (last Nov20)
+	DefaultOrigBill = `{
+	}`
+
+	// DefaultOrigCost ... requires maintenance updates (last Nov20)
+	DefaultOrigCost = `{
 		"1":[	{"Rate":0.005,	"P":["800","822","833","844","855","866","877","888"]},
 				{"Rate":0.003,	"P":["default"]}],
 		"20":[	{"Rate":0.01,	"P":["default"]}],
@@ -223,8 +227,20 @@ const (
 		"998":[	{"Rate":0.01,	"P":["default"]}]
 	}`
 
-	// DefaultTermRates ...
-	DefaultTermRates = `{
+	// DefaultTermBillEUR ... requires maintenance updates (last Nov20)
+	DefaultTermBillEUR = `{
+	}`
+
+	// DefaultTermCostEUR ... requires maintenance updates (last Nov20)
+	DefaultTermCostEUR = `{
+	}`
+
+	// DefaultTermBillNA ... requires maintenance updates (last Nov20)
+	DefaultTermBillNA = `{
+	}`
+
+	// DefaultTermCostNA ... requires maintenance updates (last Nov20)
+	DefaultTermCostNA = `{
 		"1":[	{"Rate":0.0022,	"P":["204","226","236","249","250","289","306","343","354","365","367","382","403","416","418","428","431","437","438","450","460","474","506","514","519","548","579","581","584","587","600","604","613","639","647","672","705","709","778","780","782","807","819","825","873","879","902","905","942"]},
 				{"Rate":0.0023,	"P":["800","822","833","844","855","866","877","888"]},
 				{"Rate":0.0054,	"P":["default"]},

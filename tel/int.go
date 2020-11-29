@@ -20,7 +20,7 @@ type (
 		subI map[string]*ccInfo
 	}
 
-	spIDs struct {
+	nameGrp struct {
 		Name  string
 		Alias []string
 	}

@@ -177,35 +177,40 @@ type (
 	}
 
 	callsItem struct {
-		Calls uint32  `json:"N"` // total number of calls (high-order 4 bits unused)
-		Dur   uint64  `json:"D"` // total 0.1s actual duration (high-order 24 bits unused)
-		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
+		Calls uint32  `json:"N"`  // total number of calls (high-order 4 bits unused)
+		Dur   uint64  `json:"D"`  // total 0.1s actual duration (high-order 24 bits unused)
+		Bill  float64 `json:"TB"` // total billable USD (accumulated 4-digit rounded amounts)
+		Marg  float64 `json:"TM"` // total margin USD (accumulated 6-digit rounded amounts)
 	}
 	cdrItem struct {
-		From tel.E164digest `json:"Fr,omitempty"` // decoded from number
-		To   tel.E164digest `json:"To"`           // decoded to number
-		Time uint32         `json:"T"`            // actual duration (0.1s) | begin hour offset (s)
-		Cost float32        `json:"C"`            // rated USD cost (7-digit precision)
-		Info uint16         `json:"I"`            // other info: loc code | tries (orig=0) | svc provider code
+		To   tel.E164digest `json:"T"`           // decoded to number
+		From tel.E164digest `json:"F,omitempty"` // decoded from number
+		Cust string         `json:"C,omitempty"` // customer account/app
+		Time uint32         `json:"S"`           // real duration (0.1s) | begin hour seconds offset
+		Bill float32        `json:"B"`           // billable USD (rounded to 4 digits)
+		Marg float32        `json:"M"`           // margin USD (rounded to 6 digits)
+		Info uint16         `json:"I"`           // other info: loc code | tries (orig=0) | svc provider code
 	}
 	hsC     map[int32]map[string]*callsItem         // calls by hour/string descriptor
 	hnC     map[int32]map[tel.E164digest]*callsItem // calls by hour/E.164 digest number
 	hiD     map[int32]map[uint64]*cdrItem           // CDRs (details) by hour/ID
 	termSum struct {
 		Current int32 // hour cursor in term summary maps (hours in Unix epoch)
-		ByLoc   hsC   // map by hour (hours in Unix epoch) / service location
-		BySP    hsC   // map by hour / service provider
+		ByCust  hsC   // map by hour / customer (acct/app)
 		ByGeo   hsC   // map by hour / to geo zone
-		ByFrom  hnC   // map by hour / full from number
+		BySP    hsC   // map by hour / service provider
+		ByLoc   hsC   // map by hour (hours in Unix epoch) / service location
 		ByTo    hnC   // map by hour / to prefix (CC+P)
+		ByFrom  hnC   // map by hour / full from number
 	}
 	origSum struct {
 		Current int32 // hour cursor in orig summary maps (hours in Unix epoch)
-		ByLoc   hsC   // map by hour (hours in Unix epoch) / service location
-		BySP    hsC   // map by hour / service provider
+		ByCust  hsC   // map by hour / customer (acct/app)
 		ByGeo   hsC   // map by hour / from geo zone
-		ByFrom  hnC   // map by hour / from prefix (CC+P)
+		BySP    hsC   // map by hour / service provider
+		ByLoc   hsC   // map by hour (hours in Unix epoch) / service location
 		ByTo    hnC   // map by hour / full to number
+		ByFrom  hnC   // map by hour / from prefix (CC+P)
 	}
 	termDetail struct {
 		Current int32 // hour cursor in term CDR map (hours in Unix epoch)
@@ -216,11 +221,13 @@ type (
 		CDR     hiD   // map by hour/CDR ID
 	}
 	cdrWork struct {
-		decoder, nadecoder tel.Decoder
-		trates, orates     tel.Rater
-		sp                 tel.SPmap
-		sl                 tel.SLmap
-		tn                 tel.E164full
+		decoder, nadecoder     tel.Decoder  // CDR insertion decoders
+		tbratesNA, tcratesNA   tel.Rater    // CDR insertion raters
+		tbratesEUR, tcratesEUR tel.Rater    // CDR insertion raters
+		obrates, ocrates       tel.Rater    // CDR insertion raters
+		sp                     tel.SPmap    // CDR insertion service provider map
+		sl                     tel.SLmap    // CDR insertion service location map
+		to, fr                 tel.E164full // CDR insertion decoder variable
 	}
 )
 
@@ -1101,17 +1108,19 @@ func curawsTerm(n string, ctl chan string) {
 
 func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
-		ByLoc:  make(hsC, 2184),
-		BySP:   make(hsC, 2184),
+		ByCust: make(hsC, 2184),
 		ByGeo:  make(hsC, 2184),
-		ByFrom: make(hnC, 2184),
+		BySP:   make(hsC, 2184),
+		ByLoc:  make(hsC, 2184),
 		ByTo:   make(hnC, 2184),
+		ByFrom: make(hnC, 2184),
 	}, &origSum{
-		ByLoc:  make(hsC, 2184),
-		BySP:   make(hsC, 2184),
+		ByCust: make(hsC, 2184),
 		ByGeo:  make(hsC, 2184),
-		ByFrom: make(hnC, 2184),
+		BySP:   make(hsC, 2184),
+		ByLoc:  make(hsC, 2184),
 		ByTo:   make(hnC, 2184),
+		ByFrom: make(hnC, 2184),
 	}, &termDetail{
 		CDR: make(hiD, 60),
 	}, &origDetail{
@@ -1125,16 +1134,28 @@ func cdraspBoot(n string, ctl chan string) {
 	sync(n)
 
 	work.nadecoder.NANPbias = true
-	work.trates.Default, work.orates.Default = tel.DefaultTermRates, tel.DefaultOrigRates
-	work.trates.DefaultRate, work.orates.DefaultRate = 0.01, 0.005
+	work.tbratesNA.Default, work.tcratesNA.Default = tel.DefaultTermBillNA, tel.DefaultTermCostNA
+	work.tbratesNA.DefaultRate, work.tcratesNA.DefaultRate = 0.01, 0.005
+	work.tbratesEUR.Default, work.tcratesEUR.Default = tel.DefaultTermBillEUR, tel.DefaultTermCostEUR
+	work.tbratesEUR.DefaultRate, work.tcratesEUR.DefaultRate = 0.01, 0.005
+	work.obrates.Default, work.ocrates.Default = tel.DefaultOrigBill, tel.DefaultOrigCost
+	work.obrates.DefaultRate, work.ocrates.DefaultRate = 0.01, 0.005
 	if err := work.decoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
 	} else if err = work.nadecoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load NANP-biased E.164 decoder: %v", n, err)
-	} else if err = work.trates.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load termination rates: %v", n, err)
-	} else if err = work.orates.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load origination rates: %v", n, err)
+	} else if err = work.tbratesNA.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load NA termination bill rates: %v", n, err)
+	} else if err = work.tcratesNA.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load NA termination cost rates: %v", n, err)
+	} else if err = work.tbratesEUR.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load EUR termination bill rates: %v", n, err)
+	} else if err = work.tcratesEUR.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load EUR termination cost rates: %v", n, err)
+	} else if err = work.obrates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load origination bill rates: %v", n, err)
+	} else if err = work.ocrates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load origination cost rates: %v", n, err)
 	} else if err = work.sp.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load service provider map: %v", n, err)
 	} else if err = work.sl.Load(nil); err != nil {
@@ -1157,13 +1178,14 @@ func (m hiD) add(hr int32, id uint64, cdr *cdrItem) bool {
 func (m hsC) add(hr int32, k string, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[string]*callsItem)
-		m[hr], hm[k] = hm, &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+		m[hr], hm[k] = hm, &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Bill: float64(cdr.Bill), Marg: float64(cdr.Marg)}
 	} else if c := hm[k]; c == nil {
-		hm[k] = &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+		hm[k] = &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Bill: float64(cdr.Bill), Marg: float64(cdr.Marg)}
 	} else {
 		c.Calls++
 		c.Dur += uint64(cdr.Time >> durShift)
-		c.Cost += float64(cdr.Cost)
+		c.Bill += float64(cdr.Bill)
+		c.Marg += float64(cdr.Marg)
 	}
 }
 func (m hsC) clean(exp int32) {
@@ -1173,16 +1195,34 @@ func (m hsC) clean(exp int32) {
 		}
 	}
 }
+func (m hsC) sig(active int32, insig string, min float64) {
+	for hr, sm := range m {
+		if ic := sm[insig]; ic == nil && hr < active {
+			ic = &callsItem{}
+			for s, sc := range sm {
+				if sc.Bill < min {
+					ic.Calls += sc.Calls
+					ic.Dur += sc.Dur
+					ic.Bill += sc.Bill
+					ic.Marg += sc.Marg
+					delete(sm, s)
+				}
+			}
+			sm[insig] = ic
+		}
+	}
+}
 func (m hnC) add(hr int32, k tel.E164digest, cdr *cdrItem) {
 	if hm := m[hr]; hm == nil {
 		hm = make(map[tel.E164digest]*callsItem)
-		m[hr], hm[k] = hm, &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+		m[hr], hm[k] = hm, &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Bill: float64(cdr.Bill), Marg: float64(cdr.Marg)}
 	} else if c := hm[k]; c == nil {
-		hm[k] = &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Cost: float64(cdr.Cost)}
+		hm[k] = &callsItem{Calls: 1, Dur: uint64(cdr.Time >> durShift), Bill: float64(cdr.Bill), Marg: float64(cdr.Marg)}
 	} else {
 		c.Calls++
 		c.Dur += uint64(cdr.Time >> durShift)
-		c.Cost += float64(cdr.Cost)
+		c.Bill += float64(cdr.Bill)
+		c.Marg += float64(cdr.Marg)
 	}
 }
 func (m hnC) clean(exp int32) {
@@ -1194,19 +1234,32 @@ func (m hnC) clean(exp int32) {
 }
 func (m hnC) sig(active int32, min float64) {
 	for hr, nm := range m {
-		if zc := nm[0]; zc == nil && hr < active {
-			zc = &callsItem{}
+		if ic := nm[0]; ic == nil && hr < active {
+			ic = &callsItem{}
 			for n, nc := range nm {
-				if nc.Cost < min {
-					zc.Calls += nc.Calls
-					zc.Dur += nc.Dur
-					zc.Cost += nc.Cost
+				if nc.Bill < min {
+					ic.Calls += nc.Calls
+					ic.Dur += nc.Dur
+					ic.Bill += nc.Bill
+					ic.Marg += nc.Marg
 					delete(nm, n)
 				}
 			}
-			nm[0] = zc
+			nm[0] = ic
 		}
 	}
+}
+func billmarg(brate float32, crate float32, dur uint32) (b float32, m float32) {
+	if r := dur % 60; r > 0 {
+		m = float32(dur+60-r) / 600
+	} else {
+		m = float32(dur) / 600
+	}
+	if b = m; dur < 300 {
+		b = 0.5
+	}
+	b *= brate
+	return float32(math.Round(float64(b)*1e4) / 1e4), float32(math.Round(float64(b-m*crate)*1e6) / 1e6)
 }
 func cdraspInsert(m *model, item map[string]string, now int) {
 	id, tsum, osum := ato64(item["id"], 0), m.data[0].(*termSum), m.data[1].(*origSum)
@@ -1215,29 +1268,39 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	if err != nil || id == 0 {
 		return
 	}
-	beg, dur, lc, ln := int32(b.Unix()), uint32(atoi(item["dur"], 0)+9)/10, work.sl.Code(item["loc"]), ""
-	var decoder *tel.Decoder
-	switch ln = work.sl.Name(lc); ln {
-	case "ASH", "LAS", "lab", "AWS lab":
-		decoder = &work.nadecoder
-	default:
-		decoder = &work.decoder
-	}
-	cdr, hr := &cdrItem{
+	beg, dur, lc := int32(b.Unix()), uint32(atoi(item["dur"], 0)+9)/10, work.sl.Code(item["loc"])
+	cdr, hr, methods := &cdrItem{
+		Cust: item["cust"],
 		Time: dur<<durShift | uint32(beg%3600),
 		Info: lc << locShift,
-	}, beg/3600
+	}, beg/3600, func(in bool) (d *tel.Decoder, br *tel.Rater, cr *tel.Rater) {
+		switch work.sl.Name(lc) {
+		case "ASH", "LAS", "lab", "AWS lab":
+			if d = &work.nadecoder; in {
+				br, cr = &work.obrates, &work.ocrates
+			} else {
+				br, cr = &work.tbratesNA, &work.tcratesNA
+			}
+		default:
+			if d = &work.decoder; in {
+				br, cr = &work.obrates, &work.ocrates
+			} else {
+				br, cr = &work.tbratesEUR, &work.tcratesEUR
+			}
+		}
+		return
+	}
 
 	switch typ, ip := item["type"], item["IP"]; {
 	case typ == "CORE":
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
-		// inbound/origination CDR
-		if cdr.To = decoder.Digest(item["to"]); cdr.To == 0 {
+		decoder, brater, crater := methods(true) // inbound/origination CDR
+		if decoder.Full(item["to"], &work.to) != nil {
 			break
 		}
-		decoder.Full(item["from"], &work.tn)
-		cdr.From = work.tn.Digest(len(work.tn.Num))
-		cdr.Cost = float32(dur) / 600 * work.orates.Lookup(&work.tn)
+		decoder.Full(item["from"], &work.fr)
+		cdr.To, cdr.From = work.to.Digest(0), work.fr.Digest(0)
+		cdr.Bill, cdr.Marg = billmarg(brater.Lookup(&work.to), crater.Lookup(&work.to), dur)
 		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
 		} else if len(tg) > 5 && tg[:5] == "SUAIB" {
@@ -1245,28 +1308,31 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		} else if len(tg) > 4 {
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
-		if hr > osum.Current {
-			osum.Current, odetail.Current = hr, hr
-		}
 		if odetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
-			osum.ByLoc.add(hr, ln, cdr)
-			osum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
-			if cdr.From != 0 {
-				osum.ByGeo.add(hr, work.tn.Geo, cdr)
-				osum.ByFrom.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
+			if hr > osum.Current {
+				osum.Current, odetail.Current = hr, hr
 			}
+			osum.ByCust.add(hr, cdr.Cust, cdr)
+			osum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
+			osum.ByLoc.add(hr, work.sl.Name(lc), cdr)
 			osum.ByTo.add(hr, cdr.To, cdr)
+			if cdr.From != 0 {
+				osum.ByGeo.add(hr, work.fr.Geo, cdr)
+				osum.ByFrom.add(hr, work.fr.Digest(len(work.fr.CC)+len(work.fr.P)), cdr)
+			}
 		}
 	default:
-		// outbound/termination CDR
-		cdr.From = decoder.Digest(item["from"])
-		if len(item["dip"]) < 20 || decoder.Full(item["dip"][:10], &work.tn) != nil {
-			decoder.Full(item["to"], &work.tn)
-		}
-		if cdr.To = work.tn.Digest(len(work.tn.Num)); cdr.To == 0 {
+		decoder, brater, crater := methods(false) // outbound/termination CDR
+		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil ||
+			decoder.Full(item["to"], &work.to) != nil {
 			break
 		}
-		cdr.Cost = float32(dur) / 600 * work.trates.Lookup(&work.tn)
+		cdr.To, cdr.From = work.to.Digest(0), decoder.Digest(item["from"])
+		if crate, err := strconv.ParseFloat(item["rate"], 32); err == nil {
+			cdr.Bill, cdr.Marg = billmarg(brater.Lookup(&work.to), float32(crate), dur)
+		} else {
+			cdr.Bill, cdr.Marg = billmarg(brater.Lookup(&work.to), crater.Lookup(&work.to), dur)
+		}
 		if tries := uint16(atoi(item["try"], 1)); tries > triesMask {
 			cdr.Info |= triesMask << triesShift
 		} else {
@@ -1277,17 +1343,18 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		} else if len(tg) > 4 {
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
-		if hr > tsum.Current {
-			tsum.Current, tdetail.Current = hr, hr
-		}
 		if tdetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
-			tsum.ByLoc.add(hr, ln, cdr)
+			if hr > tsum.Current {
+				tsum.Current, tdetail.Current = hr, hr
+			}
+			tsum.ByCust.add(hr, cdr.Cust, cdr)
+			tsum.ByGeo.add(hr, work.to.Geo, cdr)
 			tsum.BySP.add(hr, work.sp.Name(cdr.Info&spMask), cdr)
-			tsum.ByGeo.add(hr, work.tn.Geo, cdr)
+			tsum.ByLoc.add(hr, work.sl.Name(lc), cdr)
+			tsum.ByTo.add(hr, work.to.Digest(len(work.to.CC)+len(work.to.P)), cdr)
 			if cdr.From != 0 {
 				tsum.ByFrom.add(hr, cdr.From, cdr)
 			}
-			tsum.ByTo.add(hr, work.tn.Digest(len(work.tn.CC)+len(work.tn.P)), cdr)
 		}
 	}
 }
@@ -1298,7 +1365,7 @@ func cdraspClean(n string, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
-	texp, oexp := tdetail.Current-36, odetail.Current-36
+	texp, oexp := tdetail.Current-27, odetail.Current-27
 	for hr := range tdetail.CDR {
 		if hr <= texp {
 			delete(tdetail.CDR, hr)
@@ -1310,21 +1377,25 @@ func cdraspClean(n string, deep bool) {
 		}
 	}
 	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
-	tsum.ByFrom.sig(texp, 1.00)
+	tsum.ByCust.sig(texp, "other", 1.00)
 	tsum.ByTo.sig(texp, 1.00)
-	osum.ByFrom.sig(oexp, 1.00)
+	tsum.ByFrom.sig(texp, 1.00)
+	osum.ByCust.sig(oexp, "other", 1.00)
 	osum.ByTo.sig(oexp, 1.00)
+	osum.ByFrom.sig(oexp, 1.00)
 	texp, oexp = tsum.Current-24*90, osum.Current-24*90
-	tsum.ByLoc.clean(texp)
+	tsum.ByCust.clean(texp)
 	tsum.ByGeo.clean(texp)
 	tsum.BySP.clean(texp)
-	tsum.ByFrom.clean(texp)
+	tsum.ByLoc.clean(texp)
 	tsum.ByTo.clean(texp)
-	osum.ByLoc.clean(oexp)
+	tsum.ByFrom.clean(texp)
+	osum.ByCust.clean(oexp)
 	osum.ByGeo.clean(oexp)
 	osum.BySP.clean(oexp)
-	osum.ByFrom.clean(oexp)
+	osum.ByLoc.clean(oexp)
 	osum.ByTo.clean(oexp)
+	osum.ByFrom.clean(oexp)
 
 	m.rel <- token
 	evt <- n
