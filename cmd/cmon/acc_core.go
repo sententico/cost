@@ -1136,10 +1136,10 @@ func cdraspBoot(n string, ctl chan string) {
 	work.nadecoder.NANPbias = true
 	work.tbratesNA.Default, work.tcratesNA.Default = tel.DefaultTermBillNA, tel.DefaultTermCostNA
 	work.tbratesNA.DefaultRate, work.tcratesNA.DefaultRate = 0.01, 0.005
-	work.tbratesEUR.Default, work.tcratesEUR.Default = tel.DefaultTermBillEUR, tel.DefaultTermCostEUR
-	work.tbratesEUR.DefaultRate, work.tcratesEUR.DefaultRate = 0.01, 0.005
+	work.tbratesEUR.Default, work.tcratesEUR.Default = tel.DefaultTermBillNA, tel.DefaultTermCostNA // TODO: tel.DefaultTermBillEUR, tel.DefaultTermCostEUR
+	work.tbratesEUR.DefaultRate, work.tcratesEUR.DefaultRate = 0.02, 0.01
 	work.obrates.Default, work.ocrates.Default = tel.DefaultOrigBill, tel.DefaultOrigCost
-	work.obrates.DefaultRate, work.ocrates.DefaultRate = 0.01, 0.005
+	work.obrates.DefaultRate, work.ocrates.DefaultRate = 0.006, 0.002
 	if err := work.decoder.Load(nil); err != nil {
 		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
 	} else if err = work.nadecoder.Load(nil); err != nil {
