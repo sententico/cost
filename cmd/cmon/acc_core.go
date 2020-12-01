@@ -221,13 +221,14 @@ type (
 		CDR     hiD   // map by hour/CDR ID
 	}
 	cdrWork struct {
-		decoder, nadecoder     tel.Decoder  // CDR insertion decoders
-		tbratesNA, tcratesNA   tel.Rater    // CDR insertion raters
-		tbratesEUR, tcratesEUR tel.Rater    // CDR insertion raters
-		obrates, ocrates       tel.Rater    // CDR insertion raters
-		sp                     tel.SPmap    // CDR insertion service provider map
-		sl                     tel.SLmap    // CDR insertion service location map
-		to, fr                 tel.E164full // CDR insertion decoder variable
+		decoder, nadecoder     tel.Decoder    // CDR insertion decoders
+		tbratesNA, tcratesNA   tel.Rater      // CDR insertion raters
+		tbratesEUR, tcratesEUR tel.Rater      // CDR insertion raters
+		obrates, ocrates       tel.Rater      // CDR insertion raters
+		sp                     tel.SPmap      // CDR insertion service provider map
+		sl                     tel.SLmap      // CDR insertion service location map
+		to, fr                 tel.E164full   // CDR insertion decoder variable
+		except                 map[string]int // CDR insertion exceptions map
 	}
 )
 
@@ -1125,7 +1126,9 @@ func cdraspBoot(n string, ctl chan string) {
 		CDR: make(hiD, 60),
 	}, &origDetail{
 		CDR: make(hiD, 60),
-	}, &cdrWork{}, mMod[n]
+	}, &cdrWork{
+		except: make(map[string]int),
+	}, mMod[n]
 	m.data = append(m.data, tsum)
 	m.data = append(m.data, osum)
 	m.data = append(m.data, tdetail)
@@ -1200,7 +1203,7 @@ func (m hsC) sig(active int32, insig string, min float64) {
 		if ic := sm[insig]; ic == nil && hr < active {
 			ic = &callsItem{}
 			for s, sc := range sm {
-				if sc.Bill < min {
+				if min > sc.Bill && min > sc.Marg && sc.Marg > -min {
 					ic.Calls += sc.Calls
 					ic.Dur += sc.Dur
 					ic.Bill += sc.Bill
@@ -1237,7 +1240,7 @@ func (m hnC) sig(active int32, min float64) {
 		if ic := nm[0]; ic == nil && hr < active {
 			ic = &callsItem{}
 			for n, nc := range nm {
-				if nc.Bill < min {
+				if min > nc.Bill && min > nc.Marg && nc.Marg > -min {
 					ic.Calls += nc.Calls
 					ic.Dur += nc.Dur
 					ic.Bill += nc.Bill
@@ -1266,9 +1269,13 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	tdetail, odetail, work := m.data[2].(*termDetail), m.data[3].(*origDetail), m.data[4].(*cdrWork)
 	b, err := time.Parse(time.RFC3339, item["begin"])
 	if err != nil || id == 0 {
+		if len(work.except) > 0 {
+			logE.Printf("'cdr.asp' insertion exceptions: %v", work.except)
+			work.except = make(map[string]int)
+		}
 		return
 	}
-	beg, dur, lc := int32(b.Unix()), uint32(atoi(item["dur"], 0)+9)/10, work.sl.Code(item["loc"])
+	beg, dur, lc, tg := int32(b.Unix()), uint32(atoi(item["dur"], 0)+9)/10, work.sl.Code(item["loc"]), ""
 	cdr, hr, methods := &cdrItem{
 		Cust: item["cust"],
 		Time: dur<<durShift | uint32(beg%3600),
@@ -1296,12 +1303,13 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
 		decoder, brater, crater := methods(true) // inbound/origination CDR
 		if decoder.Full(item["to"], &work.to) != nil {
+			work.except["iTo:"+item["to"]]++
 			break
 		}
 		decoder.Full(item["from"], &work.fr)
 		cdr.To, cdr.From = work.to.Digest(0), work.fr.Digest(0)
 		cdr.Bill, cdr.Marg = billmarg(brater.Lookup(&work.to), crater.Lookup(&work.to), dur)
-		if tg := item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
+		if tg = item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
 		} else if len(tg) > 5 && tg[:5] == "SUAIB" {
 			cdr.Info |= work.sp.Code(tg[5:]) & spMask
@@ -1309,6 +1317,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if odetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
+			if cdr.Info&spMask == 0 {
+				work.except["iTG:"+tg]++
+			}
 			if hr > osum.Current {
 				osum.Current, odetail.Current = hr, hr
 			}
@@ -1325,6 +1336,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		decoder, brater, crater := methods(false) // outbound/termination CDR
 		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil ||
 			decoder.Full(item["to"], &work.to) != nil {
+			work.except["eTo:"+item["to"]]++
 			break
 		}
 		cdr.To, cdr.From = work.to.Digest(0), decoder.Digest(item["from"])
@@ -1338,12 +1350,15 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		} else {
 			cdr.Info |= tries << triesShift
 		}
-		if tg := item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
+		if tg = item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
 		} else if len(tg) > 4 {
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if tdetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
+			if cdr.Info&spMask == 0 {
+				work.except["eTG:"+tg]++
+			}
 			if hr > tsum.Current {
 				tsum.Current, tdetail.Current = hr, hr
 			}

@@ -220,8 +220,7 @@ func (d *Decoder) Digest(n string) E164digest {
 	}
 
 	var cc string
-	np, _ := strconv.ParseUint(n, 10, 64)
-	if d == nil || np == 0 || (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
+	if d == nil || (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
 		return 0
 	} else if d.NANPbias && !intl && len(n) == 10 && n[0] != '0' && n[0] != '1' && n[1] != '9' &&
 		n[:2] != "37" && n[:2] != "96" && n[:3] != "555" && n[:3] != "950" && n[1:3] != "11" &&
@@ -237,7 +236,9 @@ func (d *Decoder) Digest(n string) E164digest {
 		return 0
 	}
 
-	if i, p, s := d.ccInfo(n, cc); i == nil || s == "" {
+	if np, _ := strconv.ParseUint(n, 10, 64); np == 0 {
+		return 0
+	} else if i, p, s := d.ccInfo(n, cc); i == nil || s == "" {
 		return 0
 	} else {
 		return E164digest(np<<numShift | uint64(len(cc))<<ccShift | uint64(len(p))<<pShift | uint64(len(s))<<subShift | uint64(geoEncode[i.Geo])&geoMask)
