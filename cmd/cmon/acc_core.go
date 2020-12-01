@@ -374,6 +374,7 @@ func flush(n string, at accTyp, release bool) {
 	go func() {
 		enc := json.NewEncoder(pw)
 		enc.SetIndent("", "\t")
+		enc.SetEscapeHTML(false)
 		if err := enc.Encode(m.data[0:m.persist]); err != nil {
 			pw.CloseWithError(err)
 			return
@@ -1270,7 +1271,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	b, err := time.Parse(time.RFC3339, item["begin"])
 	if err != nil || id == 0 {
 		if len(work.except) > 0 {
-			logE.Printf("'cdr.asp' insertion exceptions: %v", work.except)
+			logE.Printf("\"cdr.asp\" insertion exceptions: %v", work.except)
 			work.except = make(map[string]int)
 		}
 		return
