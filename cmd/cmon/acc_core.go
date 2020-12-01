@@ -1275,7 +1275,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		return
 	}
-	beg, dur, lc, tg := int32(b.Unix()), uint32(atoi(item["dur"], 0)+9)/10, work.sl.Code(item["loc"]), ""
+	beg, dur, lc := int32(b.Unix()), uint32(atoi(item["dur"], 0)+9)/10, work.sl.Code(item["loc"])
 	cdr, hr, methods := &cdrItem{
 		Cust: item["cust"],
 		Time: dur<<durShift | uint32(beg%3600),
@@ -1298,22 +1298,21 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		return
 	}
 
-	switch typ, ip := item["type"], item["IP"]; {
-	case typ == "CORE":
-	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
-		decoder, brater, crater := methods(true) // inbound/origination CDR
+	switch typ, ip, tg := item["type"], item["IP"], item["iTG"]; {
+	case typ == "CORE" || tg == "USPRODMBZ_ZIPWIRE_TG": // agent/ignored CDR
+	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.": // inbound/origination CDR
+		decoder, brater, crater := methods(true)
 		if decoder.Full(item["to"], &work.to) != nil {
-			work.except["iTGto"+item["iTG"]]++
 			break
 		}
 		decoder.Full(item["from"], &work.fr)
 		cdr.To, cdr.From = work.to.Digest(0), work.fr.Digest(0)
 		cdr.Bill, cdr.Marg = billmarg(brater.Lookup(&work.to), crater.Lookup(&work.to), dur)
-		if tg = item["iTG"]; len(tg) > 6 && tg[:6] == "ASPTIB" {
+		if len(tg) > 6 && tg[:6] == "ASPTIB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
 		} else if len(tg) > 5 && tg[:5] == "SUAIB" {
 			cdr.Info |= work.sp.Code(tg[5:]) & spMask
-		} else if len(tg) > 4 {
+		} else if len(tg) > 4 { // BYOC/PBXC
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if odetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
@@ -1332,11 +1331,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 				osum.ByFrom.add(hr, work.fr.Digest(len(work.fr.CC)+len(work.fr.P)), cdr)
 			}
 		}
-	default:
-		decoder, brater, crater := methods(false) // outbound/termination CDR
+	default: // outbound/termination CDR
+		decoder, brater, crater := methods(false)
 		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil ||
 			decoder.Full(item["to"], &work.to) != nil {
-			work.except["eTGto:"+item["eTG"]]++
 			break
 		}
 		cdr.To, cdr.From = work.to.Digest(0), decoder.Digest(item["from"])
@@ -1352,7 +1350,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		}
 		if tg = item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
 			cdr.Info |= work.sp.Code(tg[6:]) & spMask
-		} else if len(tg) > 4 {
+		} else if len(tg) > 4 { // BYOC/PBXC
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
 		if tdetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
