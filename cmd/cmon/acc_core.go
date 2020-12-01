@@ -1303,7 +1303,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
 		decoder, brater, crater := methods(true) // inbound/origination CDR
 		if decoder.Full(item["to"], &work.to) != nil {
-			work.except["iTo:"+item["to"]]++
+			work.except["iTGto"+item["iTG"]]++
 			break
 		}
 		decoder.Full(item["from"], &work.fr)
@@ -1336,7 +1336,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		decoder, brater, crater := methods(false) // outbound/termination CDR
 		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil ||
 			decoder.Full(item["to"], &work.to) != nil {
-			work.except["eTo:"+item["to"]]++
+			work.except["eTGto:"+item["eTG"]]++
 			break
 		}
 		cdr.To, cdr.From = work.to.Digest(0), decoder.Digest(item["from"])
