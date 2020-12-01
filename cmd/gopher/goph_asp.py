@@ -82,7 +82,7 @@ def gophCDRASP(m, cmon, args):
                 except  KeyboardInterrupt: raise
                 except: continue
 
-                cust,lcr = '/'.join(col[51].split(',')[64:66]).rstrip('/'), col[238].split(';')
+                cust = '/'.join(col[51].split(',')[64:66]).rstrip('/')
                 pipe(s, {'id':      col[2],     # accounting ID
                          'loc':     col[1],     # gateway name (maps to service location)
                          'begin':   begin,      # start date/time
@@ -99,7 +99,7 @@ def gophCDRASP(m, cmon, args):
                                                 # ingress/egress protocol data (cust acct/app SMM fields)
                          'cust':    cust if cust else '/'.join(col[68].split(',')[64:66]).rstrip('/'),
                                                 # LCR route billing data (outbound carrier USD rate)
-                         'rate':    lcr[2][2:] if len(lcr) > 2 else '',
+                         'rate':    col[238].partition('6:')[2].partition(';')[0],
                         })
             elif l.startswith('#!begin '):
                 s = l[:-1].partition(' ')[2].partition('~link')[0]
