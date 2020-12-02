@@ -366,3 +366,21 @@ func (tnd E164digest) Geo() string {
 func (tnd E164digest) Num64() uint64 {
 	return uint64(tnd) >> numShift
 }
+
+// MarshalJSON method on E164digest ... (implements json.Marshaler interface)
+func (tnd E164digest) MarshalJSON() ([]byte, error) {
+	return json.Marshal(strconv.FormatUint(uint64(tnd), 16))
+}
+
+// UnmarshalJSON method on E164digest ... (implements json.Unmarshaler interface)
+func (tnd *E164digest) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	} else if x, err := strconv.ParseUint(s, 16, 64); err != nil {
+		return err
+	} else {
+		*tnd = E164digest(x)
+		return nil
+	}
+}

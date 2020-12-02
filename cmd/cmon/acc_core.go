@@ -182,6 +182,7 @@ type (
 		Bill  float64 `json:"TB"` // total billable USD (accumulated 4-digit rounded amounts)
 		Marg  float64 `json:"TM"` // total margin USD (accumulated 6-digit rounded amounts)
 	}
+	cdrID   uint64
 	cdrItem struct {
 		To   tel.E164digest `json:"T"`           // decoded to number
 		From tel.E164digest `json:"F,omitempty"` // decoded from number
@@ -193,7 +194,7 @@ type (
 	}
 	hsC     map[int32]map[string]*callsItem         // calls by hour/string descriptor
 	hnC     map[int32]map[tel.E164digest]*callsItem // calls by hour/E.164 digest number
-	hiD     map[int32]map[uint64]*cdrItem           // CDRs (details) by hour/ID
+	hiD     map[int32]map[cdrID]*cdrItem            // CDRs (details) by hour/ID
 	termSum struct {
 		Current int32 // hour cursor in term summary maps (hours in Unix epoch)
 		ByCust  hsC   // map by hour / customer (acct/app)
@@ -240,13 +241,13 @@ const (
 	rangeMask  = 0x3ff    // CUR hour range width (hours - 1)
 	baseMask   = 0xf_ffff // CUR hour range base (hours in Unix epoch)
 
-	gwlocShift = 64 - 13            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
-	shelfShift = 51 - 3             // CDR ID shelf (GSX could have 6)
-	shelfMask  = 0x3                // CDR ID shelf (GSX could have 6)
+	gwlocShift = 64 - 12            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
+	shelfShift = 52 - 4             // CDR ID shelf (GSX could have 6)
+	shelfMask  = 0xf                // CDR ID shelf (GSX could have 6)
 	bootShift  = 48 - 16            // CDR ID boot sequence number
 	bootMask   = 0xffff             // CDR ID boot sequence number
 	callMask   = 0xffff_ffff        // CDR ID call sequence number
-	idMask     = 0x7_ffff_ffff_ffff // CDR ID (Ribbon value without added location)
+	idMask     = 0xf_ffff_ffff_ffff // CDR ID (Ribbon value without added location)
 
 	durShift = 32 - 20 // CDR Time actual duration (0.1s)
 	offMask  = 0xfff   // CDR Time call begin-hour offset (s)
@@ -396,6 +397,8 @@ func flush(n string, at accTyp, release bool) {
 	}
 }
 
+// trig.cmon model core accessors
+//
 func trigcmonBoot(n string, ctl chan string) {
 	trig, m := &trigModel{}, mMod[n]
 	m.data = append(m.data, trig)
@@ -485,6 +488,8 @@ func (m hsA) clean(exp int32) {
 	}
 }
 
+// ec2.aws model core accessors
+//
 func ec2awsBoot(n string, ctl chan string) {
 	sum, detail, work, m := &ec2Sum{
 		ByAcct:   make(hsU, 2184),
@@ -641,6 +646,8 @@ func ec2awsTerm(n string, ctl chan string) {
 	ctl <- n
 }
 
+// ebs.aws model core accessors
+//
 func ebsawsBoot(n string, ctl chan string) {
 	sum, detail, work, m := &ebsSum{
 		ByAcct:   make(hsU, 2184),
@@ -778,6 +785,8 @@ func ebsawsTerm(n string, ctl chan string) {
 	ctl <- n
 }
 
+// rds.aws model core accessors
+//
 func rdsawsBoot(n string, ctl chan string) {
 	sum, detail, work, m := &rdsSum{
 		ByAcct:   make(hsU, 2184),
@@ -928,6 +937,8 @@ func rdsawsTerm(n string, ctl chan string) {
 	ctl <- n
 }
 
+// cur.aws model core accessors
+//
 func curawsBoot(n string, ctl chan string) {
 	sum, detail, work, m := &curSum{
 		ByAcct:   make(hsA, 2184),
@@ -1108,6 +1119,8 @@ func curawsTerm(n string, ctl chan string) {
 	ctl <- n
 }
 
+// cdr.asp model core accessors
+//
 func cdraspBoot(n string, ctl chan string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
 		ByCust: make(hsC, 2184),
@@ -1168,9 +1181,20 @@ func cdraspBoot(n string, ctl chan string) {
 	m.data = append(m.data, work)
 	ctl <- n
 }
-func (m hiD) add(hr int32, id uint64, cdr *cdrItem) bool {
+func (id cdrID) MarshalText() ([]byte, error) {
+	return []byte(strings.ToUpper(strconv.FormatUint(uint64(id), 16))), nil
+}
+func (id *cdrID) UnmarshalText(b []byte) error {
+	if x, err := strconv.ParseUint(string(b), 16, 64); err != nil {
+		return err
+	} else {
+		*id = cdrID(x)
+		return nil
+	}
+}
+func (m hiD) add(hr int32, id cdrID, cdr *cdrItem) bool {
 	if hm := m[hr]; hm == nil {
-		hm = make(map[uint64]*cdrItem, 4096)
+		hm = make(map[cdrID]*cdrItem, 4096)
 		m[hr], hm[id] = hm, cdr
 	} else if hm[id] == nil {
 		hm[id] = cdr
@@ -1266,7 +1290,7 @@ func billmarg(brate float32, crate float32, dur uint32) (b float32, m float32) {
 	return float32(math.Round(float64(b)*1e4) / 1e4), float32(math.Round(float64(b-m*crate)*1e6) / 1e6)
 }
 func cdraspInsert(m *model, item map[string]string, now int) {
-	id, tsum, osum := ato64(item["id"], 0), m.data[0].(*termSum), m.data[1].(*origSum)
+	id, tsum, osum := cdrID(ato64(item["id"], 0)), m.data[0].(*termSum), m.data[1].(*origSum)
 	tdetail, odetail, work := m.data[2].(*termDetail), m.data[3].(*origDetail), m.data[4].(*cdrWork)
 	b, err := time.Parse(time.RFC3339, item["begin"])
 	if err != nil || id == 0 {
@@ -1300,8 +1324,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	}
 
 	switch typ, ip, tg := item["type"], item["IP"], item["iTG"]; {
-	case typ == "CORE" || tg == "USPRODMBZ_ZIPWIRE_TG": // agent/ignored CDR
-	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.": // inbound/origination CDR
+	case typ == "CORE" || tg == "USPRODMBZ_ZIPWIRE_TG":
+		// agent/ignored CDR
+	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
+		// inbound/origination CDR
 		decoder, brater, crater := methods(true)
 		if decoder.Full(item["to"], &work.to) != nil {
 			break
@@ -1316,7 +1342,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		} else if len(tg) > 4 { // BYOC/PBXC
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
-		if odetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
+		if odetail.CDR.add(hr, cdrID(lc)<<gwlocShift|id&idMask, cdr) {
 			if cdr.Info&spMask == 0 {
 				work.except["iTG:"+tg]++
 			}
@@ -1332,7 +1358,8 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 				osum.ByFrom.add(hr, work.fr.Digest(len(work.fr.CC)+len(work.fr.P)), cdr)
 			}
 		}
-	default: // outbound/termination CDR
+	default:
+		// outbound/termination CDR
 		decoder, brater, crater := methods(false)
 		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil ||
 			decoder.Full(item["to"], &work.to) != nil {
@@ -1354,7 +1381,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		} else if len(tg) > 4 { // BYOC/PBXC
 			cdr.Info |= work.sp.Code(tg[:4]) & spMask
 		}
-		if tdetail.CDR.add(hr, uint64(lc)<<gwlocShift|id&idMask, cdr) {
+		if tdetail.CDR.add(hr, cdrID(lc)<<gwlocShift|id&idMask, cdr) {
 			if cdr.Info&spMask == 0 {
 				work.except["eTG:"+tg]++
 			}
@@ -1458,9 +1485,8 @@ func atoi(s string, d int) int {
 	}
 	return d
 }
-
 func ato64(s string, d uint64) uint64 {
-	if i, err := strconv.ParseUint(s, 0, 0); err == nil {
+	if i, err := strconv.ParseUint(s, 0, 64); err == nil {
 		return i
 	}
 	return d
