@@ -1185,12 +1185,12 @@ func (id cdrID) MarshalText() ([]byte, error) {
 	return []byte(strings.ToUpper(strconv.FormatUint(uint64(id), 16))), nil
 }
 func (id *cdrID) UnmarshalText(b []byte) error {
-	if x, err := strconv.ParseUint(string(b), 16, 64); err != nil {
+	x, err := strconv.ParseUint(string(b), 16, 64)
+	if err != nil {
 		return err
-	} else {
-		*id = cdrID(x)
-		return nil
 	}
+	*id = cdrID(x)
+	return nil
 }
 func (m hiD) add(hr int32, id cdrID, cdr *cdrItem) bool {
 	if hm := m[hr]; hm == nil {
