@@ -165,7 +165,7 @@ type (
 		Cost float32   `json:"C,omitempty"`
 	}
 	curDetail struct {
-		Month map[string][2]int32            // month strings to hour ranges map
+		Month map[string]*[2]int32           // month strings to hour ranges map
 		Line  map[string]map[string]*curItem // CUR line item map by month
 	}
 	curWork struct {
@@ -301,7 +301,7 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 			logE.Printf("gopher errors from %q: %v [%v]", src, e, strings.Split(strings.Trim(
 				string(eb.Bytes()), "\n\t "), "\n")[0])
 		} else if items > 0 {
-			logI.Printf("gopher fetched %v items in %v pages from %q", items, pages, src)
+			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, src)
 		}
 		if items > 0 {
 			if !meta {
@@ -950,7 +950,7 @@ func curawsBoot(n string, ctl chan string) {
 		ByTyp:    make(hsA, 2184),
 		BySvc:    make(hsA, 2184),
 	}, &curDetail{
-		Month: make(map[string][2]int32, 6),
+		Month: make(map[string]*[2]int32, 6),
 		Line:  make(map[string]map[string]*curItem, 6),
 	}, &curWork{}, mMod[n]
 	m.data = append(m.data, sum)
@@ -967,12 +967,25 @@ func curawsClean(n string, deep bool) {
 	token := <-acc
 
 	// clean expired/invalid/insignificant data
-	sum := m.data[0].(*curSum)
+	sum, detail := m.data[0].(*curSum), m.data[1].(*curDetail)
 	exp := sum.Current - 24*90
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.ByTyp.clean(exp)
 	sum.BySvc.clean(exp)
+	for min := "9"; len(detail.Month) > 0; delete(detail.Month, min) {
+		for mo := range detail.Month {
+			if mo < min {
+				min = mo
+			}
+		}
+		hrs := detail.Month[min]
+		for ; hrs[0] <= hrs[1] && sum.ByAcct[hrs[0]] == nil; hrs[0]++ {
+		}
+		if hrs[0] <= hrs[1] {
+			break
+		}
+	}
 
 	m.rel <- token
 	evt <- n
@@ -1000,8 +1013,13 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				work.imo = ""
 				logE.Printf("unrecognized AWS CUR input: %q", meta[8:])
 			}
-		} else if strings.HasPrefix(meta, "end ") {
-			for _, m := range work.idet.Line {
+		} else if strings.HasPrefix(meta, "end ") && len(work.idet.Line) > 0 {
+			psum, pdet, mos, max, min := m.data[0].(*curSum), m.data[1].(*curDetail), 0, "", ""
+			psum.ByAcct.update(work.isum.ByAcct)
+			psum.ByRegion.update(work.isum.ByRegion)
+			psum.ByTyp.update(work.isum.ByTyp)
+			psum.BySvc.update(work.isum.BySvc)
+			for mo, m := range work.idet.Line {
 				for id, line := range m {
 					if line.Cost == 0 {
 						delete(m, id)
@@ -1009,30 +1027,21 @@ func curawsInsert(m *model, item map[string]string, now int) {
 						line.Hour, line.HUsg = nil, nil
 					}
 				}
-			}
-			psum, pdet := m.data[0].(*curSum), m.data[1].(*curDetail)
-			psum.ByAcct.update(work.isum.ByAcct)
-			psum.ByRegion.update(work.isum.ByRegion)
-			psum.ByTyp.update(work.isum.ByTyp)
-			psum.BySvc.update(work.isum.BySvc)
-			for mo := range work.idet.Line {
-				pdet.Line[mo] = work.idet.Line[mo]
 				bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
 				bh, eh := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600
-				for ; eh > bh && psum.ByAcct[eh] == nil; eh-- {
-				}
-				if pdet.Month[mo] = [2]int32{bh, eh}; eh > psum.Current {
-					psum.Current = eh
-				}
+				pdet.Line[mo], pdet.Month[mo], min = m, &[2]int32{bh, eh}, mo
 			}
-			mos, exp := 0, work.imo
 			for mo := range pdet.Line {
-				if mos++; mo < exp {
-					exp = mo
+				if mos++; mo > max {
+					max = mo
+				} else if mo < min {
+					min = mo
 				}
 			}
-			if work.idet.Line = nil; mos > 3 {
-				delete(pdet.Line, exp)
+			for hrs := pdet.Month[max]; hrs[1] > hrs[0] && psum.ByAcct[hrs[1]] == nil; hrs[1]-- {
+			}
+			if psum.Current, work.idet.Line = pdet.Month[max][1], nil; mos > 3 {
+				delete(pdet.Line, min)
 			}
 		}
 		return
