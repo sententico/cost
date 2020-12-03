@@ -366,9 +366,13 @@ func sync(n string) {
 	}
 }
 
-func flush(n string, at accTyp, release bool) {
+func flush(n string, final bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{at, acc}
+	if final {
+		m.req <- modRq{atEXCL, acc}
+	} else {
+		m.req <- modRq{0, acc}
+	}
 	token := <-acc
 
 	pr, pw := io.Pipe()
@@ -392,7 +396,7 @@ func flush(n string, at accTyp, release bool) {
 	} else {
 		f.Close()
 	}
-	if release {
+	if !final {
 		m.rel <- token
 	}
 }
@@ -421,7 +425,7 @@ func trigcmonScan(n string, evt string) {
 }
 func trigcmonMaint(n string) {
 	goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(n, true) })
-	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 	for m, cl, fl := mMod[n],
 		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
@@ -429,7 +433,7 @@ func trigcmonMaint(n string) {
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(n, true) })
 		case <-fl.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 		case evt := <-m.evt:
 			goaftSession(0, 0, func() { trigcmonScan(n, evt) })
@@ -438,7 +442,7 @@ func trigcmonMaint(n string) {
 }
 func trigcmonTerm(n string, ctl chan string) {
 	trigcmonClean(n, false)
-	flush(n, atEXCL, false)
+	flush(n, true)
 	ctl <- n
 }
 
@@ -620,7 +624,7 @@ func ec2awsClean(n string, deep bool) {
 func ec2awsMaint(n string) {
 	goaftSession(0, 18*time.Second, func() { gopher(n, ec2awsInsert, false) })
 	goaftSession(318*time.Second, 320*time.Second, func() { ec2awsClean(n, true) })
-	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
@@ -633,7 +637,7 @@ func ec2awsMaint(n string) {
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { ec2awsClean(n, true) })
 		case <-fl.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -642,7 +646,7 @@ func ec2awsMaint(n string) {
 }
 func ec2awsTerm(n string, ctl chan string) {
 	ec2awsClean(n, false)
-	flush(n, atEXCL, false)
+	flush(n, true)
 	ctl <- n
 }
 
@@ -759,7 +763,7 @@ func ebsawsClean(n string, deep bool) {
 func ebsawsMaint(n string) {
 	goaftSession(0, 18*time.Second, func() { gopher(n, ebsawsInsert, false) })
 	goaftSession(318*time.Second, 320*time.Second, func() { ebsawsClean(n, true) })
-	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
@@ -772,7 +776,7 @@ func ebsawsMaint(n string) {
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { ebsawsClean(n, true) })
 		case <-fl.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -781,7 +785,7 @@ func ebsawsMaint(n string) {
 }
 func ebsawsTerm(n string, ctl chan string) {
 	ebsawsClean(n, false)
-	flush(n, atEXCL, false)
+	flush(n, true)
 	ctl <- n
 }
 
@@ -911,7 +915,7 @@ func rdsawsClean(n string, deep bool) {
 func rdsawsMaint(n string) {
 	goaftSession(0, 18*time.Second, func() { gopher(n, rdsawsInsert, false) })
 	goaftSession(318*time.Second, 320*time.Second, func() { rdsawsClean(n, true) })
-	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 	for m, g, sg, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
@@ -924,7 +928,7 @@ func rdsawsMaint(n string) {
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { rdsawsClean(n, true) })
 		case <-fl.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, 0, true) })
+			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, false) })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -933,7 +937,7 @@ func rdsawsMaint(n string) {
 }
 func rdsawsTerm(n string, ctl chan string) {
 	rdsawsClean(n, false)
-	flush(n, atEXCL, false)
+	flush(n, true)
 	ctl <- n
 }
 
@@ -1083,22 +1087,9 @@ func curawsInsert(m *model, item map[string]string, now int) {
 }
 func curawsMaint(n string) {
 	goGo := make(chan bool, 1)
-	flusher := func() {
-		select {
-		case <-goGo:
-		default:
-			<-goGo // serialize gopher and long flush
-			curawsClean(n, false)
-		}
-		flush(n, 0, true)
-		goGo <- true
-	}
-	goaftSession(0, 6*time.Second, func() {
-		gopher(n, curawsInsert, true)
-		goGo <- true
-	})
-	goaftSession(678*time.Second, 680*time.Second, func() { curawsClean(n, true) })
-	goaftSession(688*time.Second, 692*time.Second, flusher)
+	goaftSession(0, 6*time.Second, func() { gopher(n, curawsInsert, true); goGo <- true })
+	goaftSession(678*time.Second, 680*time.Second, func() { curawsClean(n, <-goGo); goGo <- true })
+	goaftSession(688*time.Second, 692*time.Second, func() { flush(n, !<-goGo); goGo <- true })
 
 	for m, g, cl, fl := mMod[n],
 		time.NewTicker(720*time.Second),
@@ -1114,9 +1105,9 @@ func curawsMaint(n string) {
 				}
 			})
 		case <-cl.C:
-			goaftSession(678*time.Second, 680*time.Second, func() { curawsClean(n, true) })
+			goaftSession(678*time.Second, 680*time.Second, func() { curawsClean(n, <-goGo); goGo <- true })
 		case <-fl.C:
-			goaftSession(688*time.Second, 692*time.Second, flusher)
+			goaftSession(688*time.Second, 692*time.Second, func() { flush(n, !<-goGo); goGo <- true })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -1125,7 +1116,7 @@ func curawsMaint(n string) {
 }
 func curawsTerm(n string, ctl chan string) {
 	curawsClean(n, false)
-	flush(n, atEXCL, false)
+	flush(n, true)
 	ctl <- n
 }
 
@@ -1453,26 +1444,13 @@ func cdraspClean(n string, deep bool) {
 }
 func cdraspMaint(n string) {
 	goGo := make(chan bool, 1)
-	flusher := func() {
-		select {
-		case <-goGo:
-		default:
-			<-goGo // serialize gopher and long flush
-			cdraspClean(n, false)
-		}
-		flush(n, 0, true)
-		goGo <- true
-	}
-	goaftSession(0, 18*time.Second, func() {
-		gopher(n, cdraspInsert, false)
-		goGo <- true
-	})
-	goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(n, true) })
-	goaftSession(328*time.Second, 332*time.Second, flusher)
+	goaftSession(0, 18*time.Second, func() { gopher(n, cdraspInsert, false); goGo <- true })
+	goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(n, <-goGo); goGo <- true })
+	goaftSession(328*time.Second, 332*time.Second, func() { flush(n, !<-goGo); goGo <- true })
 
 	for m, g, cl, fl := mMod[n],
 		time.NewTicker(360*time.Second),
-		time.NewTicker(720*time.Second), time.NewTicker(21600*time.Second); ; {
+		time.NewTicker(1800*time.Second), time.NewTicker(21600*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() {
@@ -1484,9 +1462,9 @@ func cdraspMaint(n string) {
 				}
 			})
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(n, true) })
+			goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(n, <-goGo); goGo <- true })
 		case <-fl.C:
-			goaftSession(328*time.Second, 332*time.Second, flusher)
+			goaftSession(328*time.Second, 332*time.Second, func() { flush(n, !<-goGo); goGo <- true })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -1495,7 +1473,7 @@ func cdraspMaint(n string) {
 }
 func cdraspTerm(n string, ctl chan string) {
 	cdraspClean(n, false)
-	flush(n, atEXCL, false)
+	flush(n, true)
 	ctl <- n
 }
 
