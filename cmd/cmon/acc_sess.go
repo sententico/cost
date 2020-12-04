@@ -11,7 +11,7 @@ func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
 
 	// acquire access to object model
 	acc := make(chan accTok, 1)
-	m.req <- modRq{0, acc}
+	m.reqR <- acc
 	token := <-acc
 
 	// perform shared access EC2 lookup, copying results before release
@@ -31,7 +31,7 @@ func ebsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 
 	// acquire access to object model
 	acc := make(chan accTok, 1)
-	m.req <- modRq{0, acc}
+	m.reqR <- acc
 	token := <-acc
 
 	// perform shared access EC2 lookup, copying results before release
@@ -51,7 +51,7 @@ func rdsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 
 	// acquire access to object model
 	acc := make(chan accTok, 1)
-	m.req <- modRq{0, acc}
+	m.reqR <- acc
 	token := <-acc
 
 	// perform shared access EC2 lookup, copying results before release

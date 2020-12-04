@@ -305,7 +305,7 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 		}
 		if items > 0 {
 			if !meta {
-				m.req <- modRq{atEXCL, acc}
+				m.reqW <- acc
 				token = <-acc
 				insert(m, nil, start)
 				m.rel <- token
@@ -328,7 +328,7 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 	for item := range results {
 		now = int(time.Now().Unix())
 		pages++
-		m.req <- modRq{atEXCL, acc}
+		m.reqW <- acc
 		for token = <-acc; ; {
 			if meta || item["~meta"] == "" {
 				insert(m, item, now)
@@ -369,9 +369,9 @@ func sync(n string) {
 func flush(n string, final bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
 	if final {
-		m.req <- modRq{atEXCL, acc}
+		m.reqP <- acc
 	} else {
-		m.req <- modRq{0, acc}
+		m.reqR <- acc
 	}
 	token := <-acc
 
@@ -403,16 +403,15 @@ func flush(n string, final bool) {
 
 // trig.cmon model core accessors
 //
-func trigcmonBoot(n string, ctl chan string) {
+func trigcmonBoot(n string) {
 	trig, m := &trigModel{}, mMod[n]
 	m.data = append(m.data, trig)
 	m.persist = len(m.data)
 	sync(n)
-	ctl <- n
 }
 func trigcmonClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
+	m.reqW <- acc
 	token := <-acc
 
 	// clean expired/invalid/insignificant data
@@ -440,10 +439,9 @@ func trigcmonMaint(n string) {
 		}
 	}
 }
-func trigcmonTerm(n string, ctl chan string) {
+func trigcmonTerm(n string) {
 	trigcmonClean(n, false)
 	flush(n, true)
-	ctl <- n
 }
 
 func (m hsU) add(hr int32, k string, usage uint64, cost float32) {
@@ -494,7 +492,7 @@ func (m hsA) clean(exp int32) {
 
 // ec2.aws model core accessors
 //
-func ec2awsBoot(n string, ctl chan string) {
+func ec2awsBoot(n string) {
 	sum, detail, work, m := &ec2Sum{
 		ByAcct:   make(hsU, 2184),
 		ByRegion: make(hsU, 2184),
@@ -511,7 +509,6 @@ func ec2awsBoot(n string, ctl chan string) {
 		logE.Fatalf("%q cannot load EC2 rates: %v", n, err)
 	}
 	m.data = append(m.data, work)
-	ctl <- n
 }
 func ec2awsHack(inst *ec2Item) {
 	switch settings.Unit {
@@ -603,7 +600,7 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 }
 func ec2awsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
+	m.reqW <- acc
 	token := <-acc
 
 	// clean expired/invalid/insignificant data
@@ -644,15 +641,14 @@ func ec2awsMaint(n string) {
 		}
 	}
 }
-func ec2awsTerm(n string, ctl chan string) {
+func ec2awsTerm(n string) {
 	ec2awsClean(n, false)
 	flush(n, true)
-	ctl <- n
 }
 
 // ebs.aws model core accessors
 //
-func ebsawsBoot(n string, ctl chan string) {
+func ebsawsBoot(n string) {
 	sum, detail, work, m := &ebsSum{
 		ByAcct:   make(hsU, 2184),
 		ByRegion: make(hsU, 2184),
@@ -669,7 +665,6 @@ func ebsawsBoot(n string, ctl chan string) {
 		logE.Fatalf("%q cannot load EBS rates: %v", n, err)
 	}
 	m.data = append(m.data, work)
-	ctl <- n
 }
 func ebsawsInsert(m *model, item map[string]string, now int) {
 	sum, detail, work, id := m.data[0].(*ebsSum), m.data[1].(*ebsDetail), m.data[2].(*ebsWork), item["id"]
@@ -742,7 +737,7 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 }
 func ebsawsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
+	m.reqW <- acc
 	token := <-acc
 
 	// clean expired/invalid/insignificant data
@@ -783,15 +778,14 @@ func ebsawsMaint(n string) {
 		}
 	}
 }
-func ebsawsTerm(n string, ctl chan string) {
+func ebsawsTerm(n string) {
 	ebsawsClean(n, false)
 	flush(n, true)
-	ctl <- n
 }
 
 // rds.aws model core accessors
 //
-func rdsawsBoot(n string, ctl chan string) {
+func rdsawsBoot(n string) {
 	sum, detail, work, m := &rdsSum{
 		ByAcct:   make(hsU, 2184),
 		ByRegion: make(hsU, 2184),
@@ -811,7 +805,6 @@ func rdsawsBoot(n string, ctl chan string) {
 		logE.Fatalf("%q cannot load EBS rates: %v", n, err)
 	}
 	m.data = append(m.data, work)
-	ctl <- n
 }
 func rdsawsInsert(m *model, item map[string]string, now int) {
 	sum, detail, work, id := m.data[0].(*rdsSum), m.data[1].(*rdsDetail), m.data[2].(*rdsWork), item["id"]
@@ -894,7 +887,7 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 }
 func rdsawsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
+	m.reqW <- acc
 	token := <-acc
 
 	// clean expired/invalid/insignificant data
@@ -935,15 +928,14 @@ func rdsawsMaint(n string) {
 		}
 	}
 }
-func rdsawsTerm(n string, ctl chan string) {
+func rdsawsTerm(n string) {
 	rdsawsClean(n, false)
 	flush(n, true)
-	ctl <- n
 }
 
 // cur.aws model core accessors
 //
-func curawsBoot(n string, ctl chan string) {
+func curawsBoot(n string) {
 	sum, detail, work, m := &curSum{
 		ByAcct:   make(hsA, 2184),
 		ByRegion: make(hsA, 2184),
@@ -959,11 +951,10 @@ func curawsBoot(n string, ctl chan string) {
 	sync(n)
 
 	m.data = append(m.data, work)
-	ctl <- n
 }
 func curawsClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
+	m.reqW <- acc
 	token := <-acc
 
 	// clean expired/invalid/insignificant data
@@ -1123,15 +1114,14 @@ func curawsMaint(n string) {
 		}
 	}
 }
-func curawsTerm(n string, ctl chan string) {
+func curawsTerm(n string) {
 	curawsClean(n, false)
 	flush(n, true)
-	ctl <- n
 }
 
 // cdr.asp model core accessors
 //
-func cdraspBoot(n string, ctl chan string) {
+func cdraspBoot(n string) {
 	tsum, osum, tdetail, odetail, work, m := &termSum{
 		ByCust: make(hsC, 2184),
 		ByGeo:  make(hsC, 2184),
@@ -1189,7 +1179,6 @@ func cdraspBoot(n string, ctl chan string) {
 		logE.Fatalf("%q cannot load service location map: %v", n, err)
 	}
 	m.data = append(m.data, work)
-	ctl <- n
 }
 func (id cdrID) MarshalText() ([]byte, error) {
 	return []byte(strings.ToUpper(strconv.FormatUint(uint64(id), 16))), nil
@@ -1411,7 +1400,7 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 }
 func cdraspClean(n string, deep bool) {
 	m, acc := mMod[n], make(chan accTok, 1)
-	m.req <- modRq{atEXCL, acc}
+	m.reqW <- acc
 	token := <-acc
 
 	// clean expired/invalid/insignificant data
@@ -1480,10 +1469,9 @@ func cdraspMaint(n string) {
 		}
 	}
 }
-func cdraspTerm(n string, ctl chan string) {
+func cdraspTerm(n string) {
 	cdraspClean(n, false)
 	flush(n, true)
-	ctl <- n
 }
 
 func atoi(s string, d int) int {

@@ -40,21 +40,15 @@ type (
 
 	modSt  uint8
 	accTok uint32
-	accTyp uint8
-	modRq  struct {
-		typ accTyp
-		acc chan accTok
-	}
-	model struct {
-		state      modSt
-		immed      bool
-		req        chan modRq
-		rel        chan accTok
-		evt        chan string
-		boot, term func(string, chan string)
-		maint      func(string)
-		persist    int
-		data       []interface{}
+	model  struct {
+		state             modSt
+		immed             bool
+		reqP, reqR, reqW  chan chan accTok
+		rel               chan accTok
+		evt               chan string
+		boot, term, maint func(string)
+		persist           int
+		data              []interface{}
 	}
 )
 
@@ -64,16 +58,11 @@ const (
 	msINIT
 	msTERM
 )
-const (
-	// model access types
-	atEXCL accTyp = 1 << iota
-	atLONG
-	atPRI
-)
 
 var (
 	// cloud monitor globals
 	sig                    chan os.Signal    // termination signal channel
+	ctl                    chan string       // model control channel
 	evt                    chan string       // event broadcast channel
 	seID, seB, seE         chan int64        // session counters
 	sfile, port            string            // ...
@@ -127,7 +116,7 @@ func init() {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 
-	evt = make(chan string, 4)
+	ctl, evt = make(chan string, 4), make(chan string, 4)
 	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	seInit = time.Now().UnixNano()
 	seSeq = seInit
@@ -146,30 +135,35 @@ func init() {
 	}
 }
 
-func modManager(m *model, n string, ctl chan string) {
-	var mr modRq
-	var accessors, token accTok
-	m.req = make(chan modRq, 16)
+func modManager(m *model, n string) {
+	var acc chan accTok
+	m.reqP, m.reqR, m.reqW = make(chan chan accTok, 16), make(chan chan accTok, 16), make(chan chan accTok, 16)
 	m.rel = make(chan accTok, 16)
 	m.evt = make(chan string, 4)
-	m.boot(n, ctl)
+	m.boot(n)
+	ctl <- n // signal boot complete; enter model access manager loop
 
-	for token++; ; token++ { // loop indefinitely as model access manager when boot complete
-	nextRequest:
-		for mr = <-m.req; mr.typ&atEXCL == 0; token++ {
-			mr.acc <- token
-			for accessors++; ; accessors-- {
-				select {
-				case mr = <-m.req:
-					continue nextRequest
-				case <-m.rel:
-				}
+	for token, accessors, reqw := accTok(1), int32(0), m.reqW; ; {
+		select {
+		case acc = <-m.reqR:
+			acc <- token
+			token++
+			accessors++
+			reqw = nil
+			continue
+		case <-m.rel:
+			if accessors--; accessors <= 0 {
+				reqw, accessors = m.reqW, 0
 			}
+			continue
+		case acc = <-m.reqP:
+			for reqw = m.reqW; accessors > 0; accessors-- {
+				<-m.rel
+			}
+		case acc = <-reqw:
 		}
-		for ; accessors > 0; accessors-- {
-			<-m.rel
-		}
-		mr.acc <- token
+		acc <- token
+		token++
 		<-m.rel
 	}
 }
@@ -260,19 +254,18 @@ func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.H
 
 func main() {
 	logI.Printf("booting %v monitored object models", len(mMod))
-	ctl, dseq := make(chan string, 4), 0
 	for n, m := range mMod {
-		go modManager(m, n, ctl)
+		go modManager(m, n)
 	}
 	for range mMod {
-		n := <-ctl
-		logI.Printf("%q object model booted", n)
+		logI.Printf("%q object model booted", <-ctl)
 	}
+	dseq := 0
 	for n, m := range mMod {
 		if m.state = msINIT; m.immed {
 			go m.maint(n)
 		} else {
-			d, m, n := time.Duration(dseq*100)*time.Second, m, n
+			d, n, m := time.Duration(dseq*100)*time.Second, n, m
 			dseq++
 			goAfter(d, d+20*time.Second, func() { m.maint(n) })
 		}
@@ -294,7 +287,8 @@ func main() {
 		<-ok
 		srv.Close()
 		for n, m := range mMod {
-			go m.term(n, ctl)
+			n, m := n, m
+			go func() { m.term(n); ctl <- n }()
 		}
 	}()
 	switch err := srv.ListenAndServe(); err {
