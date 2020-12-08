@@ -287,10 +287,10 @@ func getUnleash() func(string, ...string) *exec.Cmd {
 	}
 }
 
-func gopher(src string, insert func(*model, map[string]string, int), meta bool) {
+func gopher(src string, insert func(*model, map[string]string, int), meta bool) (items int) {
 	m, goph, eb, start, now := mMod[src], unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
 	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
-	acc, token, pages, items := make(chan accTok, 1), accTok(0), 0, 0
+	acc, token, pages := make(chan accTok, 1), accTok(0), 0
 	defer func() {
 		if e := recover(); e != nil {
 			if token != 0 {
@@ -331,9 +331,11 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 		pages++
 		m.reqW <- acc
 		for token = <-acc; ; {
-			if meta || item["~meta"] == "" {
+			if item["~meta"] == "" {
 				insert(m, item, now)
 				items++
+			} else if meta {
+				insert(m, item, now)
 			}
 			select {
 			case item = <-results:
@@ -351,6 +353,7 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 	if e := <-err; e != nil {
 		panic(e)
 	}
+	return
 }
 
 func load(n string) {
@@ -462,6 +465,7 @@ func trigcmonMaint(n string) {
 			goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
 
 		case evt := <-m.evt:
+			// events signal potentially non-meaningful updates (like cleans)
 			goaftSession(0, 0, func() { trigcmonScan(n, evt) })
 		}
 	}
@@ -1114,27 +1118,29 @@ func curawsInsert(m *model, item map[string]string, now int) {
 }
 func curawsMaint(n string) {
 	goGo := make(chan bool, 1)
-	goaftSession(0, 6*time.Second, func() { gopher(n, curawsInsert, true); goGo <- true })
-	goaftSession(678*time.Second, 680*time.Second, func() { curawsClean(n, <-goGo); goGo <- true })
-	goaftSession(688*time.Second, 692*time.Second, func() { persist(n, !<-goGo); goGo <- true })
+	goaftSession(0, 6*time.Second, func() {
+		if gopher(n, curawsInsert, true) > 0 {
+			curawsClean(n, true)
+			persist(n, false)
+		}
+		goGo <- true
+	})
 
-	for m, g, cl, p := mMod[n],
-		time.NewTicker(720*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(21600*time.Second); ; {
+	for m, g := mMod[n],
+		time.NewTicker(720*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 6*time.Second, func() {
 				select {
 				case <-goGo: // serialize cur.aws gophers
-					gopher(n, curawsInsert, true)
+					if gopher(n, curawsInsert, true) > 0 {
+						curawsClean(n, true)
+						persist(n, false)
+					}
 					goGo <- true
 				default:
 				}
 			})
-		case <-cl.C:
-			goaftSession(678*time.Second, 680*time.Second, func() { curawsClean(n, <-goGo); goGo <- true })
-		case <-p.C:
-			goaftSession(688*time.Second, 692*time.Second, func() { persist(n, !<-goGo); goGo <- true })
 
 		case <-m.evt:
 			// TODO: process event notifications
@@ -1142,8 +1148,9 @@ func curawsMaint(n string) {
 	}
 }
 func curawsTerm(n string) {
-	curawsClean(n, false)
-	persist(n, true)
+	acc := make(chan accTok, 1)
+	mMod[n].reqP <- acc
+	<-acc
 }
 
 // cdr.asp model core accessors
