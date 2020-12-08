@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/gob"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -115,6 +116,18 @@ func init() {
 	if mMod, port = m, val(strings.TrimLeft(settings.Port, ":"), "4404"); len(m) == 0 {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
+
+	gob.Register(&trigModel{})
+	gob.Register(&ec2Sum{})
+	gob.Register(&ec2Detail{})
+	gob.Register(&ebsSum{})
+	gob.Register(&ebsDetail{})
+	gob.Register(&rdsSum{})
+	gob.Register(&rdsDetail{})
+	gob.Register(&termSum{})
+	gob.Register(&origSum{})
+	gob.Register(&termDetail{})
+	gob.Register(&origDetail{})
 
 	ctl, evt = make(chan string, 4), make(chan string, 4)
 	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
