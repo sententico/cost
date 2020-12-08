@@ -1,5 +1,12 @@
 #!/bin/sh
 
+# Note: AWS posts CUR files, replacing and expanding the prior set about every 10 hours; when
+# rolling to a new month, files for the prior month continue to receive usage updates through
+# mid-day on the 3rd (incorporating also RI usage, RI unused & taxes; this coincodes with
+# delivery of preliminary PDF invoices); Premium Support posts by late on the 5th, EDP & CSC
+# discounts post by the 6th or 7th (this or final updates posted from the 12th to as late as
+# the 16th coincide with final PDF invoices).
+
 cd aws/cache || exit 1
 
 # TODO: parameterize CUR location & naming pattern

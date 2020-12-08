@@ -124,6 +124,8 @@ func init() {
 	gob.Register(&ebsDetail{})
 	gob.Register(&rdsSum{})
 	gob.Register(&rdsDetail{})
+	gob.Register(&curSum{})
+	gob.Register(&curDetail{})
 	gob.Register(&termSum{})
 	gob.Register(&origSum{})
 	gob.Register(&termDetail{})

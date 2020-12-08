@@ -656,7 +656,7 @@ func ec2awsMaint(n string) {
 
 	for m, g, sg, cl, p := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
+		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() { gopher(n, ec2awsInsert, false) })
@@ -793,7 +793,7 @@ func ebsawsMaint(n string) {
 
 	for m, g, sg, cl, p := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
+		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() { gopher(n, ebsawsInsert, false) })
@@ -943,7 +943,7 @@ func rdsawsMaint(n string) {
 
 	for m, g, sg, cl, p := mMod[n],
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
+		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() { gopher(n, rdsawsInsert, false) })
@@ -1482,7 +1482,7 @@ func cdraspMaint(n string) {
 
 	for m, g, cl, p := mMod[n],
 		time.NewTicker(360*time.Second),
-		time.NewTicker(1800*time.Second), time.NewTicker(21600*time.Second); ; {
+		time.NewTicker(1800*time.Second), time.NewTicker(14400*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() {
