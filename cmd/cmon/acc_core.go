@@ -378,10 +378,10 @@ func load(n string) {
 			dec := gob.NewDecoder(f)
 			err = dec.Decode(&pdata)
 		}
-		if err != nil {
+		if f.Close(); err != nil {
 			logE.Fatalf("%q state resource %q is invalid JSON/GOB: %v", n, fn, err)
 		}
-		f.Close()
+		return
 	}
 	logW.Printf("no %q state found at %q", n, list[0])
 }
