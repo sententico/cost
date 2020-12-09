@@ -1,0 +1,43 @@
+[Unit]
+Description=cloud monitor service
+ConditionPathExists=/opt/sententix/bin/cmond
+After=network.target
+StartLimitInterval=180s
+StartLimitBurst=3
+ 
+
+[Service]
+Type=simple
+User=jharvey
+Group=jharvey
+LimitNOFILE=1024
+UMask=0002
+Restart=on-failure
+RestartSec=4
+ExecStart=/opt/sententix/bin/cmond
+
+####
+# cloud monitor customer settings 
+#
+# /var/opt/sententix working sub-directory (per customer name <cn>)
+#   ./<cn>                  - customer
+#   .                       - test
+WorkingDirectory=/var/opt/sententix
+#
+# systemd unit/listening ports (range <x> per customer <cn>, note exclusions)
+#   cmon-<cn>       440<x>  - primary customer
+#   cmon-<cn>       441<x>  - +1 customer
+#   cmon-<cn>       442<x>  - +2 customer
+#   cmon-<cn>       443<x>  - +3 customer
+#   cmon-<cn>       444<x>  - +4 customer (exclude <x>=4,5)
+#   cmon-<cn>       445<x>  - +5 customer
+#   cmon-<cn>       446<x>  - +6 customer
+#   cmon-<cn>       447<x>  - +7 customer
+#   cmon-<cn>       448<x>  - +8 customer (exclude <x>=6,8)
+#   cmon-test       449<x>  - test
+Environment="CMON_SETTINGS=.cmon_settings.json"
+#
+
+
+[Install]
+WantedBy=multi-user.target
