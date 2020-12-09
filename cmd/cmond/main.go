@@ -8,11 +8,14 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/rpc"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/sententico/cost/cmon"
 )
 
 type (
@@ -67,7 +70,8 @@ var (
 	evt                    chan string       // event broadcast channel
 	seID, seB, seE         chan int64        // session counters
 	sfile, port            string            // ...
-	srv                    *http.Server      // HTTP server
+	srv                    *http.Server      // HTTP/REST server
+	gosrv, go0srv          *rpc.Server       // GoRPC admin/v0 servers
 	mMod                   map[string]*model // monitored object models
 	logD, logI, logW, logE *log.Logger       // ...
 	seOpen, exit           int               // ...
@@ -117,6 +121,25 @@ func init() {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 
+	ctl, evt = make(chan string, 4), make(chan string, 4)
+	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
+	seInit = time.Now().UnixNano()
+	seSeq = seInit
+	http.HandleFunc("/admin", sessHandler(admin))
+	http.HandleFunc("/gorpc/v0", sessHandler(gorpc0))
+	http.HandleFunc("/rest/v0", sessHandler(rest0))
+	http.HandleFunc("/rest/v0/vms", sessHandler(rest0VMs))
+	http.HandleFunc("/rest/v0/disks", sessHandler(rest0Disks))
+	http.HandleFunc("/rest/v0/dbs", sessHandler(rest0DBs))
+	srv, gosrv, go0srv = &http.Server{
+		Addr:           ":" + port,
+		ReadTimeout:    12 * time.Second,
+		WriteTimeout:   12 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}, rpc.NewServer(), rpc.NewServer()
+	gosrv.Register(cmon.Test0{})
+	go0srv.Register(cmon.Test0{})
+
 	gob.Register(&trigModel{})
 	gob.Register(&ec2Sum{})
 	gob.Register(&ec2Detail{})
@@ -130,24 +153,6 @@ func init() {
 	gob.Register(&origSum{})
 	gob.Register(&termDetail{})
 	gob.Register(&origDetail{})
-
-	ctl, evt = make(chan string, 4), make(chan string, 4)
-	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
-	seInit = time.Now().UnixNano()
-	seSeq = seInit
-	mux := http.NewServeMux()
-	mux.Handle("/admin", apiSession(admin))
-	mux.Handle("/api/v0", apiSession(api0))
-	mux.Handle("/api/v0/vms", apiSession(api0VMs))
-	mux.Handle("/api/v0/disks", apiSession(api0Disks))
-	mux.Handle("/api/v0/dbs", apiSession(api0DBs))
-	srv = &http.Server{
-		Addr:           ":" + port,
-		Handler:        mux,
-		ReadTimeout:    12 * time.Second,
-		WriteTimeout:   12 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
 }
 
 func modManager(m *model, n string) {
@@ -257,7 +262,7 @@ func goaftSession(low time.Duration, high time.Duration, f func()) {
 	}
 }
 
-func apiSession(f func() func(int64, http.ResponseWriter, *http.Request)) http.HandlerFunc {
+func sessHandler(f func() func(int64, http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	session := f()
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := <-seID
