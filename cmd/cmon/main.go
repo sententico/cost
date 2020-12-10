@@ -55,34 +55,34 @@ func fatal(ex int, format string, a ...interface{}) {
 	os.Exit(ex)
 }
 
-func reader(ln *bufio.Scanner, in chan string) {
-	for ; ln.Scan(); in <- ln.Text() {
-	}
-	close(in)
-}
-
-func worker(in chan string, client *rpc.Client) {
-	var r string
-	for ln := range in {
-		if err := client.Call("Test0.Upper", &cmon.Test0{S: ln}, &r); err != nil {
-			fatal(1, "GoRPC error: %v\n", err)
-		}
-		fmt.Printf("%v\n", r)
-	}
-	wg.Done()
-}
-
-func main() {
-	in := make(chan string, 12)
-	go reader(bufio.NewScanner(os.Stdin), in)
-
+func worker(in chan string) {
 	client, err := rpc.DialHTTPPath("tcp", ":"+port, "/gorpc/v0")
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
-	for i := 0; i < 5; i++ {
+
+	var r string
+	for ln := range in {
+		if err = client.Call("Test0.Upper", &cmon.Test0{S: ln}, &r); err != nil {
+			fatal(1, "error calling GoRPC: %v\n", err)
+		}
+		fmt.Printf("%v\n", r)
+	}
+	client.Close()
+	wg.Done()
+}
+
+func main() {
+	in := make(chan string, 16)
+	go func(ln *bufio.Scanner, in chan string) {
+		for ; ln.Scan(); in <- ln.Text() {
+		}
+		close(in)
+	}(bufio.NewScanner(os.Stdin), in)
+
+	for i := 0; i < cap(in)/2; i++ {
 		wg.Add(1)
-		go worker(in, client)
+		go worker(in)
 	}
 	wg.Wait()
 }
