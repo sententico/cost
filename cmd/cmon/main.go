@@ -56,6 +56,7 @@ func fatal(ex int, format string, a ...interface{}) {
 func main() {
 	client, err := rpc.DialHTTPPath("tcp", ":"+port, "/gorpc/v0")
 	for in, r := bufio.NewScanner(os.Stdin), ""; err == nil && in.Scan(); err = client.Call("Test0.Upper", &cmon.Test0{S: in.Text()}, &r) {
+		fmt.Printf("%v\n", r)
 	}
 	if err != nil {
 		fatal(1, "GoRPC error: %v\n", err)
