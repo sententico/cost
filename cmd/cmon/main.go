@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -30,7 +31,7 @@ func init() {
 		return pri
 	}
 
-	flag.StringVar(&settingsFlag, "settings", val("CMON_SETTINGS", "~/.cmon_settings.json"), "settings file")
+	flag.StringVar(&settingsFlag, "settings", val("CMON_SETTINGS", ".cmon_settings.json"), "settings file")
 	flag.BoolVar(&debugFlag, "d", false, fmt.Sprintf("specify debug output"))
 	flag.Usage = func() {
 		fmt.Printf("command usage: cmon ..." +
@@ -40,9 +41,9 @@ func init() {
 	flag.Parse()
 
 	if b, err := ioutil.ReadFile(settingsFlag); err != nil {
-		fatal(1, "cannot read settings file %q: %v", settingsFlag, err)
+		fatal(1, "cannot read settings file %q: %v\n", settingsFlag, err)
 	} else if err = json.Unmarshal(b, &settings); err != nil {
-		fatal(1, "%q is invalid JSON settings file: %v", settingsFlag, err)
+		fatal(1, "%q is invalid JSON settings file: %v\n", settingsFlag, err)
 	}
 	port = val(strings.TrimLeft(settings.Port, ":"), "4404")
 }
@@ -53,13 +54,10 @@ func fatal(ex int, format string, a ...interface{}) {
 }
 
 func main() {
-	var r string
-	if client, err := rpc.DialHTTPPath("tcp", ":"+port, "/gorpc/v0"); err != nil {
-		fatal(1, "error dialing server: %v", err)
-	} else if err = client.Call("Test0.Upper",
-		&cmon.Test0{S: "Under the spreading chestnut tree"},
-		&r); err != nil {
-		fatal(1, "RPC error: %v", err)
+	client, err := rpc.DialHTTPPath("tcp", ":"+port, "/gorpc/v0")
+	for in, r := bufio.NewScanner(os.Stdin), ""; err == nil && in.Scan(); err = client.Call("Test0.Upper", &cmon.Test0{S: in.Text()}, &r) {
 	}
-	fmt.Printf("%v\n", r)
+	if err != nil {
+		fatal(1, "GoRPC error: %v\n", err)
+	}
 }
