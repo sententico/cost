@@ -9,6 +9,7 @@ import (
 	"net/rpc"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/sententico/cost/cmon"
 )
@@ -18,6 +19,7 @@ var (
 	debugFlag    bool
 	port         string
 	settings     cmon.MonSettings
+	wg           sync.WaitGroup
 )
 
 func init() {
@@ -53,12 +55,34 @@ func fatal(ex int, format string, a ...interface{}) {
 	os.Exit(ex)
 }
 
-func main() {
-	client, err := rpc.DialHTTPPath("tcp", ":"+port, "/gorpc/v0")
-	for in, r := bufio.NewScanner(os.Stdin), ""; err == nil && in.Scan(); err = client.Call("Test0.Upper", &cmon.Test0{S: in.Text()}, &r) {
+func reader(ln *bufio.Scanner, in chan string) {
+	for ; ln.Scan(); in <- ln.Text() {
+	}
+	close(in)
+}
+
+func worker(in chan string, client *rpc.Client) {
+	var r string
+	for ln := range in {
+		if err := client.Call("Test0.Upper", &cmon.Test0{S: ln}, &r); err != nil {
+			fatal(1, "GoRPC error: %v\n", err)
+		}
 		fmt.Printf("%v\n", r)
 	}
+	wg.Done()
+}
+
+func main() {
+	in := make(chan string, 12)
+	go reader(bufio.NewScanner(os.Stdin), in)
+
+	client, err := rpc.DialHTTPPath("tcp", ":"+port, "/gorpc/v0")
 	if err != nil {
-		fatal(1, "GoRPC error: %v\n", err)
+		fatal(1, "error dialing GoRPC server: %v", err)
 	}
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go worker(in, client)
+	}
+	wg.Wait()
 }
