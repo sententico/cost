@@ -31,6 +31,11 @@ type (
 		persist           int
 		data              []interface{}
 	}
+	modAcc struct {
+		m   *model
+		tc  chan accTok
+		tok accTok
+	}
 )
 
 const (
@@ -38,6 +43,15 @@ const (
 	msNIL modSt = iota
 	msINIT
 	msTERM
+)
+
+const (
+	// access token masks
+	atNIL accTok = iota
+	atRD
+	atWR
+	atTYP
+	atSEQ
 )
 
 var (
@@ -133,18 +147,18 @@ func init() {
 }
 
 func modManager(m *model, n string) {
-	var acc chan accTok
+	var tc chan accTok
 	m.reqP, m.reqR, m.reqW = make(chan chan accTok, 16), make(chan chan accTok, 16), make(chan chan accTok, 16)
 	m.rel = make(chan accTok, 16)
 	m.evt = make(chan string, 4)
 	m.boot(n)
 	ctl <- n // signal boot complete; enter model access manager loop
 
-	for token, accessors, reqw := accTok(1), int32(0), m.reqW; ; {
+	for tokseq, accessors, reqw := accTok(0), int32(0), m.reqW; ; {
 		select {
-		case acc = <-m.reqR:
-			acc <- token
-			token++
+		case tc = <-m.reqR:
+			tc <- tokseq | atRD
+			tokseq += atSEQ
 			accessors++
 			reqw = nil
 			continue
@@ -153,16 +167,64 @@ func modManager(m *model, n string) {
 				reqw, accessors = m.reqW, 0
 			}
 			continue
-		case acc = <-m.reqP:
+		case tc = <-m.reqP:
 			for reqw = m.reqW; accessors > 0; accessors-- {
 				<-m.rel
 			}
-		case acc = <-reqw:
+		case tc = <-reqw:
 		}
-		acc <- token
-		token++
+		tc <- tokseq | atWR
+		tokseq += atSEQ
 		<-m.rel
 	}
+}
+
+func (m *model) newAcc() *modAcc {
+	return &modAcc{
+		m:  m,
+		tc: make(chan accTok, 1),
+	}
+}
+func (acc *modAcc) reqP() {
+	switch acc.tok & atTYP {
+	case atWR:
+	case atRD:
+		acc.rel()
+		fallthrough
+	case atNIL:
+		acc.m.reqP <- acc.tc
+		acc.tok = <-acc.tc
+	}
+}
+func (acc *modAcc) reqR() {
+	switch acc.tok & atTYP {
+	case atRD:
+	case atWR:
+		acc.rel()
+		fallthrough
+	case atNIL:
+		acc.m.reqR <- acc.tc
+		acc.tok = <-acc.tc
+	}
+}
+func (acc *modAcc) reqW() {
+	switch acc.tok & atTYP {
+	case atWR:
+	case atRD:
+		acc.rel()
+		fallthrough
+	case atNIL:
+		acc.m.reqW <- acc.tc
+		acc.tok = <-acc.tc
+	}
+}
+func (acc *modAcc) rel() bool {
+	if acc.tok&atTYP != atNIL {
+		acc.m.rel <- acc.tok
+		acc.tok &^= atTYP
+		return true
+	}
+	return false
 }
 
 func seManager(quit <-chan bool, ok chan<- bool) {
@@ -213,6 +275,8 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 		}
 	}
 }
+
+// TODO: add session methods?
 
 func goAfter(low time.Duration, high time.Duration, f func()) {
 	if low == 0 && high == 0 || low < 0 {

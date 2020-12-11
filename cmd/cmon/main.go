@@ -73,7 +73,7 @@ func worker(in chan string) {
 }
 
 func main() {
-	in := make(chan string, 16)
+	in := make(chan string, 20)
 	go func(ln *bufio.Scanner, in chan string) {
 		for ; ln.Scan(); in <- ln.Text() {
 		}

@@ -264,18 +264,17 @@ func load(n string) {
 }
 
 func persist(n string, final bool) {
-	m, acc := mMod[n], make(chan accTok, 1)
+	acc, fn := mMod[n].newAcc(), settings.Models[n]
 	if final {
-		m.reqP <- acc
+		acc.reqP()
 	} else {
-		m.reqR <- acc
+		acc.reqR()
 	}
-	token, fn := <-acc, settings.Models[n]
 
 	pr, pw := io.Pipe()
 	go func() {
 		var err error
-		if pdata := m.data[0:m.persist]; strings.HasSuffix(fn, ".json") {
+		if pdata := acc.m.data[0:acc.m.persist]; strings.HasSuffix(fn, ".json") {
 			enc := json.NewEncoder(pw)
 			enc.SetIndent("", "\t")
 			enc.SetEscapeHTML(false)
@@ -301,7 +300,7 @@ func persist(n string, final bool) {
 		f.Close()
 	}
 	if !final {
-		m.rel <- token
+		acc.rel()
 	}
 }
 
@@ -314,13 +313,12 @@ func trigcmonBoot(n string) {
 	load(n)
 }
 func trigcmonClean(n string, deep bool) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.reqW <- acc
-	token := <-acc
+	acc := mMod[n].newAcc()
+	acc.reqW()
 
 	// clean expired/invalid/insignificant data
 	// trig := m.data[0].(*trigModel)
-	m.rel <- token
+	acc.rel()
 	evt <- n
 }
 func trigcmonMaint(n string) {
@@ -415,12 +413,11 @@ func ec2awsBoot(n string) {
 	m.data = append(m.data, work)
 }
 func ec2awsClean(n string, deep bool) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.reqW <- acc
-	token := <-acc
+	acc := mMod[n].newAcc()
+	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
+	sum, detail := acc.m.data[0].(*ec2Sum), acc.m.data[1].(*ec2Detail)
 	for id, inst := range detail.Inst {
 		if id == "" || detail.Current-inst.Last > 86400*8 {
 			delete(detail.Inst, id)
@@ -431,7 +428,7 @@ func ec2awsClean(n string, deep bool) {
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
 
-	m.rel <- token
+	acc.rel()
 	evt <- n
 }
 func ec2awsMaint(n string) {
@@ -483,12 +480,11 @@ func ebsawsBoot(n string) {
 	m.data = append(m.data, work)
 }
 func ebsawsClean(n string, deep bool) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.reqW <- acc
-	token := <-acc
+	acc := mMod[n].newAcc()
+	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
+	sum, detail := acc.m.data[0].(*ebsSum), acc.m.data[1].(*ebsDetail)
 	for id, vol := range detail.Vol {
 		if id == "" || detail.Current-vol.Last > 86400*8 {
 			delete(detail.Vol, id)
@@ -499,7 +495,7 @@ func ebsawsClean(n string, deep bool) {
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
 
-	m.rel <- token
+	acc.rel()
 	evt <- n
 }
 func ebsawsMaint(n string) {
@@ -554,12 +550,11 @@ func rdsawsBoot(n string) {
 	m.data = append(m.data, work)
 }
 func rdsawsClean(n string, deep bool) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.reqW <- acc
-	token := <-acc
+	acc := mMod[n].newAcc()
+	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
+	sum, detail := acc.m.data[0].(*rdsSum), acc.m.data[1].(*rdsDetail)
 	for id, db := range detail.DB {
 		if id == "" || detail.Current-db.Last > 86400*8 {
 			delete(detail.DB, id)
@@ -570,7 +565,7 @@ func rdsawsClean(n string, deep bool) {
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
 
-	m.rel <- token
+	acc.rel()
 	evt <- n
 }
 func rdsawsMaint(n string) {
@@ -621,12 +616,11 @@ func curawsBoot(n string) {
 	m.data = append(m.data, work)
 }
 func curawsClean(n string, deep bool) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.reqW <- acc
-	token := <-acc
+	acc := mMod[n].newAcc()
+	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := m.data[0].(*curSum), m.data[1].(*curDetail)
+	sum, detail := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail)
 	exp := sum.Current - 24*90
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
@@ -646,7 +640,7 @@ func curawsClean(n string, deep bool) {
 		}
 	}
 
-	m.rel <- token
+	acc.rel()
 	evt <- n
 }
 func curawsMaint(n string) {
@@ -681,9 +675,7 @@ func curawsMaint(n string) {
 	}
 }
 func curawsTerm(n string) {
-	acc := make(chan accTok, 1)
-	mMod[n].reqP <- acc
-	<-acc
+	mMod[n].newAcc().reqP()
 }
 
 // *.asp model accessor helpers
@@ -847,12 +839,11 @@ func cdraspBoot(n string) {
 	m.data = append(m.data, work)
 }
 func cdraspClean(n string, deep bool) {
-	m, acc := mMod[n], make(chan accTok, 1)
-	m.reqW <- acc
-	token := <-acc
+	acc := mMod[n].newAcc()
+	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
+	tdetail, odetail := acc.m.data[2].(*termDetail), acc.m.data[3].(*origDetail)
 	texp, oexp := tdetail.Current-27, odetail.Current-27
 	for hr := range tdetail.CDR {
 		if hr <= texp {
@@ -864,7 +855,7 @@ func cdraspClean(n string, deep bool) {
 			delete(odetail.CDR, hr)
 		}
 	}
-	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
+	tsum, osum := acc.m.data[0].(*termSum), acc.m.data[1].(*origSum)
 	tsum.ByCust.sig(texp, "other", 1.00)
 	tsum.ByTo.sig(texp, 1.00)
 	tsum.ByFrom.sig(texp, 1.00)
@@ -885,7 +876,7 @@ func cdraspClean(n string, deep bool) {
 	osum.ByTo.clean(oexp)
 	osum.ByFrom.clean(oexp)
 
-	m.rel <- token
+	acc.rel()
 	evt <- n
 }
 func cdraspMaint(n string) {

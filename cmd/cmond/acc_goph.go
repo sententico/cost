@@ -69,13 +69,12 @@ func getUnleasher() func(string, ...string) *exec.Cmd {
 }
 
 func gopher(src string, insert func(*model, map[string]string, int), meta bool) (items int) {
-	m, goph, eb, start, now := mMod[src], unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
+	goph, eb, start, now := unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
 	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
-	acc, token, pages := make(chan accTok, 1), accTok(0), 0
+	acc, pages := mMod[src].newAcc(), 0
 	defer func() {
 		if e := recover(); e != nil {
-			if token != 0 {
-				m.rel <- token
+			if acc.rel() {
 				gophStdout.Close()
 			}
 			logE.Printf("gopher error while fetching %q: %v", src, e)
@@ -87,10 +86,9 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 		}
 		if items > 0 {
 			if !meta {
-				m.reqW <- acc
-				token = <-acc
-				insert(m, nil, start)
-				m.rel <- token
+				acc.reqW()
+				insert(acc.m, nil, start)
+				acc.rel()
 			}
 			evt <- src
 		}
@@ -110,13 +108,12 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 	for item := range results {
 		now = int(time.Now().Unix())
 		pages++
-		m.reqW <- acc
-		for token = <-acc; ; {
+		for acc.reqW(); ; {
 			if item["~meta"] == "" {
-				insert(m, item, now)
+				insert(acc.m, item, now)
 				items++
 			} else if meta {
-				insert(m, item, now)
+				insert(acc.m, item, now)
 			}
 			select {
 			case item = <-results:
@@ -125,8 +122,7 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 				}
 			default:
 			}
-			m.rel <- token
-			token = 0
+			acc.rel()
 			break
 		}
 	}
