@@ -1,7 +1,5 @@
 package cmon
 
-import "strings"
-
 type (
 	// awsService settings
 	awsService struct {
@@ -29,21 +27,15 @@ type (
 
 // Test0 ...
 type (
-	Test0 struct {
-		Prefix, Suffix string
-		F              func(string) string
-	}
-	Args string
+	Test0 func(string, interface{}, interface{}) error
 )
 
 // Upper ...
-func (s *Test0) Upper(args *Args, r *string) error {
-	*r = s.Prefix + s.F(string(*args)) + s.Suffix
-	return nil
+func (s *Test0) Upper(args string, r *string) error {
+	return (*s)("Test0.Upper", args, r)
 }
 
 // Lower ...
-func (s *Test0) Lower(args *Args, r *string) error {
-	*r = s.Prefix + strings.ToLower(string(*args)) + s.Suffix
-	return nil
+func (s *Test0) Lower(args string, r *string) error {
+	return (*s)("Test0.Lower", args, r)
 }

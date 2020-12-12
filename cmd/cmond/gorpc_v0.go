@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -11,6 +12,14 @@ func gorpc0() func(int64, http.ResponseWriter, *http.Request) {
 	}
 }
 
-func gorpc0Upper(s string) string {
-	return strings.ToUpper(s)
+func gorpcTest0(method string, args interface{}, r interface{}) error {
+	switch method {
+	case "Test0.Upper":
+		*r.(*string) = strings.ToUpper(args.(string))
+	case "Test0.Lower":
+		*r.(*string) = strings.ToLower(args.(string))
+	default:
+		return fmt.Errorf("unimplemented method")
+	}
+	return nil
 }
