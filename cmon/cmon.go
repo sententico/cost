@@ -31,13 +31,14 @@ type (
 type (
 	Test0 struct {
 		Prefix, Suffix string
+		F              func(string) string
 	}
 	Args string
 )
 
 // Upper ...
 func (s *Test0) Upper(args *Args, r *string) error {
-	*r = s.Prefix + strings.ToUpper(string(*args)) + s.Suffix
+	*r = s.Prefix + s.F(string(*args)) + s.Suffix
 	return nil
 }
 
