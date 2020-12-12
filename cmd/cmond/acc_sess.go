@@ -59,16 +59,20 @@ func cdraspMetrics() (res chan interface{}, err error) {
 	res = make(chan interface{}, 1)
 	go func() {
 		defer func() {
-			if e := recover(); e == nil {
-				close(res) // else stop signaled by closing res channel
+			switch e := recover(); {
+			case e == nil:
+			case e.(error).Error() != "send on closed channel":
+				close(res)
+				fallthrough
+			default:
+				acc.rel()
 			}
-			acc.rel()
 		}()
 		acc.reqR()
 		// gather results and send to res
-
 		acc.rel()
 		res <- nil
+		close(res)
 	}()
 	return
 }

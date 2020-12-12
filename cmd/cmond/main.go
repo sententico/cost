@@ -128,8 +128,8 @@ func init() {
 		WriteTimeout:   12 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}, rpc.NewServer(), rpc.NewServer()
-	gosrv.Register(&cmon.Test0{})
-	go0srv.Register(&cmon.Test0{})
+	gosrv.Register(&cmon.Test0{Prefix: "<", Suffix: ">"})
+	go0srv.Register(&cmon.Test0{Prefix: "{", Suffix: "}"})
 
 	gob.Register(&trigModel{})
 	gob.Register(&ec2Sum{})

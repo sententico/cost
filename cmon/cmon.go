@@ -16,7 +16,7 @@ type (
 		APIKey, AppKey string
 	}
 
-	// monSettings are composite settings for the cloud monitor
+	// MonSettings are composite settings for the cloud monitor
 	MonSettings struct {
 		Options         string
 		Unit, Port      string
@@ -28,18 +28,21 @@ type (
 )
 
 // Test0 ...
-type Test0 struct {
-	S string
-}
+type (
+	Test0 struct {
+		Prefix, Suffix string
+	}
+	Args string
+)
 
 // Upper ...
-func (t *Test0) Upper(args *Test0, r *string) error {
-	*r = strings.ToUpper(args.S)
+func (s *Test0) Upper(args *Args, r *string) error {
+	*r = s.Prefix + strings.ToUpper(string(*args)) + s.Suffix
 	return nil
 }
 
 // Lower ...
-func (t *Test0) Lower(args *Test0, r *string) error {
-	*r = strings.ToLower(args.S)
+func (s *Test0) Lower(args *Args, r *string) error {
+	*r = s.Prefix + strings.ToLower(string(*args)) + s.Suffix
 	return nil
 }
