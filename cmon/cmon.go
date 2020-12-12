@@ -27,15 +27,17 @@ type (
 
 // Test0 ...
 type (
-	Test0 func(string, interface{}, interface{}) error
+	Test0 struct {
+		M func(string, interface{}, interface{}) error
+	}
 )
 
 // Upper ...
 func (s *Test0) Upper(args string, r *string) error {
-	return (*s)("Test0.Upper", args, r)
+	return s.M("Test0.Upper", args, r)
 }
 
 // Lower ...
 func (s *Test0) Lower(args string, r *string) error {
-	return (*s)("Test0.Lower", args, r)
+	return s.M("Test0.Lower", args, r)
 }
