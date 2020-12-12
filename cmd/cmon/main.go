@@ -63,7 +63,7 @@ func worker(in chan string) {
 
 	var r string
 	for ln := range in {
-		if err = client.Call("Test0.Upper", ln, &r); err != nil {
+		if err = client.Call("API.Upper", ln, &r); err != nil {
 			fatal(1, "error calling GoRPC: %v\n", err)
 		}
 		fmt.Printf("%v\n", r)
