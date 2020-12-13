@@ -25,12 +25,17 @@ type (
 	}
 )
 
-// GoRPC parameter/return types...
+// API argument/return types...
 type (
-	Address struct {
-		Street string
-		City   string
-		St     string
-		ZIP    int
+	// AuthArgs ...
+	AuthArgs struct {
+		ID   string // identification token
+		Hash string // SHA256 of RFC3339 GMT (YYYY-MM-DDThh:mm) concatenated with secret token
+	}
+
+	// LookupArgs ...
+	LookupArgs struct {
+		Token string // Admin.Auth access token
+		Key   string // lookup key
 	}
 )

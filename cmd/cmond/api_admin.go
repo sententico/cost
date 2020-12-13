@@ -3,14 +3,21 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strings"
+
+	"github.com/sententico/cost/cmon"
 )
 
 type (
-	// Admin ...
+	// Admin service ...
 	Admin struct {
 		Ver int
 	}
+)
+
+const (
+	auREAD = 1 << iota
+	auWRITE
+	auNOAUTH = -1
 )
 
 func admin() func(int64, http.ResponseWriter, *http.Request) {
@@ -19,13 +26,20 @@ func admin() func(int64, http.ResponseWriter, *http.Request) {
 	}
 }
 
-// Test method of Admin service ...
-func (s *Admin) Test(args string, r *string) error {
+func authVer(tok string, access uint, grant int) int {
+	if tok == "placeholder_access_token" {
+		return grant
+	}
+	return auNOAUTH
+}
+
+// Auth method of Admin service ...
+func (s *Admin) Auth(args *cmon.AuthArgs, r *string) error {
 	switch s.Ver {
 	case 0:
-		*r = strings.ToUpper(args)
+		*r = "placeholder_access_token"
 	default:
-		return fmt.Errorf("unimplemented method")
+		return fmt.Errorf("method version %v unimplemented", s.Ver)
 	}
 	return nil
 }
