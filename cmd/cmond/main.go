@@ -180,46 +180,55 @@ func modManager(m *model, n string) {
 }
 
 func (m *model) newAcc() *modAcc {
+	if m == nil {
+		return nil
+	}
 	return &modAcc{
 		m:  m,
 		tc: make(chan accTok, 1),
 	}
 }
 func (acc *modAcc) reqP() {
-	switch acc.tok & atTYP {
-	case atWR:
-	case atRD:
-		acc.rel()
-		fallthrough
-	case atNIL:
-		acc.m.reqP <- acc.tc
-		acc.tok = <-acc.tc
+	if acc != nil {
+		switch acc.tok & atTYP {
+		case atWR:
+		case atRD:
+			acc.rel()
+			fallthrough
+		case atNIL:
+			acc.m.reqP <- acc.tc
+			acc.tok = <-acc.tc
+		}
 	}
 }
 func (acc *modAcc) reqR() {
-	switch acc.tok & atTYP {
-	case atRD:
-	case atWR:
-		acc.rel()
-		fallthrough
-	case atNIL:
-		acc.m.reqR <- acc.tc
-		acc.tok = <-acc.tc
+	if acc != nil {
+		switch acc.tok & atTYP {
+		case atRD:
+		case atWR:
+			acc.rel()
+			fallthrough
+		case atNIL:
+			acc.m.reqR <- acc.tc
+			acc.tok = <-acc.tc
+		}
 	}
 }
 func (acc *modAcc) reqW() {
-	switch acc.tok & atTYP {
-	case atWR:
-	case atRD:
-		acc.rel()
-		fallthrough
-	case atNIL:
-		acc.m.reqW <- acc.tc
-		acc.tok = <-acc.tc
+	if acc != nil {
+		switch acc.tok & atTYP {
+		case atWR:
+		case atRD:
+			acc.rel()
+			fallthrough
+		case atNIL:
+			acc.m.reqW <- acc.tc
+			acc.tok = <-acc.tc
+		}
 	}
 }
 func (acc *modAcc) rel() bool {
-	if acc.tok&atTYP != atNIL {
+	if acc != nil && acc.tok&atTYP != atNIL {
 		acc.m.rel <- acc.tok
 		acc.tok &^= atTYP
 		return true

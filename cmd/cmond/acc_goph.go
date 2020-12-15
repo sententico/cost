@@ -84,13 +84,10 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 		} else if items > 0 {
 			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, src)
 		}
-		if items > 0 {
-			if !meta {
-				acc.reqW()
-				insert(acc.m, nil, start)
-				acc.rel()
-			}
-			evt <- src
+		if items > 0 && !meta {
+			acc.reqW()
+			insert(acc.m, nil, start)
+			acc.rel()
 		}
 	}()
 	if sb, e := json.MarshalIndent(settings, "", "\t"); e != nil {
@@ -421,10 +418,10 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				pdet.Line[mo], pdet.Month[mo], min = m, &[2]int32{bh, eh}, mo
 			}
 			for mo := range pdet.Line {
-				if mos++; mo > max {
-					max = mo
-				} else if mo < min {
+				if mos++; mo < min {
 					min = mo
+				} else if mo > max {
+					max = mo
 				}
 			}
 			for hrs := pdet.Month[max]; hrs[1] > hrs[0] && psum.ByAcct[hrs[1]] == nil; hrs[1]-- {

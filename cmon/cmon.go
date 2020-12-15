@@ -35,7 +35,7 @@ type (
 
 	// LookupArgs ...
 	LookupArgs struct {
-		Token string // Admin.Auth access token
+		Token string // Admin.Auth access token (renew hourly to avoid expiration)
 		Key   string // lookup key
 	}
 )
