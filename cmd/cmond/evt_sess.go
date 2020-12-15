@@ -31,11 +31,19 @@ func trigcmonScan(n string, evt string) {
 		} else if m := <-c; m != nil {
 			if se := m["afr"]; se != nil {
 				ss, mean, sdev := basicStats(se)
-				logI.Printf("%q afr series: mean=$%.2f, sdev=$%.2f, se=%v, len=%d", evt, mean, sdev, se[:4], len(ss))
+				logI.Printf("%q afr series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
 			}
 			if se := m["natf"]; se != nil {
 				ss, mean, sdev := basicStats(se)
-				logI.Printf("%q natf series: mean=$%.2f, sdev=$%.2f, se=%v, len=%d", evt, mean, sdev, se[:4], len(ss))
+				logI.Printf("%q natf series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
+			}
+			if se := m["us48"]; se != nil {
+				ss, mean, sdev := basicStats(se)
+				logI.Printf("%q us48 series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
+			}
+			if se := m["can"]; se != nil {
+				ss, mean, sdev := basicStats(se)
+				logI.Printf("%q can series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
 			}
 		}
 	}
