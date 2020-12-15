@@ -37,8 +37,8 @@ func trigcmonScan(n string, evt string) {
 				for n, se := range m {
 					if len(se) < 2 {
 					} else if r := se[0] + se[1]*0.5; r < 30 {
-					} else if ss, mean, sdev := basicStats(se); r > mean+sdev*2.5 {
-						logI.Printf("%q metric signaling fraud: $%.2f for %q ($%.0f @95pct)", metric, r, n, ss[len(ss)*95/100])
+					} else if ss, mean, sdev := basicStats(se); r > mean+sdev*3 {
+						logW.Printf("%q metric signaling fraud: $%.2f usage for %q ($%.0f @95pct)", metric, r, n, ss[len(ss)*95/100])
 					}
 				}
 			}

@@ -77,7 +77,7 @@ func init() {
 	log.SetFlags(0)
 	logD = log.New(os.Stderr, "DEBUG ", log.Lshortfile|log.Lmicroseconds)
 	logI = log.New(os.Stderr, "", 0)
-	logW = log.New(os.Stderr, "WARNING ", log.Lshortfile)
+	logW = log.New(os.Stderr, "WARNING ", 0)
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
 	m, val := map[string]*model{
