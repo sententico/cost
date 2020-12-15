@@ -61,7 +61,7 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 	var typ byte
 	if history <= 0 || history > 24*90 || recent <= 0 || recent > history || threshold < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
-	} else if acc = mMod[strings.Join(strings.SplitN(metric, ".", 3)[:2], ".")].newAcc(); acc == nil {
+	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(metric, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil {
 		return nil, fmt.Errorf("model not found")
 	} else if metric[len(metric)-2] == '/' {
 		typ = metric[len(metric)-1]
