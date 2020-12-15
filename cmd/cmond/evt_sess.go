@@ -31,14 +31,14 @@ func trigcmonScan(n string, evt string) {
 			"cdr.asp/term/cust",
 			"cdr.asp/term/sp",
 		} {
-			if c, err := accSeries(metric, 24*90, 4, 1e4/20/8); err != nil {
+			if c, err := accSeries(metric, 24*90, 4, 60); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric, err)
 			} else if m := <-c; m != nil {
 				for n, se := range m {
 					if len(se) < 2 {
-					} else if r := se[0] + se[1]; r < 30 {
-					} else if ss, mean, sdev := basicStats(se); r > mean+sdev*1.5 {
-						logI.Printf("%q metric signaling fraud: $%.2f for %q ($%.0f 95PCT)", metric, r, n, ss[len(ss)*95/100])
+					} else if r := se[0] + se[1]*0.5; r < 30 {
+					} else if ss, mean, sdev := basicStats(se); r > mean+sdev*2.5 {
+						logI.Printf("%q metric signaling fraud: $%.2f for %q ($%.0f @95pct)", metric, r, n, ss[len(ss)*95/100])
 					}
 				}
 			}
