@@ -122,9 +122,9 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 		}()
 		rct, ser := make(map[string]float64), make(map[string][]float64)
 		acc.reqR() // TODO: relocate prior to acc.m.data reference?
-		for h := 0; h < recent; h++ {
-			switch sum := sum.(type) {
-			case hsU:
+		switch sum := sum.(type) {
+		case hsU:
+			for h := 0; h < recent; h++ {
 				if m := sum[cur-int32(h)]; m != nil {
 					for n, i := range m {
 						switch typ {
@@ -135,13 +135,17 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 						}
 					}
 				}
-			case hsA:
+			}
+		case hsA:
+			for h := 0; h < recent; h++ {
 				if m := sum[cur-int32(h)]; m != nil {
 					for n, i := range m {
 						rct[n] += i
 					}
 				}
-			case hsC:
+			}
+		case hsC:
+			for h := 0; h < recent; h++ {
 				if m := sum[cur-int32(h)]; m != nil {
 					for n, i := range m {
 						switch typ {
@@ -178,6 +182,7 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 								default:
 									s[h] = i.Cost
 								}
+								ser[n] = s
 							}
 						}
 					} else if h > recent {
@@ -190,7 +195,7 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 						for n, i := range m {
 							if s := ser[n]; s != nil {
 								s = s[:h+1]
-								s[h] = i
+								s[h], ser[n] = i, s
 							}
 						}
 					} else if h > recent {
@@ -214,6 +219,7 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 								default:
 									s[h] = i.Bill
 								}
+								ser[n] = s
 							}
 						}
 					} else if h > recent {

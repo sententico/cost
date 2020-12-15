@@ -29,11 +29,11 @@ func trigcmonScan(n string, evt string) {
 		if c, err := accSeries("cdr.asp/term/geo", 24*90, 4, 0.0); err != nil {
 			logE.Printf("problem accessing %q series: %v", evt, err)
 		} else if m := <-c; m != nil {
-			if se := m["afr"]; len(se) > 0 {
+			if se := m["afr"]; se != nil {
 				ss, mean, sdev := basicStats(se)
 				logI.Printf("%q afr series: mean=$%.2f, sdev=$%.2f, se=%v, len=%d", evt, mean, sdev, se[:4], len(ss))
 			}
-			if se := m["natf"]; len(se) > 0 {
+			if se := m["natf"]; se != nil {
 				ss, mean, sdev := basicStats(se)
 				logI.Printf("%q natf series: mean=$%.2f, sdev=$%.2f, se=%v, len=%d", evt, mean, sdev, se[:4], len(ss))
 			}
