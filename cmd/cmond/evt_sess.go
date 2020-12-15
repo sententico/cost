@@ -26,24 +26,21 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 func trigcmonScan(n string, evt string) {
 	switch evt {
 	case "cdr.asp":
-		if c, err := accSeries("cdr.asp/term/geo", 24*90, 4, 0.0); err != nil {
-			logE.Printf("problem accessing %q series: %v", evt, err)
-		} else if m := <-c; m != nil {
-			if se := m["afr"]; se != nil {
-				ss, mean, sdev := basicStats(se)
-				logI.Printf("%q afr series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
-			}
-			if se := m["natf"]; se != nil {
-				ss, mean, sdev := basicStats(se)
-				logI.Printf("%q natf series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
-			}
-			if se := m["us48"]; se != nil {
-				ss, mean, sdev := basicStats(se)
-				logI.Printf("%q us48 series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
-			}
-			if se := m["can"]; se != nil {
-				ss, mean, sdev := basicStats(se)
-				logI.Printf("%q can series: mean=$%.2f, sdev=$%.2f, se=%v, max=$%.2f", evt, mean, sdev, se[:4], ss[len(ss)-1])
+		for _, metric := range []string{
+			"cdr.asp/term/geo",
+			"cdr.asp/term/cust",
+			"cdr.asp/term/sp",
+		} {
+			if c, err := accSeries(metric, 24*90, 4, 1e4/20/8); err != nil {
+				logE.Printf("problem accessing %q metric: %v", metric, err)
+			} else if m := <-c; m != nil {
+				for n, se := range m {
+					if len(se) < 2 {
+					} else if r := se[0] + se[1]; r < 30 {
+					} else if ss, mean, sdev := basicStats(se); r > mean+sdev*1.5 {
+						logI.Printf("%q metric signaling fraud: $%.2f for %q ($%.0f 95PCT)", metric, r, n, ss[len(ss)*95/100])
+					}
+				}
 			}
 		}
 	}
