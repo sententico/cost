@@ -198,7 +198,7 @@ func (sum hnC) series(typ byte, cur int32, history, recent int, threshold float6
 			nser[n] = make([]float64, 0, history)
 		}
 	}
-	if len(ser) > 0 {
+	if len(nser) > 0 {
 		for h := 0; h < history; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
@@ -225,7 +225,7 @@ func (sum hnC) series(typ byte, cur int32, history, recent int, threshold float6
 		var e164 tel.E164full
 		for n, s := range nser {
 			n.Full(nil, &e164)
-			ser[fmt.Sprintf("+%v %v... [%v]", e164.CC, e164.P, e164.Geo)] = s
+			ser[fmt.Sprintf("+%v %v...%v", e164.CC, e164.P, e164.Geo)] = s
 		}
 	}
 	return
