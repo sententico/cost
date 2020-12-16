@@ -30,15 +30,16 @@ func trigcmonScan(n string, evt string) {
 			"cdr.asp/term/geo",
 			"cdr.asp/term/cust",
 			"cdr.asp/term/sp",
+			"cdr.asp/term/to",
 		} {
 			if c, err := accSeries(metric, 24*90, 4, 60); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric, err)
 			} else if m := <-c; m != nil {
-				for n, se := range m {
+				for na, se := range m {
 					if len(se) < 2 {
-					} else if r := se[0] + se[1]*0.5; r < 30 {
-					} else if ss, mean, sdev := basicStats(se); r > mean+sdev*3 {
-						logW.Printf("%q metric signaling fraud: $%.2f usage for %q ($%.0f @95pct)", metric, r, n, ss[len(ss)*95/100])
+					} else if r := se[0] + se[1]*0.65; r < 30 {
+					} else if ss, mean, sdev := basicStats(se); r > mean+sdev*1.8 {
+						logW.Printf("%q metric signaling fraud: $%.2f usage for %q ($%.0f @95pct)", metric, r, na, ss[len(ss)*95/100])
 					}
 				}
 			}

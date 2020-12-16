@@ -38,4 +38,15 @@ type (
 		Token string // Admin.Auth access token (renew hourly to avoid expiration)
 		Key   string // lookup key
 	}
+
+	// SeriesArgs ...
+	SeriesArgs struct {
+		Token     string  // Admin.Auth access token (renew hourly to avoid expiration)
+		Metric    string  // metric identifier
+		History   int     // hours in series to return
+		Recent    int     // recent hours
+		Threshold float64 // minimum ...
+	}
+	// SeriesRet ...
+	SeriesRet map[string][]float64
 )

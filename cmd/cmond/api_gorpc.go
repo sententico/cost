@@ -44,3 +44,20 @@ func (s *API) LookupVM(args *cmon.LookupArgs, r *string) error {
 	}
 	return nil
 }
+
+// Series method of API service ...
+func (s *API) Series(args *cmon.SeriesArgs, r *cmon.SeriesRet) error {
+	switch authVer(args.Token, 0, s.Ver) {
+	case 0:
+		if c, err := accSeries(args.Metric, args.History, args.Recent, args.Threshold); err != nil {
+			return err
+		} else {
+			*r = <-c
+		}
+	case auNOAUTH:
+		return fmt.Errorf("method access not allowed")
+	default:
+		return fmt.Errorf("method version %v unimplemented", s.Ver)
+	}
+	return nil
+}
