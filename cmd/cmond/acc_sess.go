@@ -225,7 +225,7 @@ func (sum hnC) series(typ byte, cur int32, history, recent int, threshold float6
 		var e164 tel.E164full
 		for n, s := range nser {
 			n.Full(nil, &e164)
-			ser[fmt.Sprintf("+%v %v...%v", e164.CC, e164.P, e164.Geo)] = s
+			ser[fmt.Sprintf("+%v %v[%v]", e164.CC, e164.P, e164.Geo)] = s
 		}
 	}
 	return
@@ -327,6 +327,46 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 		}
 		acc.rel()
 		res <- ser
+		close(res)
+	}()
+	return
+}
+
+func accStreamCUR(from, to int32, filter interface{}) (res chan []string, err error) {
+	var acc *modAcc
+	if from > to || filter == nil {
+		return nil, fmt.Errorf("invalid argument(s)")
+	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
+		return nil, fmt.Errorf("\"cur.aws\" model not found")
+	}
+
+	res = make(chan []string, 12)
+	go func() {
+		defer func() {
+			if e := recover(); e != nil && e.(error).Error() != "send on closed channel" {
+				close(res)
+			}
+			acc.rel()
+		}()
+		acc.reqR()
+
+		for mo, hrs := range acc.m.data[1].(curDetail).Month {
+			if from <= hrs[0] && hrs[0] <= to || from <= hrs[1] && hrs[1] <= to {
+				for id, li := range acc.m.data[1].(curDetail).Line[mo] {
+					// filter and build line slice
+					ls := []string{id, li.Acct}
+					select {
+					case res <- ls:
+						continue
+					default:
+					}
+					acc.rel()
+					res <- ls
+					acc.reqR()
+				}
+			}
+		}
+		acc.rel()
 		close(res)
 	}()
 	return
