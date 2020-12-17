@@ -22,6 +22,7 @@ type (
 	modSt  uint8
 	accTok uint32
 	model  struct {
+		name              string
 		state             modSt
 		immed             bool
 		reqP, reqR, reqW  chan chan accTok
@@ -80,7 +81,7 @@ func init() {
 	logW = log.New(os.Stderr, "WARNING ", 0)
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
-	m, val := map[string]*model{
+	mm, val := map[string]*model{
 		"trig.cmon": {boot: trigcmonBoot, maint: trigcmonMaint, term: trigcmonTerm, immed: true},
 		"ec2.aws":   {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
 		"ebs.aws":   {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
@@ -103,12 +104,14 @@ func init() {
 	} else if err = json.Unmarshal(b, &settings); err != nil {
 		logE.Fatalf("%q is invalid JSON settings file: %v", sfile, err)
 	}
-	for n := range m {
-		if _, found := settings.Models[n]; !found {
-			delete(m, n)
+	for n, m := range mm {
+		if _, found := settings.Models[n]; found {
+			m.name = n
+		} else {
+			delete(mm, n)
 		}
 	}
-	if mMod, port = m, val(strings.TrimLeft(settings.Port, ":"), "4404"); len(m) == 0 {
+	if mMod, port = mm, val(strings.TrimLeft(settings.Port, ":"), "4404"); len(mm) == 0 {
 		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 	}
 

@@ -3,9 +3,14 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/sententico/cost/tel"
+)
+
+const (
+	pgSize = 128
 )
 
 func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
@@ -308,10 +313,12 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 
 	go func() {
 		defer func() {
-			if e := recover(); e != nil && e.(error).Error() != "send on closed channel" {
+			acc.rel()
+			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
+				logE.Printf("error while accessing %q: %v", acc.m.name, e)
+				defer func() { recover() }()
 				close(res)
 			}
-			acc.rel()
 		}()
 		var ser map[string][]float64
 		acc.reqR() // TODO: may relocate prior to acc.m.data reference
@@ -332,36 +339,71 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 	return
 }
 
-func accStreamCUR(from, to int32, filter interface{}) (res chan []string, err error) {
+func accStreamCUR(from, to int32, items int, threshold float32) (res chan []string, err error) {
 	var acc *modAcc
-	if from > to || filter == nil {
+	if items++; from > to || items < 0 || items == 1 || threshold < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
 	}
 
-	res = make(chan []string, 12)
+	res = make(chan []string, 32)
 	go func() {
 		defer func() {
-			if e := recover(); e != nil && e.(error).Error() != "send on closed channel" {
+			acc.rel()
+			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
+				logE.Printf("error while accessing %q: %v", acc.m.name, e)
+				defer func() { recover() }()
 				close(res)
 			}
-			acc.rel()
 		}()
+		pg := pgSize
 		acc.reqR()
 
+	nextMonth:
 		for mo, hrs := range acc.m.data[1].(curDetail).Month {
 			if from <= hrs[0] && hrs[0] <= to || from <= hrs[1] && hrs[1] <= to {
+				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
 				for id, li := range acc.m.data[1].(curDetail).Line[mo] {
-					// filter and build line slice
-					ls := []string{id, li.Acct}
-					select {
-					case res <- ls:
+					if li.Cost < threshold && -threshold < li.Cost {
 						continue
-					default:
+					} else if items--; items == 0 {
+						break nextMonth
+					}
+
+					ls := []string{
+						dts[:8] + id,
+						dts,
+						li.Acct,
+						li.Typ,
+						li.Svc,
+						li.UTyp,
+						li.UOp,
+						li.Reg,
+						li.RID,
+						li.Desc,
+						li.Name,
+						li.Env,
+						li.DC,
+						li.Prod,
+						li.App,
+						li.Cust,
+						li.Team,
+						li.Ver,
+						strconv.FormatInt(int64(li.Mu+1), 10),
+						strconv.FormatFloat(float64(li.Usg), 'g', -1, 32),
+						strconv.FormatFloat(float64(li.Cost), 'g', -1, 32),
+					}
+					if pg--; pg >= 0 {
+						select {
+						case res <- ls:
+							continue
+						default:
+						}
 					}
 					acc.rel()
 					res <- ls
+					pg = pgSize
 					acc.reqR()
 				}
 			}

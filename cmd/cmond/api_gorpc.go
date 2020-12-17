@@ -49,10 +49,30 @@ func (s *API) LookupVM(args *cmon.LookupArgs, r *string) error {
 func (s *API) Series(args *cmon.SeriesArgs, r *cmon.SeriesRet) error {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		if c, err := accSeries(args.Metric, args.History, args.Recent, args.Threshold); err != nil {
+		c, err := accSeries(args.Metric, args.History, args.Recent, args.Threshold)
+		if err != nil {
 			return err
-		} else {
-			*r = <-c
+		}
+		*r = <-c
+	case auNOAUTH:
+		return fmt.Errorf("method access not allowed")
+	default:
+		return fmt.Errorf("method version %v unimplemented", s.Ver)
+	}
+	return nil
+}
+
+// StreamCUR method of API service ...
+func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) error {
+	switch authVer(args.Token, 0, s.Ver) {
+	case 0:
+		c, err := accStreamCUR(args.From, args.To, args.Items, args.Threshold)
+		if err != nil {
+			return err
+		}
+		*r = make([][]string, 0, args.Items)
+		for s := range c {
+			*r = append(*r, s)
 		}
 	case auNOAUTH:
 		return fmt.Errorf("method access not allowed")

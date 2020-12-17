@@ -49,4 +49,13 @@ type (
 	}
 	// SeriesRet ...
 	SeriesRet map[string][]float64
+
+	// StreamCURArgs ...
+	StreamCURArgs struct {
+		Token     string  // Admin.Auth access token (renew hourly to avoid expiration)
+		From      int32   // from hour
+		To        int32   // to hour
+		Items     int     // maximum line items
+		Threshold float32 // minimum line item cost
+	}
 )
