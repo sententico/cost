@@ -362,7 +362,7 @@ func accStreamCUR(from, to int32, items int, threshold float32) (res chan []stri
 
 	nextMonth:
 		for mo, hrs := range acc.m.data[1].(*curDetail).Month {
-			if from <= hrs[0] && hrs[0] <= to || from <= hrs[1] && hrs[1] <= to {
+			if to >= hrs[0] && hrs[1] >= from {
 				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
 				for id, li := range acc.m.data[1].(*curDetail).Line[mo] {
 					if li.Cost < threshold && -threshold < li.Cost {
