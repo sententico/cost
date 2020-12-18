@@ -1,5 +1,14 @@
 package cmon
 
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+)
+
+// Cloud Monitor settings types
 type (
 	// awsService settings
 	awsService struct {
@@ -14,10 +23,10 @@ type (
 		APIKey, AppKey string
 	}
 
-	// MonSettings are composite settings for the cloud monitor
+	// MonSettings are composite settings for Cloud Monitor
 	MonSettings struct {
 		Options         string
-		Unit, Port      string
+		Unit, Address   string
 		WorkDir, BinDir string
 		Models          map[string]string
 		AWS             awsService
@@ -25,7 +34,7 @@ type (
 	}
 )
 
-// API argument/return types...
+// Cloud Monitor API argument/return types
 type (
 	// AuthArgs ...
 	AuthArgs struct {
@@ -59,3 +68,29 @@ type (
 		Threshold float32 // minimum line item cost
 	}
 )
+
+// Getarg helper function ...
+func Getarg(v []string) string {
+	for _, arg := range v {
+		if strings.HasPrefix(arg, "CMON_") {
+			arg = os.Getenv(arg)
+		}
+		if arg != "" {
+			return arg
+		}
+	}
+	return ""
+}
+
+// Load method on MonSettings ...
+func (s *MonSettings) Load(loc string) (err error) {
+	var b []byte
+	if s == nil || loc == "" {
+		return fmt.Errorf("no settings specified")
+	} else if b, err = ioutil.ReadFile(loc); err != nil {
+		return fmt.Errorf("cannot access settings %q: %v", loc, err)
+	} else if err = json.Unmarshal(b, s); err != nil {
+		return fmt.Errorf("%q settings format problem: %v", loc, err)
+	}
+	return nil
+}

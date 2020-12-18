@@ -2,9 +2,6 @@ package main
 
 import (
 	"encoding/gob"
-	"encoding/json"
-	"flag"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -81,38 +78,27 @@ func init() {
 	logW = log.New(os.Stderr, "WARNING ", 0)
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
-	mm, val := map[string]*model{
+	mMod, sfile = map[string]*model{
 		"trig.cmon": {boot: trigcmonBoot, maint: trigcmonMaint, term: trigcmonTerm, immed: true},
 		"ec2.aws":   {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
 		"ebs.aws":   {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
 		"rds.aws":   {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
 		"cur.aws":   {boot: curawsBoot, maint: curawsMaint, term: curawsTerm},
 		"cdr.asp":   {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
-	}, func(pri string, dflt string) string {
-		if strings.HasPrefix(pri, "CMON_") {
-			pri = os.Getenv(pri)
-		}
-		if pri == "" {
-			return dflt
-		}
-		return pri
+	}, cmon.Getarg([]string{"CMON_SETTINGS", ".cmon_settings.json"})
+	if err := settings.Load(sfile); err != nil {
+		logE.Fatalf("%v", err)
 	}
-	flag.StringVar(&sfile, "settings", val("CMON_SETTINGS", ".cmon_settings.json"), "main settings file")
-	flag.Parse()
-	if b, err := ioutil.ReadFile(sfile); err != nil {
-		logE.Fatalf("cannot read settings file %q: %v", sfile, err)
-	} else if err = json.Unmarshal(b, &settings); err != nil {
-		logE.Fatalf("%q is invalid JSON settings file: %v", sfile, err)
-	}
-	for n, m := range mm {
+	for n, m := range mMod {
 		if _, found := settings.Models[n]; found {
 			m.name = n
-		} else {
-			delete(mm, n)
+		} else if delete(mMod, n); len(mMod) == 0 {
+			logE.Fatalf("no supported objects to monitor specified in %q", sfile)
 		}
 	}
-	if mMod, port = mm, val(strings.TrimLeft(settings.Port, ":"), "4404"); len(mm) == 0 {
-		logE.Fatalf("no supported objects to monitor specified in %q", sfile)
+	port = cmon.Getarg([]string{settings.Address, "CMON_ADDRESS", ":4404"})
+	if addr := strings.Split(port, ":"); len(addr) > 1 {
+		port = addr[len(addr)-1]
 	}
 
 	ctl, evt = make(chan string, 4), make(chan string, 4)

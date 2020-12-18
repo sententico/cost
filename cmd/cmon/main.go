@@ -2,52 +2,42 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/rpc"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/sententico/cost/cmon"
 )
 
 var (
-	settingsFlag string
-	debugFlag    bool
-	port         string
-	settings     cmon.MonSettings
-	wg           sync.WaitGroup
+	args struct {
+		settings  string   // settings location
+		address   string   // settings address:port
+		debug     bool     // enables debug output
+		more      []string // unparsed arguments
+		seriesSet *flag.FlagSet
+		streamSet *flag.FlagSet
+	}
+	address  string           // cmon address (args override settings file)
+	settings cmon.MonSettings // settings
+	command  string           // requested command
+	wg       sync.WaitGroup   // thread synchronization
 )
 
 func init() {
-	val := func(pri string, dflt string) string {
-		if strings.HasPrefix(pri, "CMON_") {
-			pri = os.Getenv(pri)
-		}
-		if pri == "" {
-			return dflt
-		}
-		return pri
-	}
-
-	flag.StringVar(&settingsFlag, "settings", val("CMON_SETTINGS", ".cmon_settings.json"), "settings file")
-	flag.BoolVar(&debugFlag, "d", false, fmt.Sprintf("specify debug output"))
+	flag.StringVar(&args.settings, "settings", "", "settings file")
+	flag.StringVar(&args.address, "address", "", "cmon server address:port")
+	flag.BoolVar(&args.debug, "debug", false, fmt.Sprintf("specify debug output"))
 	flag.Usage = func() {
 		fmt.Printf("command usage: cmon ..." +
 			"\n\nThis command ...\n\n")
 		flag.PrintDefaults()
 	}
-	flag.Parse()
 
-	if b, err := ioutil.ReadFile(settingsFlag); err != nil {
-		fatal(1, "cannot read settings file %q: %v\n", settingsFlag, err)
-	} else if err = json.Unmarshal(b, &settings); err != nil {
-		fatal(1, "%q is invalid JSON settings file: %v\n", settingsFlag, err)
-	}
-	port = val(strings.TrimLeft(settings.Port, ":"), "4404")
+	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
+	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
 }
 
 func fatal(ex int, format string, a ...interface{}) {
@@ -55,8 +45,8 @@ func fatal(ex int, format string, a ...interface{}) {
 	os.Exit(ex)
 }
 
-func worker(in chan string) {
-	client, err := rpc.DialHTTPPath("tcp", ":"+port, "/gorpc/v0")
+func defaultWorker(in chan string) {
+	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
@@ -72,7 +62,7 @@ func worker(in chan string) {
 	wg.Done()
 }
 
-func main() {
+func defaultCmd() {
 	in := make(chan string, 20)
 	go func(ln *bufio.Scanner, in chan string) {
 		for ; ln.Scan(); in <- ln.Text() {
@@ -82,7 +72,40 @@ func main() {
 
 	for i := 0; i < cap(in)/2; i++ {
 		wg.Add(1)
-		go worker(in)
+		go defaultWorker(in)
 	}
 	wg.Wait()
+}
+
+func seriesCmd() {
+	fmt.Printf("seriesCmd not implemented: args=%v\n", args.more)
+}
+
+func streamcurCmd() {
+	fmt.Printf("streamcurCmd not implemented: args=%v\n", args.more)
+}
+
+func main() {
+	switch flag.Parse(); flag.Arg(0) {
+	case "series":
+		args.seriesSet.Parse(flag.Args()[1:])
+		command, args.more = "Series", args.seriesSet.Args()
+	case "stream":
+		args.streamSet.Parse(flag.Args()[1:])
+		command, args.more = "StreamCUR", args.streamSet.Args()
+	default:
+		args.more = flag.Args()
+	}
+
+	args.settings = cmon.Getarg([]string{args.settings, "CMON_SETTINGS", ".cmon_settings.json"})
+	if err := settings.Load(args.settings); err != nil {
+		fatal(1, "%v", err)
+	}
+	address = cmon.Getarg([]string{args.address, settings.Address, "CMON_ADDRESS", ":4404"})
+
+	map[string]func(){
+		"Series":    seriesCmd,
+		"StreamCUR": streamcurCmd,
+		"":          defaultCmd,
+	}[command]()
 }

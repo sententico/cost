@@ -1,7 +1,7 @@
 {
 	"Options":	"<placeholder>",
 	"Unit":		"cmon-aspect",
-	"Port":		"4414",
+	"Address":	":4414",
 	"WorkDir":	"/var/opt/sententix/aspect",
 	"BinDir":	"/opt/sententix/bin",
 	"Models": {
