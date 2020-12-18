@@ -27,12 +27,12 @@ var (
 )
 
 func init() {
-	flag.StringVar(&args.settings, "settings", "", "settings file")
-	flag.StringVar(&args.address, "address", "", "cmon server address:port")
-	flag.BoolVar(&args.debug, "debug", false, fmt.Sprintf("specify debug output"))
+	flag.StringVar(&args.settings, "s", "", "settings `file`")
+	flag.StringVar(&args.address, "a", "", "cmon server `address:port`")
+	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
 	flag.Usage = func() {
-		fmt.Printf("command usage: cmon ..." +
-			"\n\nThis command ...\n\n")
+		fmt.Printf("command usage: cmon [-s] [-a] [-d] <subcommand> ..." +
+			"\n\nThis command is the command-line interface to the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
 	}
 
@@ -78,7 +78,22 @@ func defaultCmd() {
 }
 
 func seriesCmd() {
-	fmt.Printf("seriesCmd not implemented: args=%v\n", args.more)
+	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
+	if err != nil {
+		fatal(1, "error dialing GoRPC server: %v", err)
+	}
+	var r cmon.SeriesRet
+	if err = client.Call("API.Series", &cmon.SeriesArgs{
+		Token:     "placeholder_access_token",
+		Metric:    "ec2.aws/region",
+		History:   12,
+		Recent:    4,
+		Threshold: 0.0,
+	}, &r); err != nil {
+		fatal(1, "error calling GoRPC: %v\n", err)
+	}
+	client.Close()
+	fmt.Printf("%v\n", r)
 }
 
 func streamcurCmd() {
