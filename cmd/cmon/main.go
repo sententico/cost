@@ -18,6 +18,8 @@ var (
 		address   string   // settings address:port
 		debug     bool     // enables debug output
 		more      []string // unparsed arguments
+		metric    string   // series metric
+		items     int      // maximum item stream count
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
 	}
@@ -31,14 +33,18 @@ func init() {
 	flag.StringVar(&args.settings, "s", "", "settings `file`")
 	flag.StringVar(&args.address, "a", "", "cmon server location `address:port`")
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
+
+	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
+	args.seriesSet.StringVar(&args.metric, "metric", "cdr.aws/term/geo", "series `metric`")
+
+	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
+	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
+
 	flag.Usage = func() {
 		fmt.Printf("command usage: cmon [-s] [-a] [-d] <subcommand> ..." +
 			"\n\nThis command is the command-line interface to the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
 	}
-
-	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
-	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
 }
 
 func fatal(ex int, format string, a ...interface{}) {
