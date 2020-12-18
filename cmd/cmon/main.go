@@ -51,18 +51,19 @@ func init() {
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
-		fmt.Printf("command usage: cmon [-s] [-a] [-d] <subcommand> ..." +
+		fmt.Fprintf(flag.CommandLine.Output(), "command usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg>...]"+
 			"\n\nThis command is the command-line interface to the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
-		fmt.Printf("\n`series` subcommand returns a metric summary hourly series\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\"series\" subcommand returns a metric summary hourly series\n")
 		args.seriesSet.PrintDefaults()
-		fmt.Printf("\n`stream` subcommand returns stream of item detail\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\n\"stream\" subcommand returns item detail stream\n")
 		args.streamSet.PrintDefaults()
+		fmt.Fprintln(flag.CommandLine.Output())
 	}
 }
 
 func (i *interval) String() string {
-	return fmt.Sprint(*i)
+	return fmt.Sprintf("[%v,%v]", i[0], i[1])
 }
 func (i *interval) Set(arg string) error {
 	switch s, t, err := strings.Split(arg, ","), time.Now(), error(nil); len(s) {
