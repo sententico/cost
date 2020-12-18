@@ -65,7 +65,7 @@ type (
 		From      int32   // from hour
 		To        int32   // to hour
 		Items     int     // maximum line items
-		Threshold float32 // minimum line item cost
+		Threshold float64 // minimum line item cost
 	}
 )
 
