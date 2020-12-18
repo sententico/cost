@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/sententico/cost/cmon"
@@ -28,7 +29,7 @@ var (
 
 func init() {
 	flag.StringVar(&args.settings, "s", "", "settings `file`")
-	flag.StringVar(&args.address, "a", "", "cmon server `address:port`")
+	flag.StringVar(&args.address, "a", "", "cmon server location `address:port`")
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
 	flag.Usage = func() {
 		fmt.Printf("command usage: cmon [-s] [-a] [-d] <subcommand> ..." +
@@ -85,7 +86,7 @@ func seriesCmd() {
 	var r cmon.SeriesRet
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:     "placeholder_access_token",
-		Metric:    "ec2.aws/region",
+		Metric:    "ec2.aws/sku",
 		History:   12,
 		Recent:    4,
 		Threshold: 0.0,
@@ -93,11 +94,30 @@ func seriesCmd() {
 		fatal(1, "error calling GoRPC: %v\n", err)
 	}
 	client.Close()
-	fmt.Printf("%v\n", r)
+	for k, ser := range r {
+		fmt.Printf("%v: %v\n", k, ser)
+	}
 }
 
 func streamcurCmd() {
-	fmt.Printf("streamcurCmd not implemented: args=%v\n", args.more)
+	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
+	if err != nil {
+		fatal(1, "error dialing GoRPC server: %v", err)
+	}
+	var r [][]string
+	if err = client.Call("API.StreamCUR", &cmon.StreamCURArgs{
+		Token:     "placeholder_access_token",
+		From:      446600,
+		To:        446700,
+		Items:     1000,
+		Threshold: 0.0,
+	}, &r); err != nil {
+		fatal(1, "error calling GoRPC: %v\n", err)
+	}
+	client.Close()
+	for _, row := range r {
+		fmt.Printf("\"%v\"\n", strings.Join(row, "\",\""))
+	}
 }
 
 func main() {
