@@ -27,6 +27,8 @@ var (
 		items     int      // maximum item stream count
 		threshold float64  // series/stream filter threshold
 		hours     interval // hour interval
+		history   time.Duration
+		recent    time.Duration
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
 	}
@@ -43,6 +45,8 @@ func init() {
 
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
+	args.seriesSet.DurationVar(&args.history, "history", time.Hour*12, "hourly series total `duration`")
+	args.seriesSet.DurationVar(&args.recent, "recent", time.Hour*3, "`duration` of recent/active part of series")
 	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
 
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
@@ -51,12 +55,12 @@ func init() {
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "command usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg>...]"+
+		fmt.Fprintf(flag.CommandLine.Output(), "\ncommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
 			"\n\nThis command is the command-line interface to the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\n\"series\" subcommand returns a metric summary hourly series\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"series\" subcommand returns a metric summary hourly series.\n")
 		args.seriesSet.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\n\"stream\" subcommand returns item detail stream\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"stream\" subcommand returns item detail stream.\n")
 		args.streamSet.PrintDefaults()
 		fmt.Fprintln(flag.CommandLine.Output())
 	}
@@ -138,8 +142,8 @@ func seriesCmd() {
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:     "placeholder_access_token",
 		Metric:    args.metric,
-		History:   12,
-		Recent:    4,
+		History:   int((args.history + time.Hour - time.Nanosecond) / time.Hour),
+		Recent:    int((args.recent + time.Hour - time.Nanosecond) / time.Hour),
 		Threshold: args.threshold,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v\n", err)
