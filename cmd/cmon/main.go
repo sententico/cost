@@ -20,6 +20,7 @@ var (
 		more      []string // unparsed arguments
 		metric    string   // series metric
 		items     int      // maximum item stream count
+		threshold float64  // series/stream filter threshold
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
 	}
@@ -35,15 +36,19 @@ func init() {
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
 
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
-	args.seriesSet.StringVar(&args.metric, "metric", "cdr.aws/term/geo", "series `metric`")
+	args.seriesSet.StringVar(&args.metric, "metric", "cdr.aws/term/geo", "series metric `name`")
+	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
 
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
 	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
+	args.streamSet.Float64Var(&args.threshold, "threshold", 0, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
 		fmt.Printf("command usage: cmon [-s] [-a] [-d] <subcommand> ..." +
 			"\n\nThis command is the command-line interface to the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
+		args.seriesSet.PrintDefaults()
+		args.streamSet.PrintDefaults()
 	}
 }
 
@@ -92,10 +97,10 @@ func seriesCmd() {
 	var r cmon.SeriesRet
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:     "placeholder_access_token",
-		Metric:    "ec2.aws/sku",
+		Metric:    args.metric,
 		History:   12,
 		Recent:    4,
-		Threshold: 0.0,
+		Threshold: args.threshold,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v\n", err)
 	}
@@ -115,8 +120,8 @@ func streamcurCmd() {
 		Token:     "placeholder_access_token",
 		From:      446600,
 		To:        446700,
-		Items:     1000,
-		Threshold: 0.0,
+		Items:     args.items,
+		Threshold: args.threshold,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v\n", err)
 	}

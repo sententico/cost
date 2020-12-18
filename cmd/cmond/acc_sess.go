@@ -339,7 +339,7 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 	return
 }
 
-func accStreamCUR(from, to int32, items int, threshold float32) (res chan []string, err error) {
+func accStreamCUR(from, to int32, items int, threshold float64) (res chan []string, err error) {
 	var acc *modAcc
 	if items++; from > to || items < 0 || items == 1 || threshold < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
@@ -357,7 +357,7 @@ func accStreamCUR(from, to int32, items int, threshold float32) (res chan []stri
 				close(res)
 			}
 		}()
-		pg := pgSize
+		pg, threshold := pgSize, float32(threshold)
 		acc.reqR()
 
 	nextMonth:
