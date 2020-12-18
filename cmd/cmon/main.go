@@ -8,8 +8,13 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sententico/cost/cmon"
+)
+
+type (
+	interval [2]int32
 )
 
 var (
@@ -21,6 +26,7 @@ var (
 		metric    string   // series metric
 		items     int      // maximum item stream count
 		threshold float64  // series/stream filter threshold
+		hours     interval // hour interval
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
 	}
@@ -36,10 +42,11 @@ func init() {
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
 
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
-	args.seriesSet.StringVar(&args.metric, "metric", "cdr.aws/term/geo", "series metric `name`")
+	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
 	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
 
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
+	args.streamSet.Var(&args.hours, "hours", "`YYYY-MM[-DD[Thh]][,[...]]` interval to stream")
 	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0, "stream filter threshold `amount`")
 
@@ -47,8 +54,40 @@ func init() {
 		fmt.Printf("command usage: cmon [-s] [-a] [-d] <subcommand> ..." +
 			"\n\nThis command is the command-line interface to the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
+		fmt.Printf("\n`series` subcommand returns a metric summary hourly series\n")
 		args.seriesSet.PrintDefaults()
+		fmt.Printf("\n`stream` subcommand returns stream of item detail\n")
 		args.streamSet.PrintDefaults()
+	}
+}
+
+func (i *interval) String() string {
+	return fmt.Sprint(*i)
+}
+func (i *interval) Set(arg string) error {
+	switch s, t, err := strings.Split(arg, ","), time.Now(), error(nil); len(s) {
+	case 1:
+		switch len(s[0]) {
+		case 7:
+			if t, err = time.Parse(time.RFC3339, s[0]+"-01T00:00:00Z"); err == nil {
+				i[0], i[1] = int32(t.Unix())/3600, int32(t.AddDate(0, 1, 0).Unix()-1)/3600
+				return nil
+			}
+		case 10:
+			if t, err := time.Parse(time.RFC3339, s[0]+"T00:00:00Z"); err == nil {
+				i[0], i[1] = int32(t.Unix())/3600, int32(t.AddDate(0, 0, 1).Unix()-1)/3600
+				return nil
+			}
+		case 13:
+			if t, err := time.Parse(time.RFC3339, s[0]+":00:00Z"); err == nil {
+				i[0] = int32(t.Unix()) / 3600
+				i[1] = i[0]
+				return nil
+			}
+		}
+		return fmt.Errorf("%v", err)
+	default:
+		return fmt.Errorf("invalid argument")
 	}
 }
 
@@ -118,8 +157,8 @@ func streamcurCmd() {
 	var r [][]string
 	if err = client.Call("API.StreamCUR", &cmon.StreamCURArgs{
 		Token:     "placeholder_access_token",
-		From:      446600,
-		To:        446700,
+		From:      args.hours[0],
+		To:        args.hours[1],
 		Items:     args.items,
 		Threshold: args.threshold,
 	}, &r); err != nil {
