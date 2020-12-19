@@ -22,21 +22,21 @@ type (
 var (
 	args struct {
 		settings  string   // settings location
-		address   string   // settings address:port
-		debug     bool     // enables debug output
+		address   string   // cmon server address:port
+		debug     bool     // debug output enabled
 		more      []string // unparsed arguments
 		metric    string   // series metric
-		items     int      // maximum item stream count
-		threshold float64  // series/stream filter threshold
+		items     int      // maximum stream items
+		threshold float64  // series/stream filter return threshold
 		hours     interval // from/to hours interval
 		history   int      // series total hours
 		recent    int      // series recent/active hours
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
 	}
-	address  string           // cmon address (args override settings file)
+	address  string           // cmon server address (args override settings file)
 	settings cmon.MonSettings // settings
-	command  string           // requested command
+	command  string           // cmon subcommand
 	wg       sync.WaitGroup   // thread synchronization
 )
 
@@ -57,7 +57,7 @@ func init() {
 	args.hours = interval{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600)}
 	args.streamSet.Var(&args.hours, "hours", "YYYY-MM[-DD[Thh]][,[...]] `interval` to stream")
 	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
-	args.streamSet.Float64Var(&args.threshold, "threshold", 0.01, "stream filter threshold `amount`")
+	args.streamSet.Float64Var(&args.threshold, "threshold", 0.005, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
@@ -111,7 +111,7 @@ func (h *interval) Set(arg string) error {
 }
 
 func fatal(ex int, format string, a ...interface{}) {
-	fmt.Fprintf(flag.CommandLine.Output(), format+"\n", a...)
+	fmt.Fprintf(flag.CommandLine.Output(), "\n"+format+"\n\n", a...)
 	os.Exit(ex)
 }
 
