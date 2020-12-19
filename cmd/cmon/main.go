@@ -52,15 +52,15 @@ func init() {
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
 	args.streamSet.Var(&args.hours, "hours", "`YYYY-MM[-DD[Thh]][,[...]]` interval to stream")
 	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
-	args.streamSet.Float64Var(&args.threshold, "threshold", 0, "stream filter threshold `amount`")
+	args.streamSet.Float64Var(&args.threshold, "threshold", 0.01, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "\ncommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
-			"\n\nThis command is the command-line interface to the Cloud Monitor.\n\n")
+			"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API interfaces and return model content within the Cloud Monitor\n\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"series\" subcommand returns a metric summary hourly series.\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"series\" subcommand returns a metric hourly series.\n")
 		args.seriesSet.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"stream\" subcommand returns item detail stream.\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"stream\" subcommand returns an item detail stream.\n")
 		args.streamSet.PrintDefaults()
 		fmt.Fprintln(flag.CommandLine.Output())
 	}
