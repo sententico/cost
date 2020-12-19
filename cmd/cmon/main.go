@@ -193,6 +193,8 @@ func streamcurCmd() {
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\""))
 		}
+	} else {
+		fatal(1, "no items returned")
 	}
 }
 
