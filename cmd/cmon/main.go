@@ -186,7 +186,7 @@ func streamcurCmd() {
 	client.Close()
 	if len(r) > 0 {
 		fmt.Println("Invoice ID,Date,Account,Type,Service,Usage Type,Usage Operation,Region" +
-			"Resource ID,Description,Name,Env,DC,Prod,App,Cust,Team,Ver,Records,Usage,Amount")
+			",Resource ID,Description,Name,Env,DC,Prod,App,Cust,Team,Ver,Records,Usage,Amount")
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\""))
 		}
@@ -201,8 +201,10 @@ func main() {
 	case "stream":
 		args.streamSet.Parse(flag.Args()[1:])
 		command, args.more = "StreamCUR", args.streamSet.Args()
-	default:
+	case "":
 		args.more = flag.Args()
+	default:
+		fatal(1, "unknown subcommand")
 	}
 
 	args.settings = cmon.Getarg([]string{args.settings, "CMON_SETTINGS", ".cmon_settings.json"})
