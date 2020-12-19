@@ -14,7 +14,9 @@ import (
 )
 
 type (
-	interval [2]int32
+	interval struct {
+		from, to int32
+	}
 )
 
 var (
@@ -27,8 +29,8 @@ var (
 		items     int      // maximum item stream count
 		threshold float64  // series/stream filter threshold
 		hours     interval // hour interval
-		history   time.Duration
-		recent    time.Duration
+		history   int
+		recent    int
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
 	}
@@ -45,18 +47,20 @@ func init() {
 
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
-	args.seriesSet.DurationVar(&args.history, "history", time.Hour*12, "hourly series total `duration`")
-	args.seriesSet.DurationVar(&args.recent, "recent", time.Hour*3, "`duration` of recent/active part of series")
+	args.seriesSet.IntVar(&args.history, "history", 12, "series total duration in `hours`")
+	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of series")
 	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
 
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
+	args.hours = interval{100, 200}
 	args.streamSet.Var(&args.hours, "hours", "`YYYY-MM[-DD[Thh]][,[...]]` interval to stream")
 	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0.01, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "\ncommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
-			"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API interfaces and return model content within the Cloud Monitor\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\nCommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
+			"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API\n"+
+			"interfaces and return model content within the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"series\" subcommand returns a metric hourly series.\n")
 		args.seriesSet.PrintDefaults()
@@ -66,27 +70,30 @@ func init() {
 	}
 }
 
-func (i *interval) String() string {
-	return fmt.Sprintf("[%v,%v]", i[0], i[1])
+func (h *interval) String() string {
+	if h != nil {
+		return fmt.Sprintf("[%v,%v]", h.from, h.to)
+	}
+	return ""
 }
-func (i *interval) Set(arg string) error {
+func (h *interval) Set(arg string) error {
 	switch s, t, err := strings.Split(arg, ","), time.Now(), error(nil); len(s) {
 	case 1:
 		switch len(s[0]) {
 		case 7:
 			if t, err = time.Parse(time.RFC3339, s[0]+"-01T00:00:00Z"); err == nil {
-				i[0], i[1] = int32(t.Unix())/3600, int32(t.AddDate(0, 1, 0).Unix()-1)/3600
+				h.from, h.to = int32(t.Unix())/3600, int32(t.AddDate(0, 1, 0).Unix()-1)/3600
 				return nil
 			}
 		case 10:
 			if t, err := time.Parse(time.RFC3339, s[0]+"T00:00:00Z"); err == nil {
-				i[0], i[1] = int32(t.Unix())/3600, int32(t.AddDate(0, 0, 1).Unix()-1)/3600
+				h.from, h.to = int32(t.Unix())/3600, int32(t.AddDate(0, 0, 1).Unix()-1)/3600
 				return nil
 			}
 		case 13:
 			if t, err := time.Parse(time.RFC3339, s[0]+":00:00Z"); err == nil {
-				i[0] = int32(t.Unix()) / 3600
-				i[1] = i[0]
+				h.from = int32(t.Unix()) / 3600
+				h.to = h.from
 				return nil
 			}
 		}
@@ -142,8 +149,8 @@ func seriesCmd() {
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:     "placeholder_access_token",
 		Metric:    args.metric,
-		History:   int((args.history + time.Hour - time.Nanosecond) / time.Hour),
-		Recent:    int((args.recent + time.Hour - time.Nanosecond) / time.Hour),
+		History:   args.history,
+		Recent:    args.recent,
 		Threshold: args.threshold,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v\n", err)
@@ -162,8 +169,8 @@ func streamcurCmd() {
 	var r [][]string
 	if err = client.Call("API.StreamCUR", &cmon.StreamCURArgs{
 		Token:     "placeholder_access_token",
-		From:      args.hours[0],
-		To:        args.hours[1],
+		From:      args.hours.from,
+		To:        args.hours.to,
 		Items:     args.items,
 		Threshold: args.threshold,
 	}, &r); err != nil {
