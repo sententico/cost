@@ -52,7 +52,9 @@ func init() {
 	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
 
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
-	args.hours = interval{100, 200}
+	y, m, _ := time.Now().Date()
+	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
+	args.hours = interval{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600)}
 	args.streamSet.Var(&args.hours, "hours", "`YYYY-MM[-DD[Thh]][,[...]]` interval to stream")
 	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0.01, "stream filter threshold `amount`")
@@ -72,7 +74,9 @@ func init() {
 
 func (h *interval) String() string {
 	if h != nil {
-		return fmt.Sprintf("[%v,%v]", h.from, h.to)
+		return fmt.Sprintf("[%v,%v]",
+			time.Unix(int64(h.from)*3600, 0).Format(time.RFC3339)[:13],
+			time.Unix(int64(h.to)*3600, 0).Format(time.RFC3339)[:13])
 	}
 	return ""
 }
