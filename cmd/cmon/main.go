@@ -56,7 +56,7 @@ func init() {
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 	args.hours = interval{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600)}
 	args.streamSet.Var(&args.hours, "hours", "YYYY-MM[-DD[Thh]][,[...]] `interval` to stream")
-	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
+	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0.005, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
@@ -183,10 +183,13 @@ func streamcurCmd() {
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
-	client.Close()
-	if len(r) > 0 {
-		fmt.Println("Invoice ID,Date,Account,Type,Service,Usage Type,Usage Operation,Region" +
-			",Resource ID,Description,Name,Env,DC,Prod,App,Cust,Team,Ver,Records,Usage,Amount")
+	if client.Close(); len(r) > 0 {
+		warn, ii := "", "Month"
+		if len(r) == args.items {
+			warn = " [item limit reached]"
+		}
+		fmt.Printf("Invoice ID%s,%s,Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
+			",Description,Name,Env,DC,Prod,App,Cust,Team,Ver,Records,Usage,Amount\n", warn, ii)
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\""))
 		}
