@@ -189,7 +189,7 @@ func streamcurCmd() {
 			warn = " [item limit reached]"
 		}
 		fmt.Printf("Invoice ID%s,%s,Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
-			",Description,Name,Env,DC,Prod,App,Cust,Team,Ver,Records,Usage,Amount\n", warn, ii)
+			",Item Description,Name,Env,DC,Product,App,Cust,Team,Ver,Recs,Usage,Billed\n", warn, ii)
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\""))
 		}

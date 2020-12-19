@@ -163,7 +163,7 @@ def gophRDSAWS(m, cmon, args):
 
 def gophCURAWS(m, cmon, args):
     if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    pipe,head,ids,s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl'
+    pipe,head,ids,s = getWriter(m, ['id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
                                     'name','env','dc','prod','app','cust','team','ver',
                                    ]), {}, {}, ""
     def getcid(id):
