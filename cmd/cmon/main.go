@@ -44,30 +44,33 @@ func init() {
 	flag.StringVar(&args.settings, "s", "", "settings `file`")
 	flag.StringVar(&args.address, "a", "", "cmon server location `address:port`")
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
-
-	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
-	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
-	args.seriesSet.IntVar(&args.history, "history", 12, "series total duration in `hours`")
-	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of series")
-	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
-
-	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
-	y, m, _ := time.Now().Date()
-	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
-	args.hours = interval{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600)}
-	args.streamSet.Var(&args.hours, "hours", "YYYY-MM[-DD[Thh]][,[...]] `interval` to stream")
-	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
-	args.streamSet.Float64Var(&args.threshold, "threshold", 0.005, "stream filter threshold `amount`")
-
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nCommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
 				"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API"+
 				"\ninterfaces and return model content within the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
+	}
+
+	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
+	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
+	args.seriesSet.IntVar(&args.history, "history", 12, "series total duration in `hours`")
+	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of series")
+	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
+	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"series\" subcommand returns a metric hourly series.\n")
 		args.seriesSet.PrintDefaults()
+	}
+
+	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
+	y, m, _ := time.Now().Date() // set default to prior month
+	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
+	args.hours = interval{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600)}
+	args.streamSet.Var(&args.hours, "hours", "YYYY-MM[-DD[Thh]][,[...]] `interval` to stream")
+	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
+	args.streamSet.Float64Var(&args.threshold, "threshold", 0.005, "stream filter threshold `amount`")
+	args.streamSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"stream\" subcommand returns an item detail stream.\n")
 		args.streamSet.PrintDefaults()
