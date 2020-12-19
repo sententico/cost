@@ -184,8 +184,12 @@ func streamcurCmd() {
 		fatal(1, "error calling GoRPC: %v\n", err)
 	}
 	client.Close()
-	for _, row := range r {
-		fmt.Printf("\"%v\"\n", strings.Join(row, "\",\""))
+	if len(r) > 0 {
+		fmt.Println("Invoice ID,Date,Account,Type,Service,Usage Type,Usage Operation,Region" +
+			"Resource ID,Description,Name,Env,DC,Prod,App,Cust,Team,Ver,Records,Usage,Amount")
+		for _, row := range r {
+			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\""))
+		}
 	}
 }
 
