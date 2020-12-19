@@ -28,9 +28,9 @@ var (
 		metric    string   // series metric
 		items     int      // maximum item stream count
 		threshold float64  // series/stream filter threshold
-		hours     interval // hour interval
-		history   int
-		recent    int
+		hours     interval // from/to hours interval
+		history   int      // series total hours
+		recent    int      // series recent/active hours
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
 	}
@@ -55,18 +55,21 @@ func init() {
 	y, m, _ := time.Now().Date()
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 	args.hours = interval{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600)}
-	args.streamSet.Var(&args.hours, "hours", "`YYYY-MM[-DD[Thh]][,[...]]` interval to stream")
+	args.streamSet.Var(&args.hours, "hours", "YYYY-MM[-DD[Thh]][,[...]] `interval` to stream")
 	args.streamSet.IntVar(&args.items, "items", 1000, "`maximum` items to stream")
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0.01, "stream filter threshold `amount`")
 
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "\nCommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
-			"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API\n"+
-			"interfaces and return model content within the Cloud Monitor.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(),
+			"\nCommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
+				"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API"+
+				"\ninterfaces and return model content within the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"series\" subcommand returns a metric hourly series.\n")
+		fmt.Fprintf(flag.CommandLine.Output(),
+			"\nThe \"series\" subcommand returns a metric hourly series.\n")
 		args.seriesSet.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nThe \"stream\" subcommand returns an item detail stream.\n")
+		fmt.Fprintf(flag.CommandLine.Output(),
+			"\nThe \"stream\" subcommand returns an item detail stream.\n")
 		args.streamSet.PrintDefaults()
 		fmt.Fprintln(flag.CommandLine.Output())
 	}
@@ -74,9 +77,9 @@ func init() {
 
 func (h *interval) String() string {
 	if h != nil {
-		return fmt.Sprintf("[%v,%v]",
-			time.Unix(int64(h.from)*3600, 0).Format(time.RFC3339)[:13],
-			time.Unix(int64(h.to)*3600, 0).Format(time.RFC3339)[:13])
+		return fmt.Sprintf("%v,%v",
+			time.Unix(int64(h.from)*3600, 0).UTC().Format(time.RFC3339)[:13],
+			time.Unix(int64(h.to)*3600, 0).UTC().Format(time.RFC3339)[:13])
 	}
 	return ""
 }
