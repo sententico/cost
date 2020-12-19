@@ -164,7 +164,7 @@ func seriesCmd() {
 	}
 	client.Close()
 	for k, ser := range r {
-		fmt.Printf("%v: %.4g\n", k, ser)
+		fmt.Printf("%v: %.6g\n", k, ser)
 	}
 }
 
