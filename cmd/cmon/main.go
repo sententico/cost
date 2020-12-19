@@ -111,7 +111,7 @@ func (h *interval) Set(arg string) error {
 }
 
 func fatal(ex int, format string, a ...interface{}) {
-	fmt.Printf(format, a...)
+	fmt.Fprintf(flag.CommandLine.Output(), format+"\n", a...)
 	os.Exit(ex)
 }
 
@@ -124,7 +124,7 @@ func defaultWorker(in chan string) {
 	var r string
 	for ln := range in {
 		if err = client.Call("API.Upper", ln, &r); err != nil {
-			fatal(1, "error calling GoRPC: %v\n", err)
+			fatal(1, "error calling GoRPC: %v", err)
 		}
 		fmt.Printf("%v\n", r)
 	}
@@ -160,7 +160,7 @@ func seriesCmd() {
 		Recent:    args.recent,
 		Threshold: args.threshold,
 	}, &r); err != nil {
-		fatal(1, "error calling GoRPC: %v\n", err)
+		fatal(1, "error calling GoRPC: %v", err)
 	}
 	client.Close()
 	for k, ser := range r {
@@ -181,7 +181,7 @@ func streamcurCmd() {
 		Items:     args.items,
 		Threshold: args.threshold,
 	}, &r); err != nil {
-		fatal(1, "error calling GoRPC: %v\n", err)
+		fatal(1, "error calling GoRPC: %v", err)
 	}
 	client.Close()
 	if len(r) > 0 {
