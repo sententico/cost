@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	pgSize = 128
+	pgSize = 256
 )
 
 func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
@@ -61,7 +61,7 @@ func rdsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 	res <- s
 }
 
-func (sum hsU) series(typ byte, cur int32, history, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hsU) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -75,11 +75,11 @@ func (sum hsU) series(typ byte, cur int32, history, recent int, threshold float6
 	}
 	for n, t := range rct {
 		if t >= threshold || -threshold >= t {
-			ser[n] = make([]float64, 0, history)
+			ser[n] = make([]float64, 0, span)
 		}
 	}
 	if len(ser) > 0 {
-		for h := 0; h < history; h++ {
+		for h := 0; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := ser[n]; s != nil {
@@ -100,7 +100,7 @@ func (sum hsU) series(typ byte, cur int32, history, recent int, threshold float6
 	return
 }
 
-func (sum hsA) series(typ byte, cur int32, history, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hsA) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -109,11 +109,11 @@ func (sum hsA) series(typ byte, cur int32, history, recent int, threshold float6
 	}
 	for n, t := range rct {
 		if t >= threshold || -threshold >= t {
-			ser[n] = make([]float64, 0, history)
+			ser[n] = make([]float64, 0, span)
 		}
 	}
 	if len(ser) > 0 {
-		for h := 0; h < history; h++ {
+		for h := 0; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := ser[n]; s != nil {
@@ -129,7 +129,7 @@ func (sum hsA) series(typ byte, cur int32, history, recent int, threshold float6
 	return
 }
 
-func (sum hsC) series(typ byte, cur int32, history, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hsC) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -149,11 +149,11 @@ func (sum hsC) series(typ byte, cur int32, history, recent int, threshold float6
 	}
 	for n, t := range rct {
 		if t >= threshold || -threshold >= t {
-			ser[n] = make([]float64, 0, history)
+			ser[n] = make([]float64, 0, span)
 		}
 	}
 	if len(ser) > 0 {
-		for h := 0; h < history; h++ {
+		for h := 0; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := ser[n]; s != nil {
@@ -180,7 +180,7 @@ func (sum hsC) series(typ byte, cur int32, history, recent int, threshold float6
 	return
 }
 
-func (sum hnC) series(typ byte, cur int32, history, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hnC) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
 	rct, nser, ser := make(map[tel.E164digest]float64), make(map[tel.E164digest][]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -200,11 +200,11 @@ func (sum hnC) series(typ byte, cur int32, history, recent int, threshold float6
 	}
 	for n, t := range rct {
 		if t >= threshold || -threshold >= t {
-			nser[n] = make([]float64, 0, history)
+			nser[n] = make([]float64, 0, span)
 		}
 	}
 	if len(nser) > 0 {
-		for h := 0; h < history; h++ {
+		for h := 0; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := nser[n]; s != nil {
@@ -236,12 +236,12 @@ func (sum hnC) series(typ byte, cur int32, history, recent int, threshold float6
 	return
 }
 
-func accSeries(metric string, history, recent int, threshold float64) (res chan map[string][]float64, err error) {
+func accSeries(metric string, span, recent int, threshold float64) (res chan map[string][]float64, err error) {
 	var acc *modAcc
 	var sum interface{}
 	var cur int32
 	var typ byte
-	if history <= 0 || history > 24*90 || recent <= 0 || recent > history || threshold < 0 {
+	if span <= 0 || span > 24*90 || recent <= 0 || recent > span || threshold < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(metric, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil {
 		return nil, fmt.Errorf("model not found")
@@ -324,13 +324,13 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 		acc.reqR() // TODO: may relocate prior to acc.m.data reference
 		switch sum := sum.(type) {
 		case hsU:
-			ser = sum.series(typ, cur, history, recent, threshold)
+			ser = sum.series(typ, cur, span, recent, threshold)
 		case hsA:
-			ser = sum.series(typ, cur, history, recent, threshold)
+			ser = sum.series(typ, cur, span, recent, threshold)
 		case hsC:
-			ser = sum.series(typ, cur, history, recent, threshold)
+			ser = sum.series(typ, cur, span, recent, threshold)
 		case hnC:
-			ser = sum.series(typ, cur, history, recent, threshold)
+			ser = sum.series(typ, cur, span, recent, threshold)
 		}
 		acc.rel()
 		res <- ser
@@ -339,9 +339,9 @@ func accSeries(metric string, history, recent int, threshold float64) (res chan 
 	return
 }
 
-func accStreamCUR(from, to int32, items int, threshold float64) (res chan []string, err error) {
+func accStreamCUR(from, to int32, units int16, items int, threshold float64) (res chan []string, err error) {
 	var acc *modAcc
-	if items++; from > to || items < 0 || items == 1 || threshold < 0 {
+	if items++; from > to || units < 1 || items < 0 || items == 1 || threshold < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
