@@ -52,9 +52,9 @@ type (
 	SeriesArgs struct {
 		Token     string  // Admin.Auth access token (renew hourly to avoid expiration)
 		Metric    string  // metric identifier
-		History   int     // hours in series to return
-		Recent    int     // recent hours
-		Threshold float64 // minimum ...
+		Span      int     // total hours in series to return
+		Recent    int     // recent/active hours in series
+		Threshold float64 // minimum recent amount (absolute value) to return
 	}
 	// SeriesRet ...
 	SeriesRet map[string][]float64
@@ -64,8 +64,9 @@ type (
 		Token     string  // Admin.Auth access token (renew hourly to avoid expiration)
 		From      int32   // from hour
 		To        int32   // to hour
+		Units     int16   // item reporting units (hour=1, day=24, month=720)
 		Items     int     // maximum line items
-		Threshold float64 // minimum line item cost
+		Threshold float64 // minimum line item cost (absolute value) to return
 	}
 )
 
@@ -88,6 +89,7 @@ func (s *MonSettings) Load(loc string) (err error) {
 	if s == nil || loc == "" {
 		return fmt.Errorf("no settings specified")
 	} else if b, err = ioutil.ReadFile(loc); err != nil {
+		// TODO: work up directory hierarchy or check home directory?
 		return fmt.Errorf("cannot access settings %q: %v", loc, err)
 	} else if err = json.Unmarshal(b, s); err != nil {
 		return fmt.Errorf("%q settings format problem: %v", loc, err)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,8 +15,9 @@ import (
 )
 
 type (
-	interval struct {
+	intHours struct {
 		from, to int32
+		units    int16
 	}
 )
 
@@ -28,8 +30,8 @@ var (
 		metric    string   // series metric
 		items     int      // maximum stream items
 		threshold float64  // series/stream filter return threshold
-		hours     interval // from/to hours interval
-		history   int      // series total hours
+		interval  intHours // from/to/units hours
+		span      int      // series total hours
 		recent    int      // series recent/active hours
 		seriesSet *flag.FlagSet
 		streamSet *flag.FlagSet
@@ -50,11 +52,14 @@ func init() {
 				"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API"+
 				"\ninterfaces and return model content within the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
+		args.seriesSet.Usage()
+		args.streamSet.Usage()
+		fmt.Fprintln(flag.CommandLine.Output())
 	}
 
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
-	args.seriesSet.IntVar(&args.history, "history", 12, "series total duration in `hours`")
+	args.seriesSet.IntVar(&args.span, "span", 12, "series total duration in `hours`")
 	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of series")
 	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
 	args.seriesSet.Usage = func() {
@@ -66,51 +71,59 @@ func init() {
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
 	y, m, _ := time.Now().Date() // set default to prior month
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
-	args.hours = interval{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600)}
-	args.streamSet.Var(&args.hours, "hours", "YYYY-MM[-DD[Thh]][,[...]] `interval` to stream")
+	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
+	args.streamSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour range to stream")
 	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0.005, "stream filter threshold `amount`")
 	args.streamSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"stream\" subcommand returns an item detail stream.\n")
 		args.streamSet.PrintDefaults()
-		fmt.Fprintln(flag.CommandLine.Output())
 	}
 }
 
-func (h *interval) String() string {
-	if h != nil {
-		return fmt.Sprintf("%v,%v",
-			time.Unix(int64(h.from)*3600, 0).UTC().Format(time.RFC3339)[:13],
-			time.Unix(int64(h.to)*3600, 0).UTC().Format(time.RFC3339)[:13])
+func (i *intHours) String() string {
+	if i != nil {
+		switch fr := time.Unix(int64(i.from)*3600, 0).UTC().Format(time.RFC3339); i.units {
+		case 1:
+			return fmt.Sprintf("%.13s%+d", fr, i.to-i.from)
+		case 24:
+			return fmt.Sprintf("%.10s%+d", fr, (i.to-i.from)/24)
+		case 720:
+			return fmt.Sprintf("%.7s%+d", fr, (i.to-i.from+1)/672-1) // TODO: fix (breaks >10mo.)
+		}
 	}
 	return ""
 }
-func (h *interval) Set(arg string) error {
-	switch s, t, err := strings.Split(arg, ","), time.Now(), error(nil); len(s) {
-	case 1:
-		switch len(s[0]) {
-		case 7:
-			if t, err = time.Parse(time.RFC3339, s[0]+"-01T00:00:00Z"); err == nil {
-				h.from, h.to = int32(t.Unix())/3600, int32(t.AddDate(0, 1, 0).Unix()-1)/3600
-				return nil
-			}
-		case 10:
-			if t, err := time.Parse(time.RFC3339, s[0]+"T00:00:00Z"); err == nil {
-				h.from, h.to = int32(t.Unix())/3600, int32(t.AddDate(0, 0, 1).Unix()-1)/3600
-				return nil
-			}
-		case 13:
-			if t, err := time.Parse(time.RFC3339, s[0]+":00:00Z"); err == nil {
-				h.from = int32(t.Unix()) / 3600
-				h.to = h.from
-				return nil
-			}
+func (i *intHours) Set(arg string) error {
+	var err error
+	var t time.Time
+	var r int
+	s := strings.SplitN(arg, "+", 2)
+	if len(s) > 1 {
+		if r, err = strconv.Atoi(s[1]); err != nil || r > 167 {
+			return fmt.Errorf("invalid argument")
 		}
-		return fmt.Errorf("%v", err)
-	default:
-		return fmt.Errorf("invalid argument")
 	}
+	switch len(s[0]) {
+	case 7:
+		if t, err = time.Parse(time.RFC3339, s[0]+"-01T00:00:00Z"); err == nil {
+			i.from, i.to, i.units = int32(t.Unix())/3600, int32(t.AddDate(0, r+1, 0).Unix()-1)/3600, 720
+			return nil
+		}
+	case 10:
+		if t, err = time.Parse(time.RFC3339, s[0]+"T00:00:00Z"); err == nil {
+			i.from, i.to, i.units = int32(t.Unix())/3600, int32(t.AddDate(0, 0, r+1).Unix()-1)/3600, 24
+			return nil
+		}
+	case 13:
+		if t, err = time.Parse(time.RFC3339, s[0]+":00:00Z"); err == nil {
+			i.from = int32(t.Unix()) / 3600
+			i.to, i.units = i.from+int32(r), 1
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid argument")
 }
 
 func fatal(ex int, format string, a ...interface{}) {
@@ -159,7 +172,7 @@ func seriesCmd() {
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:     "placeholder_access_token",
 		Metric:    args.metric,
-		History:   args.history,
+		Span:      args.span,
 		Recent:    args.recent,
 		Threshold: args.threshold,
 	}, &r); err != nil {
@@ -179,20 +192,27 @@ func streamcurCmd() {
 	var r [][]string
 	if err = client.Call("API.StreamCUR", &cmon.StreamCURArgs{
 		Token:     "placeholder_access_token",
-		From:      args.hours.from,
-		To:        args.hours.to,
+		From:      args.interval.from,
+		To:        args.interval.to,
+		Units:     args.interval.units,
 		Items:     args.items,
 		Threshold: args.threshold,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	if client.Close(); len(r) > 0 {
-		warn, ii := "", "Month"
+		warn, unit := "", "Month"
+		switch args.interval.units {
+		case 1:
+			unit = "Hour"
+		case 24:
+			unit = "Day"
+		}
 		if len(r) == args.items {
 			warn = " [item limit reached]"
 		}
 		fmt.Printf("Invoice ID%s,%s,Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
-			",Item Description,Name,Env,DC,Product,App,Cust,Team,Ver,Recs,Usage,Billed\n", warn, ii)
+			",Item Description,Name,Env,DC,Product,App,Cust,Team,Ver,Recs,Usage,Billed\n", warn, unit)
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\""))
 		}

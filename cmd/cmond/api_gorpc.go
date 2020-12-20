@@ -46,10 +46,10 @@ func (s *API) LookupVM(args *cmon.LookupArgs, r *string) error {
 }
 
 // Series method of API service ...
-func (s *API) Series(args *cmon.SeriesArgs, r *cmon.SeriesRet) error {
+func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) error {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		c, err := accSeries(args.Metric, args.History, args.Recent, args.Threshold)
+		c, err := accSeries(args.Metric, args.Span, args.Recent, args.Threshold)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func (s *API) Series(args *cmon.SeriesArgs, r *cmon.SeriesRet) error {
 func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) error {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		c, err := accStreamCUR(args.From, args.To, args.Items, args.Threshold)
+		c, err := accStreamCUR(args.From, args.To, args.Units, args.Items, args.Threshold)
 		if err != nil {
 			return err
 		}
