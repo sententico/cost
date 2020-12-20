@@ -60,11 +60,11 @@ func init() {
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
 	args.seriesSet.IntVar(&args.span, "span", 12, "series total duration in `hours`")
-	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of series")
+	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of span")
 	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"series\" subcommand returns a metric hourly series.\n")
+			"\nThe \"series\" subcommand returns an hourly series for a metric.\n")
 		args.seriesSet.PrintDefaults()
 	}
 
@@ -72,7 +72,7 @@ func init() {
 	y, m, _ := time.Now().Date() // set default to prior month
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
-	args.streamSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour range to stream")
+	args.streamSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to stream")
 	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
 	args.streamSet.Float64Var(&args.threshold, "threshold", 0.005, "stream filter threshold `amount`")
 	args.streamSet.Usage = func() {
