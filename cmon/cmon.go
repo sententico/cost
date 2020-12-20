@@ -56,8 +56,6 @@ type (
 		Recent    int     // recent/active hours in series
 		Threshold float64 // minimum recent amount (absolute value) to return
 	}
-	// SeriesRet ...
-	SeriesRet map[string][]float64
 
 	// StreamCURArgs ...
 	StreamCURArgs struct {

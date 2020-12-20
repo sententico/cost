@@ -90,7 +90,7 @@ func (i *intHours) String() string {
 		case 24:
 			return fmt.Sprintf("%.10s%+d", fr, (i.to-i.from)/24)
 		case 720:
-			return fmt.Sprintf("%.7s%+d", fr, (i.to-i.from+1)/672-1) // TODO: fix (breaks >10mo.)
+			return fmt.Sprintf("%.7s%+d", fr, (i.to-i.from+1)/672-1) // TODO: breaks >10mo.
 		}
 	}
 	return ""
@@ -168,7 +168,7 @@ func seriesCmd() {
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
-	var r cmon.SeriesRet
+	var r map[string][]float64
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:     "placeholder_access_token",
 		Metric:    args.metric,
