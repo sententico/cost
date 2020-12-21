@@ -49,7 +49,7 @@ func (s *API) LookupVM(args *cmon.LookupArgs, r *string) error {
 func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) error {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		c, err := accSeries(args.Metric, args.Span, args.Recent, args.Threshold)
+		c, err := seriesExtract(args.Metric, args.Span, args.Recent, args.Truncate)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) error {
 func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) error {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		c, err := accStreamCUR(args.From, args.To, args.Units, args.Items, args.Threshold)
+		c, err := curawsExtract(args.From, args.To, args.Units, args.Items, args.Truncate)
 		if err != nil {
 			return err
 		}

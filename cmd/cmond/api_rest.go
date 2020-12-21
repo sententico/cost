@@ -15,7 +15,7 @@ func rest0() func(int64, http.ResponseWriter, *http.Request) {
 
 func rest0VMs() func(int64, http.ResponseWriter, *http.Request) {
 	me := map[string]map[string][]func(*model, url.Values, chan<- interface{}){
-		"lookup": {"ec2.aws": {ec2awsLookup}, "vms.az": {}, "ce.gcs": {}},
+		"lookup": {"ec2.aws": {ec2awsLookupX}, "vms.az": {}, "ce.gcs": {}},
 		"sum":    {"ec2.aws": {}, "vms.az": {}, "ce.gcs": {}},
 		"list":   {"ec2.aws": {}, "vms.az": {}, "ce.gcs": {}},
 	}
@@ -48,7 +48,7 @@ func rest0VMs() func(int64, http.ResponseWriter, *http.Request) {
 
 func rest0Disks() func(int64, http.ResponseWriter, *http.Request) {
 	me := map[string]map[string][]func(*model, url.Values, chan<- interface{}){
-		"lookup": {"ebs.aws": {ebsawsLookup}, "disk.az": {}, "disk.gcs": {}},
+		"lookup": {"ebs.aws": {ebsawsLookupX}, "disk.az": {}, "disk.gcs": {}},
 		"sum":    {"ebs.aws": {}, "disk.az": {}, "disk.gcs": {}},
 		"list":   {"ebs.aws": {}, "disk.az": {}, "disk.gcs": {}},
 	}
@@ -81,7 +81,7 @@ func rest0Disks() func(int64, http.ResponseWriter, *http.Request) {
 
 func rest0DBs() func(int64, http.ResponseWriter, *http.Request) {
 	me := map[string]map[string][]func(*model, url.Values, chan<- interface{}){
-		"lookup": {"rds.aws": {rdsawsLookup}, "db.az": {}, "db.gcs": {}},
+		"lookup": {"rds.aws": {rdsawsLookupX}, "db.az": {}, "db.gcs": {}},
 		"sum":    {"rds.aws": {}, "db.az": {}, "db.gcs": {}},
 		"list":   {"rds.aws": {}, "db.az": {}, "db.gcs": {}},
 	}

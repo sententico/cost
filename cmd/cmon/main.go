@@ -29,7 +29,7 @@ var (
 		more      []string // unparsed arguments
 		metric    string   // series metric
 		items     int      // maximum stream items
-		threshold float64  // series/stream filter return threshold
+		truncate  float64  // series/stream amount truncation filter
 		interval  intHours // from/to/units hours
 		span      int      // series total hours
 		recent    int      // series recent/active hours
@@ -50,7 +50,7 @@ func init() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nCommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
 				"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API"+
-				"\ninterfaces and return model content within the Cloud Monitor.\n\n")
+				"\ninterfaces and access model content within the Cloud Monitor.\n\n")
 		flag.PrintDefaults()
 		args.seriesSet.Usage()
 		args.streamSet.Usage()
@@ -58,13 +58,13 @@ func init() {
 	}
 
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
-	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `name`")
-	args.seriesSet.IntVar(&args.span, "span", 12, "series total duration in `hours`")
+	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `type`")
+	args.seriesSet.IntVar(&args.span, "span", 12, "series total `hours`")
 	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of span")
-	args.seriesSet.Float64Var(&args.threshold, "threshold", 0, "series filter threshold `amount`")
+	args.seriesSet.Float64Var(&args.truncate, "truncate", 0, "recent `amount` metric truncation threshold")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"series\" subcommand returns an hourly series for a metric.\n")
+			"\nThe \"series\" subcommand returns an hourly series for a metric type.\n")
 		args.seriesSet.PrintDefaults()
 	}
 
@@ -74,7 +74,7 @@ func init() {
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
 	args.streamSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to stream")
 	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
-	args.streamSet.Float64Var(&args.threshold, "threshold", 0.005, "stream filter threshold `amount`")
+	args.streamSet.Float64Var(&args.truncate, "truncate", 0.005, "`cost` item truncation threshold")
 	args.streamSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"stream\" subcommand returns an item detail stream.\n")
@@ -90,7 +90,7 @@ func (i *intHours) String() string {
 		case 24:
 			return fmt.Sprintf("%.10s%+d", fr, (i.to-i.from)/24)
 		case 720:
-			return fmt.Sprintf("%.7s%+d", fr, (i.to-i.from+1)/672-1) // TODO: breaks >10mo.
+			return fmt.Sprintf("%.7s%+d", fr, (i.to-i.from+1)/672-1) // TODO: breaks @>10mo.
 		}
 	}
 	return ""
@@ -170,11 +170,11 @@ func seriesCmd() {
 	}
 	var r map[string][]float64
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
-		Token:     "placeholder_access_token",
-		Metric:    args.metric,
-		Span:      args.span,
-		Recent:    args.recent,
-		Threshold: args.threshold,
+		Token:    "placeholder_access_token",
+		Metric:   args.metric,
+		Span:     args.span,
+		Recent:   args.recent,
+		Truncate: args.truncate,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
@@ -191,12 +191,12 @@ func streamcurCmd() {
 	}
 	var r [][]string
 	if err = client.Call("API.StreamCUR", &cmon.StreamCURArgs{
-		Token:     "placeholder_access_token",
-		From:      args.interval.from,
-		To:        args.interval.to,
-		Units:     args.interval.units,
-		Items:     args.items,
-		Threshold: args.threshold,
+		Token:    "placeholder_access_token",
+		From:     args.interval.from,
+		To:       args.interval.to,
+		Units:    args.interval.units,
+		Items:    args.items,
+		Truncate: args.truncate,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}

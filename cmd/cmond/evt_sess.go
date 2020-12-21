@@ -37,7 +37,7 @@ func trigcmonScan(n string, evt string) {
 			{"cdr.asp/term/sp", 320, 5.0},
 			{"cdr.asp/term/to", 60, 5.0},
 		} {
-			if c, err := accSeries(metric.name, 24*90, 2, metric.thresh); err != nil {
+			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
 			} else if m := <-c; m != nil {
 				for na, se := range m {

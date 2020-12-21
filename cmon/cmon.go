@@ -50,21 +50,21 @@ type (
 
 	// SeriesArgs ...
 	SeriesArgs struct {
-		Token     string  // Admin.Auth access token (renew hourly to avoid expiration)
-		Metric    string  // metric identifier
-		Span      int     // total hours in series to return
-		Recent    int     // recent/active hours in series
-		Threshold float64 // minimum recent amount (absolute value) to return
+		Token    string  // Admin.Auth access token (renew hourly to avoid expiration)
+		Metric   string  // metric type
+		Span     int     // total hours in series to return
+		Recent   int     // recent/active hours in series
+		Truncate float64 // filter metrics with recent amounts below this in absolute value
 	}
 
 	// StreamCURArgs ...
 	StreamCURArgs struct {
-		Token     string  // Admin.Auth access token (renew hourly to avoid expiration)
-		From      int32   // from hour
-		To        int32   // to hour
-		Units     int16   // item reporting units (hour=1, day=24, month=720)
-		Items     int     // maximum line items
-		Threshold float64 // minimum line item cost (absolute value) to return
+		Token    string  // Admin.Auth access token (renew hourly to avoid expiration)
+		From     int32   // from hour
+		To       int32   // to hour
+		Units    int16   // item reporting units (hour=1, day=24, month=720)
+		Items    int     // maximum items
+		Truncate float64 // filter items with costs below this in absolute value
 	}
 )
 

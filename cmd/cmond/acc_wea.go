@@ -13,7 +13,13 @@ const (
 	pgSize = 256
 )
 
-func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
+func weasel() {
+	defer func() {
+	}()
+	// TODO: pass in channel of JSON objects and service identifier
+}
+
+func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	// prepare lookup and validate v; even on error return a result on res
 	id, acc := v.Get("id"), m.newAcc()
 
@@ -29,7 +35,7 @@ func ec2awsLookup(m *model, v url.Values, res chan<- interface{}) {
 	res <- s
 }
 
-func ebsawsLookup(m *model, v url.Values, res chan<- interface{}) {
+func ebsawsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	// prepare lookup and validate v; even on error return a result on res
 	id, acc := v.Get("id"), m.newAcc()
 
@@ -45,7 +51,7 @@ func ebsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 	res <- s
 }
 
-func rdsawsLookup(m *model, v url.Values, res chan<- interface{}) {
+func rdsawsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	// prepare lookup and validate v; even on error return a result on res
 	id, acc := v.Get("id"), m.newAcc()
 
@@ -61,7 +67,7 @@ func rdsawsLookup(m *model, v url.Values, res chan<- interface{}) {
 	res <- s
 }
 
-func (sum hsU) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hsU) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -74,7 +80,7 @@ func (sum hsU) series(typ byte, cur int32, span, recent int, threshold float64) 
 		}
 	}
 	for n, t := range rct {
-		if t >= threshold || -threshold >= t {
+		if t >= truncate || -truncate >= t {
 			ser[n] = make([]float64, 0, span)
 		}
 	}
@@ -100,7 +106,7 @@ func (sum hsU) series(typ byte, cur int32, span, recent int, threshold float64) 
 	return
 }
 
-func (sum hsA) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hsA) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -108,7 +114,7 @@ func (sum hsA) series(typ byte, cur int32, span, recent int, threshold float64) 
 		}
 	}
 	for n, t := range rct {
-		if t >= threshold || -threshold >= t {
+		if t >= truncate || -truncate >= t {
 			ser[n] = make([]float64, 0, span)
 		}
 	}
@@ -129,7 +135,7 @@ func (sum hsA) series(typ byte, cur int32, span, recent int, threshold float64) 
 	return
 }
 
-func (sum hsC) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hsC) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -148,7 +154,7 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, threshold float64) 
 		}
 	}
 	for n, t := range rct {
-		if t >= threshold || -threshold >= t {
+		if t >= truncate || -truncate >= t {
 			ser[n] = make([]float64, 0, span)
 		}
 	}
@@ -180,7 +186,7 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, threshold float64) 
 	return
 }
 
-func (sum hnC) series(typ byte, cur int32, span, recent int, threshold float64) (ser map[string][]float64) {
+func (sum hnC) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, nser, ser := make(map[tel.E164digest]float64), make(map[tel.E164digest][]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -199,7 +205,7 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, threshold float64) 
 		}
 	}
 	for n, t := range rct {
-		if t >= threshold || -threshold >= t {
+		if t >= truncate || -truncate >= t {
 			nser[n] = make([]float64, 0, span)
 		}
 	}
@@ -236,12 +242,12 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, threshold float64) 
 	return
 }
 
-func accSeries(metric string, span, recent int, threshold float64) (res chan map[string][]float64, err error) {
+func seriesExtract(metric string, span, recent int, truncate float64) (res chan map[string][]float64, err error) {
 	var acc *modAcc
 	var sum interface{}
 	var cur int32
 	var typ byte
-	if span <= 0 || span > 24*90 || recent <= 0 || recent > span || threshold < 0 {
+	if span <= 0 || span > 24*90 || recent <= 0 || recent > span || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(metric, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil {
 		return nil, fmt.Errorf("model not found")
@@ -324,13 +330,13 @@ func accSeries(metric string, span, recent int, threshold float64) (res chan map
 		acc.reqR() // TODO: may relocate prior to acc.m.data reference
 		switch sum := sum.(type) {
 		case hsU:
-			ser = sum.series(typ, cur, span, recent, threshold)
+			ser = sum.extract(typ, cur, span, recent, truncate)
 		case hsA:
-			ser = sum.series(typ, cur, span, recent, threshold)
+			ser = sum.extract(typ, cur, span, recent, truncate)
 		case hsC:
-			ser = sum.series(typ, cur, span, recent, threshold)
+			ser = sum.extract(typ, cur, span, recent, truncate)
 		case hnC:
-			ser = sum.series(typ, cur, span, recent, threshold)
+			ser = sum.extract(typ, cur, span, recent, truncate)
 		}
 		acc.rel()
 		res <- ser
@@ -339,9 +345,9 @@ func accSeries(metric string, span, recent int, threshold float64) (res chan map
 	return
 }
 
-func accStreamCUR(from, to int32, units int16, items int, threshold float64) (res chan []string, err error) {
+func curawsExtract(from, to int32, units int16, items int, truncate float64) (res chan []string, err error) {
 	var acc *modAcc
-	if items++; from > to || units < 1 || items < 0 || items == 1 || threshold < 0 {
+	if items++; from > to || units < 1 || items < 0 || items == 1 || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
@@ -357,7 +363,7 @@ func accStreamCUR(from, to int32, units int16, items int, threshold float64) (re
 				close(res)
 			}
 		}()
-		pg, threshold := pgSize, float32(threshold)
+		pg, threshold := pgSize, float32(truncate)
 		acc.reqR()
 
 	nextMonth:
