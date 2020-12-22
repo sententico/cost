@@ -41,56 +41,55 @@ const (
 )
 
 var (
-	unleash = getUnleasher()
-)
-
-func getUnleasher() func(string, ...string) *exec.Cmd {
-	sfx := map[string]string{
+	gopherMap = map[string]string{
 		"aws": "goph_aws.py",
 		"az":  "goph_az.py",
 		"gcs": "goph_gcs.py",
 		"k8s": "goph_k8s.py",
 		"rax": "goph_rax.py",
 		"asp": "goph_asp.py",
-		"":    "goph_aws.py", // must have default (empty suffix)
+		"":    "goph_aws.py", // default gopher
 	}
-	return func(src string, options ...string) *exec.Cmd {
-		for i := 0; ; i++ {
-			if sfx[src[i:]] != "" {
-				args := []string{
-					"python",
-					fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), sfx[src[i:]]),
-				}
-				// TODO: change to exec.CommandContext() to support timeouts?
-				return exec.Command(args[0], append(append(args[1:], options...), src)...)
+)
+
+func unleashGopher(n string, options ...string) *exec.Cmd {
+	for suffix := n; ; suffix = suffix[1:] {
+		if goph := gopherMap[suffix]; goph != "" {
+			args := []string{
+				"python",
+				fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), goph),
 			}
+			// TODO: change to exec.CommandContext() to support timeouts?
+			return exec.Command(args[0], append(append(args[1:], options...), n)...)
+		} else if suffix == "" {
+			return nil
 		}
 	}
 }
 
-func gopher(src string, insert func(*model, map[string]string, int), meta bool) (items int) {
-	goph, eb, start, now := unleash(src), bytes.Buffer{}, int(time.Now().Unix()), 0
+func gopher(m *model, insert func(*model, map[string]string, int), meta bool) (items int) {
+	goph, eb, start, now := unleashGopher(m.name), bytes.Buffer{}, int(time.Now().Unix()), 0
 	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
-	acc, pages := mMod[src].newAcc(), 0
+	acc, pages := m.newAcc(), 0
 	defer func() {
 		if e := recover(); e != nil {
 			if acc.rel() {
 				gophStdout.Close()
 			}
-			logE.Printf("gopher error while fetching %q: %v", src, e)
+			logE.Printf("gopher error while fetching %q: %v", m.name, e)
 		} else if e := goph.Wait(); e != nil {
-			logE.Printf("gopher errors from %q: %v [%v]", src, e, strings.Split(strings.Trim(
+			logE.Printf("gopher errors from %q: %v [%v]", m.name, e, strings.Split(strings.Trim(
 				string(eb.Bytes()), "\n\t "), "\n")[0])
 		} else if items > 0 {
-			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, src)
+			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, m.name)
 		}
 		if items > 0 && !meta {
 			acc.reqW()
-			insert(acc.m, nil, start)
+			insert(m, nil, start)
 			acc.rel()
 		}
 	}()
-	if sb, e := json.MarshalIndent(settings, "", "\t"); e != nil {
+	if sb, e := json.Marshal(settings); e != nil {
 		panic(e)
 	} else if goph.Stdin, goph.Stderr = bytes.NewBuffer(sb), &eb; false {
 	} else if pipe, e := goph.StdoutPipe(); e != nil {
@@ -107,10 +106,10 @@ func gopher(src string, insert func(*model, map[string]string, int), meta bool) 
 		pages++
 		for acc.reqW(); ; {
 			if item["~meta"] == "" {
-				insert(acc.m, item, now)
+				insert(m, item, now)
 				items++
 			} else if meta {
-				insert(acc.m, item, now)
+				insert(m, item, now)
 			}
 			select {
 			case item = <-results:

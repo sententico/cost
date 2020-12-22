@@ -25,7 +25,7 @@ type (
 		reqP, reqR, reqW  chan chan accTok
 		rel               chan accTok
 		evt               chan string
-		boot, term, maint func(string)
+		boot, term, maint func(*model)
 		persist           int
 		data              []interface{}
 	}
@@ -135,13 +135,13 @@ func init() {
 	gob.Register(&origDetail{})
 }
 
-func modManager(m *model, n string) {
+func modManager(m *model) {
 	var tc chan accTok
 	m.reqP, m.reqR, m.reqW = make(chan chan accTok, 16), make(chan chan accTok, 16), make(chan chan accTok, 16)
 	m.rel = make(chan accTok, 16)
 	m.evt = make(chan string, 4)
-	m.boot(n)
-	ctl <- n // signal boot complete; enter model access manager loop
+	m.boot(m)
+	ctl <- m.name // signal boot complete; enter model access manager loop
 
 	for tokseq, accessors, reqw := accTok(0), int32(0), m.reqW; ; {
 		select {
@@ -313,20 +313,20 @@ func sessHandler(f func() func(int64, http.ResponseWriter, *http.Request)) http.
 
 func main() {
 	logI.Printf("booting %v monitored object models", len(mMod))
-	for n, m := range mMod {
-		go modManager(m, n)
+	for _, m := range mMod {
+		go modManager(m)
 	}
 	for range mMod {
 		logI.Printf("%q object model booted", <-ctl)
 	}
 	dseq := 0
-	for n, m := range mMod {
+	for _, m := range mMod {
 		if m.state = msINIT; m.immed {
-			go m.maint(n)
+			go m.maint(m)
 		} else {
-			d, n, m := time.Duration(dseq*100)*time.Second, n, m
+			d, m := time.Duration(dseq*100)*time.Second, m
 			dseq++
-			goAfter(d, d+20*time.Second, func() { m.maint(n) })
+			goAfter(d, d+20*time.Second, func() { m.maint(m) })
 		}
 	}
 
@@ -345,9 +345,9 @@ func main() {
 		quit <- true
 		<-ok
 		srv.Close()
-		for n, m := range mMod {
-			n, m := n, m
-			go func() { m.term(n); ctl <- n }()
+		for _, m := range mMod {
+			m := m
+			go func() { m.term(m); ctl <- m.name }()
 		}
 	}()
 	switch err := srv.ListenAndServe(); err {

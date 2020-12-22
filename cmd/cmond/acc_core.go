@@ -230,10 +230,10 @@ type (
 	}
 )
 
-func load(n string) {
+func (m *model) load() {
 	var list []string
-	if fn := settings.Models[n]; fn == "" {
-		logE.Fatalf("no resource configured into which %q state may persist", n)
+	if fn := settings.Models[m.name]; fn == "" {
+		logE.Fatalf("no resource configured into which %q state may persist", m.name)
 	} else if strings.HasSuffix(fn, ".json") {
 		list = []string{fn, fn[:len(fn)-5] + ".gob", fn[:len(fn)-5]}
 	} else if strings.HasSuffix(fn, ".gob") {
@@ -246,8 +246,8 @@ func load(n string) {
 	for _, fn := range list {
 		if f, err = os.Open(fn); os.IsNotExist(err) {
 			continue
-		} else if m := mMod[n]; err != nil {
-			logE.Fatalf("cannot load %q state from %q: %v", n, fn, err)
+		} else if err != nil {
+			logE.Fatalf("cannot load %q state from %q: %v", m.name, fn, err)
 		} else if pdata := m.data[0:m.persist]; strings.HasSuffix(fn, ".json") {
 			dec := json.NewDecoder(f)
 			err = dec.Decode(&pdata)
@@ -256,15 +256,15 @@ func load(n string) {
 			err = dec.Decode(&pdata)
 		}
 		if f.Close(); err != nil {
-			logE.Fatalf("%q state resource %q is invalid JSON/GOB: %v", n, fn, err)
+			logE.Fatalf("%q state resource %q is invalid JSON/GOB: %v", m.name, fn, err)
 		}
 		return
 	}
-	logW.Printf("no %q state found at %q", n, list[0])
+	logW.Printf("no %q state found at %q", m.name, list[0])
 }
 
-func persist(n string, final bool) {
-	acc, fn := mMod[n].newAcc(), settings.Models[n]
+func (m *model) store(final bool) {
+	acc, fn := m.newAcc(), settings.Models[m.name]
 	if final {
 		acc.reqP()
 	} else {
@@ -274,7 +274,7 @@ func persist(n string, final bool) {
 	pr, pw := io.Pipe()
 	go func() {
 		var err error
-		if pdata := acc.m.data[0:acc.m.persist]; strings.HasSuffix(fn, ".json") {
+		if pdata := m.data[0:m.persist]; strings.HasSuffix(fn, ".json") {
 			enc := json.NewEncoder(pw)
 			enc.SetIndent("", "\t")
 			enc.SetEscapeHTML(false)
@@ -290,10 +290,10 @@ func persist(n string, final bool) {
 		pw.Close()
 	}()
 	if f, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0664); err != nil {
-		logE.Printf("can't persist %q state to %q: %v", n, fn, err)
+		logE.Printf("can't store %q state in %q: %v", m.name, fn, err)
 		pr.CloseWithError(err)
 	} else if _, err = io.Copy(f, pr); err != nil {
-		logE.Printf("disruption persisting %q state to %q: %v", n, fn, err)
+		logE.Printf("disruption storing %q state in %q: %v", m.name, fn, err)
 		pr.CloseWithError(err)
 		f.Close()
 	} else {
@@ -306,40 +306,40 @@ func persist(n string, final bool) {
 
 // trig.cmon model core accessors
 //
-func trigcmonBoot(n string) {
-	trig, m := &trigModel{}, mMod[n]
+func trigcmonBoot(m *model) {
+	trig := &trigModel{}
 	m.data = append(m.data, trig)
 	m.persist = len(m.data)
-	load(n)
+	m.load()
 }
-func trigcmonClean(n string, deep bool) {
-	acc := mMod[n].newAcc()
+func trigcmonClean(m *model, deep bool) {
+	acc := m.newAcc()
 	acc.reqW()
 
 	// clean expired/invalid/insignificant data
 	// trig := m.data[0].(*trigModel)
 	acc.rel()
 }
-func trigcmonMaint(n string) {
-	goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(n, true) })
-	goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+func trigcmonMaint(m *model) {
+	goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(m, true) })
+	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for m, cl, p := mMod[n],
+	for cl, p :=
 		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(n, true) })
+			goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(m, true) })
 		case <-p.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case evt := <-m.evt:
-			goaftSession(0, 0, func() { trigcmonScan(n, evt) })
+			goaftSession(0, 0, func() { trigcmonScan(m, evt) })
 		}
 	}
 }
-func trigcmonTerm(n string) {
-	trigcmonClean(n, false)
-	persist(n, true)
+func trigcmonTerm(m *model) {
+	trigcmonClean(m, false)
+	m.store(true)
 }
 
 // *.aws model accessor helpers
@@ -392,30 +392,30 @@ func (m hsA) clean(exp int32) {
 
 // ec2.aws model core accessors
 //
-func ec2awsBoot(n string) {
-	sum, detail, work, m := &ec2Sum{
+func ec2awsBoot(m *model) {
+	sum, detail, work := &ec2Sum{
 		ByAcct:   make(hsU, 2184),
 		ByRegion: make(hsU, 2184),
 		BySKU:    make(hsU, 2184),
 	}, &ec2Detail{
 		Inst: make(map[string]*ec2Item, 512),
-	}, &ec2Work{}, mMod[n]
+	}, &ec2Work{}
 	m.data = append(m.data, sum)
 	m.data = append(m.data, detail)
 	m.persist = len(m.data)
-	load(n)
+	m.load()
 
 	if err := work.rates.Load(nil, "EC2"); err != nil {
-		logE.Fatalf("%q cannot load EC2 rates: %v", n, err)
+		logE.Fatalf("%q cannot load EC2 rates: %v", m.name, err)
 	}
 	m.data = append(m.data, work)
 }
-func ec2awsClean(n string, deep bool) {
-	acc := mMod[n].newAcc()
+func ec2awsClean(m *model, deep bool) {
+	acc := m.newAcc()
 	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := acc.m.data[0].(*ec2Sum), acc.m.data[1].(*ec2Detail)
+	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
 	for id, inst := range detail.Inst {
 		if id == "" || detail.Current-inst.Last > 86400*8 {
 			delete(detail.Inst, id)
@@ -428,68 +428,68 @@ func ec2awsClean(n string, deep bool) {
 
 	acc.rel()
 }
-func ec2awsMaint(n string) {
+func ec2awsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(n, ec2awsInsert, false) > 0 {
-			ec2awsClean(n, true)
-			evt <- n
+		if gopher(m, ec2awsInsert, false) > 0 {
+			ec2awsClean(m, true)
+			evt <- m.name
 		}
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for m, g, sg, cl, p := mMod[n],
+	for g, sg, cl, p :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() {
-				if gopher(n, ec2awsInsert, false) > 0 {
-					evt <- n
+				if gopher(m, ec2awsInsert, false) > 0 {
+					evt <- m.name
 				}
 			})
 		case <-sg.C:
 			//goaftSession(0, 18*time.Second, func() { gopher(n+"/stats", ec2awsSInsert) })
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { ec2awsClean(n, true) })
+			goaftSession(318*time.Second, 320*time.Second, func() { ec2awsClean(m, true) })
 		case <-p.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case <-m.evt:
 			// TODO: process event notifications
 		}
 	}
 }
-func ec2awsTerm(n string) {
-	ec2awsClean(n, false)
-	persist(n, true)
+func ec2awsTerm(m *model) {
+	ec2awsClean(m, false)
+	m.store(true)
 }
 
 // ebs.aws model core accessors
 //
-func ebsawsBoot(n string) {
-	sum, detail, work, m := &ebsSum{
+func ebsawsBoot(m *model) {
+	sum, detail, work := &ebsSum{
 		ByAcct:   make(hsU, 2184),
 		ByRegion: make(hsU, 2184),
 		BySKU:    make(hsU, 2184),
 	}, &ebsDetail{
 		Vol: make(map[string]*ebsItem, 1024),
-	}, &ebsWork{}, mMod[n]
+	}, &ebsWork{}
 	m.data = append(m.data, sum)
 	m.data = append(m.data, detail)
 	m.persist = len(m.data)
-	load(n)
+	m.load()
 
 	if err := work.rates.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load EBS rates: %v", n, err)
+		logE.Fatalf("%q cannot load EBS rates: %v", m.name, err)
 	}
 	m.data = append(m.data, work)
 }
-func ebsawsClean(n string, deep bool) {
-	acc := mMod[n].newAcc()
+func ebsawsClean(m *model, deep bool) {
+	acc := m.newAcc()
 	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := acc.m.data[0].(*ebsSum), acc.m.data[1].(*ebsDetail)
+	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
 	for id, vol := range detail.Vol {
 		if id == "" || detail.Current-vol.Last > 86400*8 {
 			delete(detail.Vol, id)
@@ -502,71 +502,71 @@ func ebsawsClean(n string, deep bool) {
 
 	acc.rel()
 }
-func ebsawsMaint(n string) {
+func ebsawsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(n, ebsawsInsert, false) > 0 {
-			ebsawsClean(n, true)
-			evt <- n
+		if gopher(m, ebsawsInsert, false) > 0 {
+			ebsawsClean(m, true)
+			evt <- m.name
 		}
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for m, g, sg, cl, p := mMod[n],
+	for g, sg, cl, p :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() {
-				if gopher(n, ebsawsInsert, false) > 0 {
-					evt <- n
+				if gopher(m, ebsawsInsert, false) > 0 {
+					evt <- m.name
 				}
 			})
 		case <-sg.C:
 			//goaftSession(0, 18*time.Second, func() { gopher(n+"/stats", ebsawsSInsert) })
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { ebsawsClean(n, true) })
+			goaftSession(318*time.Second, 320*time.Second, func() { ebsawsClean(m, true) })
 		case <-p.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case <-m.evt:
 			// TODO: process event notifications
 		}
 	}
 }
-func ebsawsTerm(n string) {
-	ebsawsClean(n, false)
-	persist(n, true)
+func ebsawsTerm(m *model) {
+	ebsawsClean(m, false)
+	m.store(true)
 }
 
 // rds.aws model core accessors
 //
-func rdsawsBoot(n string) {
-	sum, detail, work, m := &rdsSum{
+func rdsawsBoot(m *model) {
+	sum, detail, work := &rdsSum{
 		ByAcct:   make(hsU, 2184),
 		ByRegion: make(hsU, 2184),
 		BySKU:    make(hsU, 2184),
 	}, &rdsDetail{
 		DB: make(map[string]*rdsItem, 128),
-	}, &rdsWork{}, mMod[n]
+	}, &rdsWork{}
 	m.data = append(m.data, sum)
 	m.data = append(m.data, detail)
 	m.persist = len(m.data)
-	load(n)
+	m.load()
 
 	work.srates.Default = aws.DefaultRDSEBSRates
 	if err := work.rates.Load(nil, "RDS"); err != nil {
-		logE.Fatalf("%q cannot load RDS rates: %v", n, err)
+		logE.Fatalf("%q cannot load RDS rates: %v", m.name, err)
 	} else if err = work.srates.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load EBS rates: %v", n, err)
+		logE.Fatalf("%q cannot load EBS rates: %v", m.name, err)
 	}
 	m.data = append(m.data, work)
 }
-func rdsawsClean(n string, deep bool) {
-	acc := mMod[n].newAcc()
+func rdsawsClean(m *model, deep bool) {
+	acc := m.newAcc()
 	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := acc.m.data[0].(*rdsSum), acc.m.data[1].(*rdsDetail)
+	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
 	for id, db := range detail.DB {
 		if id == "" || detail.Current-db.Last > 86400*8 {
 			delete(detail.DB, id)
@@ -579,46 +579,46 @@ func rdsawsClean(n string, deep bool) {
 
 	acc.rel()
 }
-func rdsawsMaint(n string) {
+func rdsawsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(n, rdsawsInsert, false) > 0 {
-			rdsawsClean(n, true)
-			evt <- n
+		if gopher(m, rdsawsInsert, false) > 0 {
+			rdsawsClean(m, true)
+			evt <- m.name
 		}
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for m, g, sg, cl, p := mMod[n],
+	for g, sg, cl, p :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 18*time.Second, func() {
-				if gopher(n, rdsawsInsert, false) > 0 {
-					evt <- n
+				if gopher(m, rdsawsInsert, false) > 0 {
+					evt <- m.name
 				}
 			})
 		case <-sg.C:
 			//goaftSession(0, 18*time.Second, func() { gopher(n+"/stats", rdsawsSInsert) })
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { rdsawsClean(n, true) })
+			goaftSession(318*time.Second, 320*time.Second, func() { rdsawsClean(m, true) })
 		case <-p.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { persist(n, false) })
+			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case <-m.evt:
 			// TODO: process event notifications
 		}
 	}
 }
-func rdsawsTerm(n string) {
-	rdsawsClean(n, false)
-	persist(n, true)
+func rdsawsTerm(m *model) {
+	rdsawsClean(m, false)
+	m.store(true)
 }
 
 // cur.aws model core accessors
 //
-func curawsBoot(n string) {
-	sum, detail, work, m := &curSum{
+func curawsBoot(m *model) {
+	sum, detail, work := &curSum{
 		ByAcct:   make(hsA, 2184),
 		ByRegion: make(hsA, 2184),
 		ByTyp:    make(hsA, 2184),
@@ -626,20 +626,20 @@ func curawsBoot(n string) {
 	}, &curDetail{
 		Month: make(map[string]*[2]int32, 6),
 		Line:  make(map[string]map[string]*curItem, 6),
-	}, &curWork{}, mMod[n]
+	}, &curWork{}
 	m.data = append(m.data, sum)
 	m.data = append(m.data, detail)
 	m.persist = len(m.data)
-	load(n)
+	m.load()
 
 	m.data = append(m.data, work)
 }
-func curawsClean(n string, deep bool) {
-	acc := mMod[n].newAcc()
+func curawsClean(m *model, deep bool) {
+	acc := m.newAcc()
 	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	sum, detail := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail)
+	sum, detail := m.data[0].(*curSum), m.data[1].(*curDetail)
 	exp := sum.Current - 24*90
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
@@ -661,28 +661,27 @@ func curawsClean(n string, deep bool) {
 
 	acc.rel()
 }
-func curawsMaint(n string) {
+func curawsMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 6*time.Second, func() {
-		if gopher(n, curawsInsert, true) > 0 {
-			curawsClean(n, true)
-			persist(n, false)
-			evt <- n
+		if gopher(m, curawsInsert, true) > 0 {
+			curawsClean(m, true)
+			m.store(false)
+			evt <- m.name
 		}
 		goGo <- true
 	})
 
-	for m, g := mMod[n],
-		time.NewTicker(720*time.Second); ; {
+	for g := time.NewTicker(720 * time.Second); ; {
 		select {
 		case <-g.C:
 			goaftSession(0, 6*time.Second, func() {
 				select {
 				case <-goGo: // serialize cur.aws gophers
-					if gopher(n, curawsInsert, true) > 0 {
-						curawsClean(n, true)
-						persist(n, false)
-						evt <- n
+					if gopher(m, curawsInsert, true) > 0 {
+						curawsClean(m, true)
+						m.store(false)
+						evt <- m.name
 					}
 					goGo <- true
 				default:
@@ -694,8 +693,8 @@ func curawsMaint(n string) {
 		}
 	}
 }
-func curawsTerm(n string) {
-	mMod[n].newAcc().reqP()
+func curawsTerm(m *model) {
+	m.newAcc().reqP()
 }
 
 // *.asp model accessor helpers
@@ -799,8 +798,8 @@ func (m hnC) sig(active int32, min float64) {
 
 // cdr.asp model core accessors
 //
-func cdraspBoot(n string) {
-	tsum, osum, tdetail, odetail, work, m := &termSum{
+func cdraspBoot(m *model) {
+	tsum, osum, tdetail, odetail, work := &termSum{
 		ByCust: make(hsC, 2184),
 		ByGeo:  make(hsC, 2184),
 		BySP:   make(hsC, 2184),
@@ -820,13 +819,13 @@ func cdraspBoot(n string) {
 		CDR: make(hiD, 60),
 	}, &cdrWork{
 		except: make(map[string]int),
-	}, mMod[n]
+	}
 	m.data = append(m.data, tsum)
 	m.data = append(m.data, osum)
 	m.data = append(m.data, tdetail)
 	m.data = append(m.data, odetail)
 	m.persist = len(m.data)
-	load(n)
+	m.load()
 
 	work.nadecoder.NANPbias = true
 	work.tbratesNA.Default, work.tcratesNA.Default = tel.DefaultTermBillNA, tel.DefaultTermCostNA
@@ -836,34 +835,34 @@ func cdraspBoot(n string) {
 	work.obrates.Default, work.ocrates.Default = tel.DefaultOrigBill, tel.DefaultOrigCost
 	work.obrates.DefaultRate, work.ocrates.DefaultRate = 0.006, 0.002
 	if err := work.decoder.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load E.164 decoder: %v", n, err)
+		logE.Fatalf("%q cannot load E.164 decoder: %v", m.name, err)
 	} else if err = work.nadecoder.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load NANP-biased E.164 decoder: %v", n, err)
+		logE.Fatalf("%q cannot load NANP-biased E.164 decoder: %v", m.name, err)
 	} else if err = work.tbratesNA.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load NA termination bill rates: %v", n, err)
+		logE.Fatalf("%q cannot load NA termination bill rates: %v", m.name, err)
 	} else if err = work.tcratesNA.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load NA termination cost rates: %v", n, err)
+		logE.Fatalf("%q cannot load NA termination cost rates: %v", m.name, err)
 	} else if err = work.tbratesEUR.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load EUR termination bill rates: %v", n, err)
+		logE.Fatalf("%q cannot load EUR termination bill rates: %v", m.name, err)
 	} else if err = work.tcratesEUR.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load EUR termination cost rates: %v", n, err)
+		logE.Fatalf("%q cannot load EUR termination cost rates: %v", m.name, err)
 	} else if err = work.obrates.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load origination bill rates: %v", n, err)
+		logE.Fatalf("%q cannot load origination bill rates: %v", m.name, err)
 	} else if err = work.ocrates.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load origination cost rates: %v", n, err)
+		logE.Fatalf("%q cannot load origination cost rates: %v", m.name, err)
 	} else if err = work.sp.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load service provider map: %v", n, err)
+		logE.Fatalf("%q cannot load service provider map: %v", m.name, err)
 	} else if err = work.sl.Load(nil); err != nil {
-		logE.Fatalf("%q cannot load service location map: %v", n, err)
+		logE.Fatalf("%q cannot load service location map: %v", m.name, err)
 	}
 	m.data = append(m.data, work)
 }
-func cdraspClean(n string, deep bool) {
-	acc := mMod[n].newAcc()
+func cdraspClean(m *model, deep bool) {
+	acc := m.newAcc()
 	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	tdetail, odetail := acc.m.data[2].(*termDetail), acc.m.data[3].(*origDetail)
+	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
 	texp, oexp := tdetail.Current-27, odetail.Current-27
 	for hr := range tdetail.CDR {
 		if hr <= texp {
@@ -875,7 +874,7 @@ func cdraspClean(n string, deep bool) {
 			delete(odetail.CDR, hr)
 		}
 	}
-	tsum, osum := acc.m.data[0].(*termSum), acc.m.data[1].(*origSum)
+	tsum, osum := m.data[0].(*termSum), m.data[1].(*origSum)
 	tsum.ByCust.sig(texp, "other", 1.00)
 	tsum.ByTo.sig(texp, 1.00)
 	tsum.ByFrom.sig(texp, 1.00)
@@ -898,18 +897,18 @@ func cdraspClean(n string, deep bool) {
 
 	acc.rel()
 }
-func cdraspMaint(n string) {
+func cdraspMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(n, cdraspInsert, false) > 0 {
-			cdraspClean(n, true)
-			evt <- n
+		if gopher(m, cdraspInsert, false) > 0 {
+			cdraspClean(m, true)
+			evt <- m.name
 		}
 		goGo <- true
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { persist(n, !<-goGo); goGo <- true })
+	goaftSession(328*time.Second, 332*time.Second, func() { m.store(!<-goGo); goGo <- true })
 
-	for m, g, cl, p := mMod[n],
+	for g, cl, p :=
 		time.NewTicker(360*time.Second),
 		time.NewTicker(1800*time.Second), time.NewTicker(14400*time.Second); ; {
 		select {
@@ -917,24 +916,24 @@ func cdraspMaint(n string) {
 			goaftSession(0, 18*time.Second, func() {
 				select {
 				case <-goGo: // serialize cdr.asp gophers
-					if gopher(n, cdraspInsert, false) > 0 {
-						evt <- n
+					if gopher(m, cdraspInsert, false) > 0 {
+						evt <- m.name
 					}
 					goGo <- true
 				default:
 				}
 			})
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(n, <-goGo); goGo <- true })
+			goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(m, <-goGo); goGo <- true })
 		case <-p.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { persist(n, !<-goGo); goGo <- true })
+			goaftSession(328*time.Second, 332*time.Second, func() { m.store(!<-goGo); goGo <- true })
 
 		case <-m.evt:
 			// TODO: process event notifications
 		}
 	}
 }
-func cdraspTerm(n string) {
-	cdraspClean(n, false)
-	persist(n, true)
+func cdraspTerm(m *model) {
+	cdraspClean(m, false)
+	m.store(true)
 }

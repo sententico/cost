@@ -44,13 +44,13 @@ var (
 
 func init() {
 	flag.StringVar(&args.settings, "s", "", "settings `file`")
-	flag.StringVar(&args.address, "a", "", "cmon server location `address:port`")
+	flag.StringVar(&args.address, "a", "", "cmond server location `address:port`")
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nCommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
-				"\n\nThis is the command-line interface to the Cloud Monitor. Subcommands generally map to API"+
-				"\ninterfaces and access model content within the Cloud Monitor.\n\n")
+				"\n\nThis is the Cloud Monitor command-line interface to the server (cmond). Subcommands generally"+
+				"\nmap to API interfaces and access model content within the server.\n\n")
 		flag.PrintDefaults()
 		args.seriesSet.Usage()
 		args.streamSet.Usage()
@@ -214,7 +214,7 @@ func streamcurCmd() {
 		fmt.Printf("Invoice ID%s,%s,Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
 			",Item Description,Name,Env,DC,Product,App,Cust,Team,Ver,Recs,Usage,Billed\n", warn, unit)
 		for _, row := range r {
-			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\""))
+			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in text
 		}
 	} else {
 		fatal(1, "no items returned")

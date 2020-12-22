@@ -24,7 +24,7 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	return
 }
 
-func trigcmonScan(n string, evt string) {
+func trigcmonScan(m *model, evt string) {
 	switch evt {
 	case "cdr.asp":
 		for _, metric := range []struct {
@@ -32,15 +32,15 @@ func trigcmonScan(n string, evt string) {
 			thresh float64
 			sig    float64
 		}{
-			{"cdr.asp/term/geo", 60, 5.0},
-			{"cdr.asp/term/cust", 40, 5.0},
-			{"cdr.asp/term/sp", 320, 5.0},
-			{"cdr.asp/term/to", 60, 5.0},
+			{"cdr.asp/term/geo", 60, 6.0},
+			{"cdr.asp/term/cust", 40, 6.0},
+			{"cdr.asp/term/sp", 320, 6.0},
+			{"cdr.asp/term/to", 60, 6.0},
 		} {
 			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
-			} else if m := <-c; m != nil {
-				for na, se := range m {
+			} else if mm := <-c; mm != nil {
+				for na, se := range mm {
 					if len(se) < 2 {
 					} else if u := se[0] + se[1]*(0.7*float64(3600-(time.Now().Unix()-90)%3600)/3600+0.3); u < metric.thresh {
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {

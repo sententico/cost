@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -13,10 +17,58 @@ const (
 	pgSize = 256
 )
 
-func weasel() {
-	defer func() {
-	}()
-	// TODO: pass in channel of JSON objects and service identifier
+var (
+	weaselMap = map[string]string{
+		"aws":   "wea_aws.py",
+		"dd":    "wea_dd.py",
+		"slack": "wea_slack.py",
+		"":      "goph_aws.py", // default weasel
+	}
+)
+
+func unleashWeasel(service string, options ...string) *exec.Cmd {
+	for suffix := service; ; suffix = suffix[1:] {
+		if wea := weaselMap[suffix]; wea != "" {
+			args := []string{
+				"python",
+				fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), wea),
+			}
+			// TODO: change to exec.CommandContext() to support timeouts?
+			return exec.Command(args[0], append(append(args[1:], options...), service)...)
+		} else if suffix == "" {
+			return nil
+		}
+	}
+}
+
+func weasel(service string) (stdin io.WriteCloser, stdout io.ReadCloser, err error) {
+	var stderr io.ReadCloser
+	if wea := unleashWeasel(service); wea == nil {
+		err = fmt.Errorf("unknown weasel: %q", service)
+	} else if stdin, err = wea.StdinPipe(); err != nil {
+		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
+	} else if stdout, err = wea.StdoutPipe(); err != nil {
+		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
+	} else if stderr, err = wea.StderrPipe(); err != nil {
+		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
+	} else if err = json.NewEncoder(stdin).Encode(&settings); err != nil {
+		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
+	} else if _, err = fmt.Fprintln(stdin); err != nil {
+		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
+	} else if err = wea.Start(); err != nil {
+		err = fmt.Errorf("%q weasel won't go: %v", service, err)
+	} else {
+		go func() {
+			errb, _ := ioutil.ReadAll(stderr)
+			// TODO: implement channel signal/timeout before calling Wait()?
+			if e := wea.Wait(); e != nil {
+				logE.Printf("%q weasel errors: %v [%v]", service, e, strings.Split(strings.Trim(
+					string(errb), "\n\t "), "\n")[0])
+			}
+		}()
+		return
+	}
+	return nil, nil, err
 }
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
