@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/sententico/cost/cmon"
@@ -22,29 +23,45 @@ func gorpc0() func(int64, http.ResponseWriter, *http.Request) {
 }
 
 // Upper (test) method of API service ...
-func (s *API) Upper(args string, r *string) error {
+func (s *API) Upper(args string, r *string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
 	switch s.Ver {
 	case 0:
-		if stdin, stdout, err := weasel("up.test"); err != nil {
+		var stdin io.WriteCloser
+		var stdout io.ReadCloser
+		if stdin, stdout, err = weasel("up.test"); err != nil {
 			return fmt.Errorf("couldn't release weasel: %v", err)
-		} else {
-			//s := []string{args}
-			//json.NewEncoder(stdin).Encode(&s)
-			var s []string
-			fmt.Fprintln(stdin, "[\"how now, brown cow?\",\"the quick red fox\"]")
-			stdin.Close()
-			json.NewDecoder(stdout).Decode(&s)
-			*r = s[0]
 		}
+		s := []string{args}
+		if err = json.NewEncoder(stdin).Encode(&s); err != nil {
+			return fmt.Errorf("error encoding request")
+		}
+		fmt.Fprintln(stdin)
+		stdin.Close()
+		if err = json.NewDecoder(stdout).Decode(&s); err != nil {
+			return fmt.Errorf("error decoding response: %v", err)
+		}
+		*r = s[0]
 		// *r = strings.ToUpper(args)
 	default:
 		return fmt.Errorf("method version %v unimplemented", s.Ver)
 	}
-	return nil
+	return
 }
 
 // LookupVM method of API service ...
-func (s *API) LookupVM(args *cmon.LookupArgs, r *string) error {
+func (s *API) LookupVM(args *cmon.LookupArgs, r *string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
 		*r = "placeholder lookup response"
@@ -53,16 +70,22 @@ func (s *API) LookupVM(args *cmon.LookupArgs, r *string) error {
 	default:
 		return fmt.Errorf("method version %v unimplemented", s.Ver)
 	}
-	return nil
+	return
 }
 
 // Series method of API service ...
-func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) error {
+func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		c, err := seriesExtract(args.Metric, args.Span, args.Recent, args.Truncate)
-		if err != nil {
-			return err
+		var c chan map[string][]float64
+		if c, err = seriesExtract(args.Metric, args.Span, args.Recent, args.Truncate); err != nil {
+			return
 		}
 		*r = <-c
 	case auNOAUTH:
@@ -70,16 +93,22 @@ func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) error {
 	default:
 		return fmt.Errorf("method version %v unimplemented", s.Ver)
 	}
-	return nil
+	return
 }
 
 // StreamCUR method of API service ...
-func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) error {
+func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		c, err := curawsExtract(args.From, args.To, args.Units, args.Items, args.Truncate)
-		if err != nil {
-			return err
+		var c chan []string
+		if c, err = curawsExtract(args.From, args.To, args.Units, args.Items, args.Truncate); err != nil {
+			return
 		}
 		*r = make([][]string, 0, args.Items)
 		for s := range c {
@@ -90,5 +119,5 @@ func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) error {
 	default:
 		return fmt.Errorf("method version %v unimplemented", s.Ver)
 	}
-	return nil
+	return
 }
