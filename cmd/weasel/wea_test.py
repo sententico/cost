@@ -80,7 +80,7 @@ def main():
         weaServices[args.service][0](args.service, settings, args)
                                         # handle exceptions; broken pipe exit avoids console errors
     except  json.JSONDecodeError:       ex('** invalid JSON input **\n', 1)
-    except  FileNotFoundError:          ex('** settings not found **', 1)
+    except  FileNotFoundError:          ex('** settings not found **\n', 1)
     except  BrokenPipeError:            os._exit(0)
     except  KeyboardInterrupt:          ex('\n** weasel interrupted **\n', 10)
     except (AssertionError, IOError, RuntimeError,

@@ -55,6 +55,8 @@ func weasel(service string) (stdin io.WriteCloser, stdout io.ReadCloser, err err
 		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
 	} else if _, err = fmt.Fprintln(stdin); err != nil {
 		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
+	} else if _, err = fmt.Fprintln(stdin, "test"); err != nil {
+		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
 	} else if err = wea.Start(); err != nil {
 		err = fmt.Errorf("%q weasel won't loose: %v", service, err)
 	} else {
