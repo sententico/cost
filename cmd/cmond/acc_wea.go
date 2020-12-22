@@ -22,11 +22,11 @@ var (
 		"aws":   "wea_aws.py",
 		"dd":    "wea_dd.py",
 		"slack": "wea_slack.py",
-		"":      "goph_aws.py", // default weasel
+		"":      "wea_test.py", // default weasel
 	}
 )
 
-func unleashWeasel(service string, options ...string) *exec.Cmd {
+func looseWeasel(service string, options ...string) *exec.Cmd {
 	for suffix := service; ; suffix = suffix[1:] {
 		if wea := weaselMap[suffix]; wea != "" {
 			args := []string{
@@ -43,7 +43,7 @@ func unleashWeasel(service string, options ...string) *exec.Cmd {
 
 func weasel(service string) (stdin io.WriteCloser, stdout io.ReadCloser, err error) {
 	var stderr io.ReadCloser
-	if wea := unleashWeasel(service); wea == nil {
+	if wea := looseWeasel(service); wea == nil {
 		err = fmt.Errorf("unknown weasel: %q", service)
 	} else if stdin, err = wea.StdinPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
@@ -56,14 +56,14 @@ func weasel(service string) (stdin io.WriteCloser, stdout io.ReadCloser, err err
 	} else if _, err = fmt.Fprintln(stdin); err != nil {
 		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
 	} else if err = wea.Start(); err != nil {
-		err = fmt.Errorf("%q weasel won't go: %v", service, err)
+		err = fmt.Errorf("%q weasel won't loose: %v", service, err)
 	} else {
 		go func() {
 			errb, _ := ioutil.ReadAll(stderr)
 			// TODO: implement channel signal/timeout before calling Wait()?
 			if e := wea.Wait(); e != nil {
-				logE.Printf("%q weasel errors: %v [%v]", service, e, strings.Split(strings.Trim(
-					string(errb), "\n\t "), "\n")[0])
+				errl := strings.Split(strings.Trim(string(errb), "\n\t "), "\n")
+				logE.Printf("%q weasel errors: %v [%v]", service, e, errl[len(errl)-1])
 			}
 		}()
 		return

@@ -48,11 +48,11 @@ var (
 		"k8s": "goph_k8s.py",
 		"rax": "goph_rax.py",
 		"asp": "goph_asp.py",
-		"":    "goph_aws.py", // default gopher
+		"":    "goph_test.py", // default gopher
 	}
 )
 
-func unleashGopher(n string, options ...string) *exec.Cmd {
+func looseGopher(n string, options ...string) *exec.Cmd {
 	for suffix := n; ; suffix = suffix[1:] {
 		if goph := gopherMap[suffix]; goph != "" {
 			args := []string{
@@ -68,7 +68,7 @@ func unleashGopher(n string, options ...string) *exec.Cmd {
 }
 
 func gopher(m *model, insert func(*model, map[string]string, int), meta bool) (items int) {
-	goph, eb, start, now := unleashGopher(m.name), bytes.Buffer{}, int(time.Now().Unix()), 0
+	goph, eb, start, now := looseGopher(m.name), bytes.Buffer{}, int(time.Now().Unix()), 0
 	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	acc, pages := m.newAcc(), 0
 	defer func() {

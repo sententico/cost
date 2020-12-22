@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/sententico/cost/cmon"
 )
@@ -25,7 +25,16 @@ func gorpc0() func(int64, http.ResponseWriter, *http.Request) {
 func (s *API) Upper(args string, r *string) error {
 	switch s.Ver {
 	case 0:
-		*r = strings.ToUpper(args)
+		if stdin, stdout, err := weasel("up.test"); err != nil {
+			return fmt.Errorf("couldn't release weasel: %v", err)
+		} else {
+			s := []string{args}
+			json.NewEncoder(stdin).Encode(&s)
+			stdin.Close()
+			json.NewDecoder(stdout).Decode(&s)
+			*r = s[0]
+		}
+		// *r = strings.ToUpper(args)
 	default:
 		return fmt.Errorf("method version %v unimplemented", s.Ver)
 	}

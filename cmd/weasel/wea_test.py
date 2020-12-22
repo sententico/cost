@@ -1,0 +1,91 @@
+#!/usr/bin/python3
+
+import  sys
+import  os
+import  argparse
+from    datetime                import  datetime,timedelta
+import  random
+import  signal
+import  json
+#import  subprocess
+#import  awslib.patterns         as      aws
+
+class WError(Exception):
+    '''Module exception'''
+    pass
+
+KVP={                                   # key-value pair defaults/validators (overridden by command-line)
+    'settings':     '',                 # generally .cmon_settings.json; override currently ignored
+    }
+
+def overrideKVP(overrides):
+    '''Override KVP dictionary defaults with command-line inputs'''
+    for k,v in overrides.items():
+        dfv,meta = KVP.get(k), KVP.get('_' + k)
+        if k.startswith('_') or dfv is None: raise WError('{} key unrecognized'.format(k))
+        if v in {'', '?'}:
+            if not meta or len(meta) < 3:
+                raise WError('specify value for {}; default is {}'.format(k, KVP[k]))
+            raise WError('specify value in [{},{}] range for {}; default is {}'.format(
+                         meta[1], meta[2], k, KVP[k]))
+        if meta:
+            try:
+                if len(meta) == 1:      # apply validator function to value
+                    v = meta[0](k, v)
+                    if v is None: raise WError('validation failed')
+                elif len(meta) >= 3:    # convert string value to desired type with bounds check
+                    try:    ev = eval(v) if type(v) is str else v
+                    except: raise WError('invalid value')
+                    v = meta[0](ev)
+                    if   v < meta[1]: v = meta[1]
+                    elif v > meta[2]: v = meta[2]
+            except (ValueError, WError) as e:
+                raise WError('{} cannot be set ({})'.format(k, e))
+        KVP[k] = v
+
+def terminate(sig, frame):
+    raise KeyboardInterrupt
+def ex(err, code):
+    if err: sys.stderr.write(err)
+    sys.exit(code)
+
+def weaUPTEST(service, settings, args):
+    if not settings.get('AWS'): raise WError('no AWS configuration for {}'.format(service))
+    for line in sys.stdin:
+        obj = json.loads(line.strip())
+        sys.stdout.write('{}\n'.format(json.dumps([obj[0].upper()])))
+
+def main():
+    '''Parse command line args and loose the weasel'''
+    weaModels = {                       # weasel model map
+        'up.test':      [weaUPTEST,     'shift first string in list to uppercase'],
+    }
+                                        # define and parse command line parameters
+    parser = argparse.ArgumentParser(description='''This command delivers Cloud Monitor content to a service''')
+    parser.add_argument('service',     nargs='1', choices=weaModels,
+                        help='''Cloud Monitor delivery service; {} are supported'''.format(', '.join(weaModels)))
+    parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
+                        help='''command option''')
+    parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
+                        help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
+                             ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
+                             if not k.startswith('_')])))
+    args = parser.parse_args()
+
+    try:                                # loose the weasel!
+        signal.signal(signal.SIGTERM, terminate)
+        overrideKVP({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
+        for line in sys.stdin:          # settings override not implemented
+            settings = json.loads(line.strip())
+            break
+
+        weaModels[args.service[0]][0](args.service[0], settings, args)
+                                        # handle exceptions; broken pipe exit avoids console errors
+    except  json.JSONDecodeError:       ex('** invalid JSON input **\n', 1)
+    except  BrokenPipeError:            os._exit(0)
+    except  KeyboardInterrupt:          ex('\n** weasel interrupted **\n', 10)
+    except (AssertionError, IOError, RuntimeError,
+            WError) as e:               ex('** {} **\n'.format(e if e else 'unknown exception'), 10)
+
+if __name__ == '__main__':  main()      # called as weasel
+else:                       pass        # loaded as module
