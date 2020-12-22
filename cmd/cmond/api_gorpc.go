@@ -38,10 +38,11 @@ func (s *API) Upper(args string, r *string) (err error) {
 			return fmt.Errorf("couldn't release weasel: %v", err)
 		}
 		s := []string{args}
-		if err = json.NewEncoder(stdin).Encode(&s); err != nil {
-			return fmt.Errorf("error encoding request")
-		}
-		fmt.Fprintln(stdin)
+		fmt.Fprintf(stdin, "[%q]\n", args)
+		//if err = json.NewEncoder(stdin).Encode(&s); err != nil {
+		//	return fmt.Errorf("error encoding request")
+		//}
+		//fmt.Fprintln(stdin)
 		stdin.Close()
 		if err = json.NewDecoder(stdout).Decode(&s); err != nil {
 			return fmt.Errorf("error decoding response: %v", err)
