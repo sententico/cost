@@ -57,13 +57,13 @@ def weaUPTEST(service, settings, args):
 
 def main():
     '''Parse command line args and loose the weasel'''
-    weaModels = {                       # weasel model map
+    weaServices = {                     # weasel service map
         'up.test':      [weaUPTEST,     'shift first string in list to uppercase'],
     }
                                         # define and parse command line parameters
-    parser = argparse.ArgumentParser(description='''This command delivers Cloud Monitor content to a service''')
-    parser.add_argument('service',     nargs='1', choices=weaModels,
-                        help='''Cloud Monitor delivery service; {} are supported'''.format(', '.join(weaModels)))
+    parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a service''')
+    parser.add_argument('service',     choices=weaServices, metavar='service',
+                        help='''weasel delivery service; {} are supported'''.format(', '.join(weaServices)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''command option''')
     parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
@@ -75,13 +75,12 @@ def main():
     try:                                # loose the weasel!
         signal.signal(signal.SIGTERM, terminate)
         overrideKVP({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
-        for line in sys.stdin:          # settings override not implemented
-            settings = json.loads(line.strip())
-            break
+        settings = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '' else json.load(open(KVP['settings'], 'r'))
 
-        weaModels[args.service[0]][0](args.service[0], settings, args)
+        weaServices[args.service][0](args.service, settings, args)
                                         # handle exceptions; broken pipe exit avoids console errors
     except  json.JSONDecodeError:       ex('** invalid JSON input **\n', 1)
+    except  FileNotFoundError:          ex('** settings not found **', 1)
     except  BrokenPipeError:            os._exit(0)
     except  KeyboardInterrupt:          ex('\n** weasel interrupted **\n', 10)
     except (AssertionError, IOError, RuntimeError,
