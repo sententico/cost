@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sententico/cost/tel"
 )
@@ -56,8 +57,10 @@ func weasel(service string) (stdin io.WriteCloser, stdout io.ReadCloser, err err
 		err = fmt.Errorf("%q weasel won't loose: %v", service, err)
 	} else {
 		go func() {
-			errb, _ := ioutil.ReadAll(stderr)
-			// TODO: implement channel signal/timeout before calling Wait()?
+			var errb []byte
+			if errb, _ := ioutil.ReadAll(stderr); len(errb) == 0 {
+				time.Sleep(300 * time.Millisecond) // TODO: implement signal from consumer?
+			}
 			if e := wea.Wait(); e != nil {
 				errl := strings.Split(strings.Trim(string(errb), "\n\t "), "\n")
 				logE.Printf("%q weasel errors: %v [%v]", service, e, errl[len(errl)-1])
