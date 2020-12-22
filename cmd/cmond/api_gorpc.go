@@ -28,9 +28,10 @@ func (s *API) Upper(args string, r *string) error {
 		if stdin, stdout, err := weasel("up.test"); err != nil {
 			return fmt.Errorf("couldn't release weasel: %v", err)
 		} else {
-			s := []string{args}
-			json.NewEncoder(stdin).Encode(&s)
-			fmt.Fprintln(stdin)
+			//s := []string{args}
+			//json.NewEncoder(stdin).Encode(&s)
+			var s []string
+			fmt.Fprintln(stdin, "[\"how now, brown cow?\",\"the quick red fox\"]")
 			stdin.Close()
 			json.NewDecoder(stdout).Decode(&s)
 			*r = s[0]
