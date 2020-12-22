@@ -42,6 +42,7 @@ func (s *API) Upper(args string, r *string) (err error) {
 			return fmt.Errorf("error encoding request")
 		}
 		stdin.Close()
+		// time.Sleep(1500 * time.Millisecond)
 		if err = json.NewDecoder(stdout).Decode(&s); err != nil {
 			return fmt.Errorf("error decoding response: %v", err)
 		}

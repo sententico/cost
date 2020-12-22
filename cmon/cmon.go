@@ -1,6 +1,7 @@
 package cmon
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -31,6 +32,7 @@ type (
 		Models          map[string]string
 		AWS             awsService
 		Datadog         datadogService
+		JSON            string `json:"-"`
 	}
 )
 
@@ -84,6 +86,7 @@ func Getarg(v []string) string {
 // Load method on MonSettings ...
 func (s *MonSettings) Load(loc string) (err error) {
 	var b []byte
+	var bb bytes.Buffer
 	if s == nil || loc == "" {
 		return fmt.Errorf("no settings specified")
 	} else if b, err = ioutil.ReadFile(loc); err != nil {
@@ -91,6 +94,11 @@ func (s *MonSettings) Load(loc string) (err error) {
 		return fmt.Errorf("cannot access settings %q: %v", loc, err)
 	} else if err = json.Unmarshal(b, s); err != nil {
 		return fmt.Errorf("%q settings format problem: %v", loc, err)
+	} else if err = json.Compact(&bb, b); err != nil {
+		return fmt.Errorf("%q settings format problem: %v", loc, err)
+	} else {
+		bb.WriteByte('\n')
+		s.JSON = bb.String()
 	}
 	return nil
 }

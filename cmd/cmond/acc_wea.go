@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -51,7 +50,7 @@ func weasel(service string) (stdin io.WriteCloser, stdout io.ReadCloser, err err
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
 	} else if stderr, err = wea.StderrPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
-	} else if err = json.NewEncoder(stdin).Encode(&settings); err != nil {
+	} else if _, err = io.WriteString(stdin, settings.JSON); err != nil {
 		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
 	} else if err = wea.Start(); err != nil {
 		err = fmt.Errorf("%q weasel won't loose: %v", service, err)

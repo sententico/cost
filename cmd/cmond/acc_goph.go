@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"math"
 	"os/exec"
@@ -89,9 +88,7 @@ func gopher(m *model, insert func(*model, map[string]string, int), meta bool) (i
 			acc.rel()
 		}
 	}()
-	if sb, e := json.Marshal(settings); e != nil {
-		panic(e)
-	} else if goph.Stdin, goph.Stderr = bytes.NewBuffer(sb), &eb; false {
+	if goph.Stdin, goph.Stderr = bytes.NewBufferString(settings.JSON), &eb; false {
 	} else if pipe, e := goph.StdoutPipe(); e != nil {
 		panic(e)
 	} else if e = goph.Start(); e != nil {
