@@ -30,6 +30,7 @@ func (s *API) Upper(args string, r *string) error {
 		} else {
 			s := []string{args}
 			json.NewEncoder(stdin).Encode(&s)
+			fmt.Fprintln(stdin)
 			stdin.Close()
 			json.NewDecoder(stdout).Decode(&s)
 			*r = s[0]
