@@ -9,13 +9,12 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/sententico/cost/tel"
 )
 
 const (
-	pgSize = 256
+	pgSize = 1024
 )
 
 var (
@@ -48,22 +47,23 @@ func weasel(service string) (weain io.WriteCloser, weaout io.ReadCloser, err err
 		err = fmt.Errorf("unknown weasel: %q", service)
 	} else if weain, err = wea.StdinPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
-	} else if weaout, err = wea.StdoutPipe(); err != nil {
-		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
 	} else if weaerr, err = wea.StderrPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
 	} else if _, err = io.WriteString(weain, settings.JSON); err != nil {
 		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
+	} else if weaout, wea.Stdout = io.Pipe(); false {
+		//} else if weaout, err = wea.StdoutPipe(); err != nil {
+		//	err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
 	} else if err = wea.Start(); err != nil {
 		err = fmt.Errorf("%q weasel refused release: %v", service, err)
 	} else {
 		go func() {
 			var em []byte
-			if eb, _ := ioutil.ReadAll(weaerr); len(eb) == 0 {
-				time.Sleep(250 * time.Millisecond) // give stdout opportunity to clear
-			} else {
+			if eb, _ := ioutil.ReadAll(weaerr); len(eb) > 0 {
 				el := bytes.Split(bytes.Trim(eb, "\n\t "), []byte("\n"))
 				em = bytes.TrimLeft(el[len(el)-1], "\t ")
+			} else {
+				//time.Sleep(250 * time.Millisecond) // give stdout opportunity to clear (hinky)
 			}
 			if e := wea.Wait(); e != nil {
 				logE.Printf("%q weasel errors: %v [%s]", service, e, em)
