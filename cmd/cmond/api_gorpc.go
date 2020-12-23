@@ -24,25 +24,27 @@ func gorpc0() func(int64, http.ResponseWriter, *http.Request) {
 
 // Upper (test) method of API service ...
 func (s *API) Upper(args string, r *string) (err error) {
+	var weain io.WriteCloser
+	var weaout io.ReadCloser
 	defer func() {
 		if r := recover(); r != nil {
 			err = r.(error)
 		}
+		weain.Close()
+		weaout.Close()
 	}()
 
 	switch s.Ver {
 	case 0:
-		var stdin io.WriteCloser
-		var stdout io.ReadCloser
-		if stdin, stdout, err = weasel("up.test"); err != nil {
+		if weain, weaout, err = weasel("up.test"); err != nil {
 			return fmt.Errorf("couldn't release weasel: %v", err)
 		}
 		s := []string{args}
-		if err = json.NewEncoder(stdin).Encode(&s); err != nil {
-			return fmt.Errorf("error encoding request")
+		if err = json.NewEncoder(weain).Encode(&s); err != nil {
+			return fmt.Errorf("error encoding request: %v", err)
 		}
-		stdin.Close()
-		if err = json.NewDecoder(stdout).Decode(&s); err != nil {
+		weain.Close()
+		if err = json.NewDecoder(weaout).Decode(&s); err != nil {
 			return fmt.Errorf("error decoding response: %v", err)
 		}
 		*r = s[0]

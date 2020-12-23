@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,7 +27,7 @@ var (
 	}
 )
 
-func looseWeasel(service string, options ...string) *exec.Cmd {
+func releaseWeasel(service string, options ...string) *exec.Cmd {
 	for suffix := service; ; suffix = suffix[1:] {
 		if wea := weaselMap[suffix]; wea != "" {
 			args := []string{
@@ -41,29 +42,33 @@ func looseWeasel(service string, options ...string) *exec.Cmd {
 	}
 }
 
-func weasel(service string) (stdin io.WriteCloser, stdout io.ReadCloser, err error) {
-	var stderr io.ReadCloser
-	if wea := looseWeasel(service); wea == nil {
+func weasel(service string) (weain io.WriteCloser, weaout io.ReadCloser, err error) {
+	var weaerr io.ReadCloser
+	if wea := releaseWeasel(service); wea == nil {
 		err = fmt.Errorf("unknown weasel: %q", service)
-	} else if stdin, err = wea.StdinPipe(); err != nil {
+	} else if weain, err = wea.StdinPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
-	} else if stdout, err = wea.StdoutPipe(); err != nil {
+	} else if weaout, err = wea.StdoutPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
-	} else if stderr, err = wea.StderrPipe(); err != nil {
+	} else if weaerr, err = wea.StderrPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
-	} else if _, err = io.WriteString(stdin, settings.JSON); err != nil {
+	} else if _, err = io.WriteString(weain, settings.JSON); err != nil {
 		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
 	} else if err = wea.Start(); err != nil {
-		err = fmt.Errorf("%q weasel won't loose: %v", service, err)
+		err = fmt.Errorf("%q weasel refused release: %v", service, err)
 	} else {
 		go func() {
-			var errb []byte
-			if errb, _ := ioutil.ReadAll(stderr); len(errb) == 0 {
-				time.Sleep(300 * time.Millisecond) // TODO: implement signal from consumer?
+			var em []byte
+			if eb, _ := ioutil.ReadAll(weaerr); len(eb) == 0 {
+				time.Sleep(250 * time.Millisecond) // give stdout opportunity to clear
+			} else {
+				el := bytes.Split(bytes.Trim(eb, "\n\t "), []byte("\n"))
+				em = bytes.TrimLeft(el[len(el)-1], "\t ")
 			}
 			if e := wea.Wait(); e != nil {
-				errl := strings.Split(strings.Trim(string(errb), "\n\t "), "\n")
-				logE.Printf("%q weasel errors: %v [%v]", service, e, errl[len(errl)-1])
+				logE.Printf("%q weasel errors: %v [%s]", service, e, em)
+			} else if len(em) > 0 {
+				logE.Printf("%q weasel warnings: [%s]", service, em)
 			}
 		}()
 		return

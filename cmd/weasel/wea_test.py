@@ -3,10 +3,9 @@
 import  sys
 import  os
 import  argparse
-from    datetime                import  datetime,timedelta
-import  random
 import  signal
 import  json
+#from    datetime                import  datetime,timedelta
 #import  subprocess
 #import  awslib.patterns         as      aws
 
@@ -15,7 +14,7 @@ class WError(Exception):
     pass
 
 KVP={                                   # key-value pair defaults/validators (overridden by command-line)
-    'settings':     '',                 # generally .cmon_settings.json; override currently ignored
+    'settings':     '~stdin',
     }
 
 def overrideKVP(overrides):
@@ -56,13 +55,13 @@ def weaUPTEST(service, settings, args):
         sys.stdout.write('{}\n'.format(json.dumps([obj[0].upper()])))
 
 def main():
-    '''Parse command line args and loose the weasel'''
+    '''Parse command line args and release the weasel'''
     weaServices = {                     # weasel service map
         'up.test':      [weaUPTEST,     'shift first string in list to uppercase'],
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a service''')
-    parser.add_argument('service',     choices=weaServices, metavar='service',
+    parser.add_argument('service',      choices=weaServices, metavar='service',
                         help='''weasel delivery service; {} are supported'''.format(', '.join(weaServices)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''command option''')
@@ -72,10 +71,10 @@ def main():
                              if not k.startswith('_')])))
     args = parser.parse_args()
 
-    try:                                # loose the weasel!
+    try:                                # release the weasel!
         signal.signal(signal.SIGTERM, terminate)
         overrideKVP({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
-        settings = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '' else json.load(open(KVP['settings'], 'r'))
+        settings = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '~stdin' else json.load(open(KVP['settings'], 'r'))
 
         weaServices[args.service][0](args.service, settings, args)
                                         # handle exceptions; broken pipe exit avoids console errors
