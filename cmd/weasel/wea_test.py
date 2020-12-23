@@ -49,7 +49,7 @@ def ex(err, code):
     sys.exit(code)
 
 def weaUPTEST(service, settings, args):
-    if not settings.get('AWS'): raise WError('no AWS configuration for {}'.format(service))
+    #if not settings.get('test'): raise WError('no test configuration for {}'.format(service))
     for line in sys.stdin:
         obj = json.loads(line.strip())
         sys.stdout.write('{}\n'.format(json.dumps([obj[0].upper()])))
@@ -57,14 +57,14 @@ def weaUPTEST(service, settings, args):
 def main():
     '''Parse command line args and release the weasel'''
     weaServices = {                     # weasel service map
-        'up.test':      [weaUPTEST,     'shift first string in list to uppercase'],
+        'up.test':      [weaUPTEST,     'deliver first string in list in uppercase'],
     }
                                         # define and parse command line parameters
-    parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a service''')
+    parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a test service''')
     parser.add_argument('service',      choices=weaServices, metavar='service',
                         help='''weasel delivery service; {} are supported'''.format(', '.join(weaServices)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
-                        help='''command option''')
+                        help='''weasel option''')
     parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
                         help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
                              ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
@@ -78,12 +78,12 @@ def main():
 
         weaServices[args.service][0](args.service, settings, args)
                                         # handle exceptions; broken pipe exit avoids console errors
-    except  json.JSONDecodeError:       ex('** invalid JSON input **\n', 1)
-    except  FileNotFoundError:          ex('** settings not found **\n', 1)
+    except  json.JSONDecodeError:       ex('\n** invalid JSON input **\n\n', 1)
+    except  FileNotFoundError:          ex('\n** settings not found **\n\n', 1)
     except  BrokenPipeError:            os._exit(0)
-    except  KeyboardInterrupt:          ex('\n** weasel interrupted **\n', 10)
+    except  KeyboardInterrupt:          ex('\n** weasel interrupted **\n\n', 10)
     except (AssertionError, IOError, RuntimeError,
-            WError) as e:               ex('** {} **\n'.format(e if e else 'unknown exception'), 10)
+            WError) as e:               ex('\n** {} **\n\n'.format(e if e else 'unknown exception'), 10)
 
 if __name__ == '__main__':  main()      # called as weasel
 else:                       pass        # loaded as module
