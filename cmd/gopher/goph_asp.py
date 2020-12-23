@@ -2,21 +2,22 @@
 
 import  sys
 import  os
-import  argparse
-from    datetime                import  datetime,timedelta
-import  random
 import  signal
+import  argparse
 import  json
+from    datetime                import  datetime,timedelta
 import  subprocess
+import  random
 import  csv
+#import  awslib.patterns         as      aws
 
 class GError(Exception):
     '''Module exception'''
     pass
 
-KVP=   {                                # key-value pair defaults/validators (overridden by command-line)
-        'settings':     '.cmon_settings.json',
-       }
+KVP={                                   # key-value pair defaults/validators (overridden by command-line)
+    'settings':     '~stdin',
+    }
 
 def overrideKVP(overrides):
     '''Override KVP dictionary defaults with command-line inputs'''
@@ -50,7 +51,7 @@ def ex(err, code):
     sys.exit(code)
 
 def getWriter(m, cols):
-    section, flt, buf = '', str.maketrans('\n',' ','\r'), [
+    section,flt,buf = '', str.maketrans('\n',' ','\r'), [
         '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
         '\t'.join(cols),
     ]
@@ -68,12 +69,13 @@ def getWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
-def gophCDRASP(m, cmon, args):
-    if not cmon.get('BinDir'): raise GError('no bin directory for {}'.format(m))
-    pipe, s = getWriter(m, ['id','loc','begin','dur','type','from','to','dip','try','eTG','IP','iTG',
-                            'cust','rate',
-                           ]), ""
-    with subprocess.Popen([cmon.get('BinDir').rstrip('/')+'/goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+def gophCDRASP(model, settings, args):
+    if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
+    pipe,s = getWriter(model, [
+        'id','loc','begin','dur','type','from','to','dip','try','eTG','IP','iTG',
+        'cust','rate',
+    ]), ''
+    with subprocess.Popen([settings.get('BinDir').rstrip('/')+'/goph_cdrasp.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('STOP,'):
                 for col in csv.reader([l]): break
@@ -106,35 +108,35 @@ def gophCDRASP(m, cmon, args):
         pipe(None, None)
 
 def main():
-    '''Parse command line args and run gopher command'''
+    '''Parse command line args and release the gopher'''
     gophModels = {                      # gopher model map
         'cdr.asp':      [gophCDRASP,    'fetch Ribbon switch CDRs from Aspect'],
     }
                                         # define and parse command line parameters
-    parser = argparse.ArgumentParser(description='''This command fetches cmon object model updates''')
-    parser.add_argument('models',       nargs='+', choices=gophModels, metavar='model',
-                        help='''cmon object model; {} are supported'''.format(', '.join(gophModels)))
+    parser = argparse.ArgumentParser(description='''This gopher agent fetches Cloud Monitor content for an Aspect model''')
+    parser.add_argument('model',        choices=gophModels, metavar='model',
+                        help='''Aspect model; {} are supported'''.format(', '.join(gophModels)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
-                        help='''command option''')
+                        help='''gopher option''')
     parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
                         help='''key-value pair of the form <k>=<v> (key one of: {})'''.format(
                              ', '.join(['{} [{}]'.format(k, KVP[k]) for k in KVP
                              if not k.startswith('_')])))
     args = parser.parse_args()
 
-    try:                                # run gopher command
+    try:                                # release the gopher!
         signal.signal(signal.SIGTERM, terminate)
         overrideKVP({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
-        cmon = json.load(sys.stdin)
+        settings = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '~stdin' else json.load(open(KVP['settings'], 'r'))
 
-        for model in args.models:
-            gophModels[model][0](model, cmon, args)
+        gophModels[args.model][0](args.model, settings, args)
                                         # handle exceptions; broken pipe exit avoids console errors
-    except  json.JSONDecodeError:       ex('** invalid settings file **\n', 1)
+    except  json.JSONDecodeError:       ex('\n** invalid JSON input **\n\n', 1)
+    except  FileNotFoundError:          ex('\n** settings not found **\n\n', 1)
     except  BrokenPipeError:            os._exit(0)
-    except  KeyboardInterrupt:          ex('\n** command interrupted **\n', 10)
+    except  KeyboardInterrupt:          ex('\n** gopher interrupted **\n\n', 10)
     except (AssertionError, IOError, RuntimeError,
-            GError) as e:               ex('** {} **\n'.format(e if e else 'unknown exception'), 10)
+            GError) as e:               ex('\n** {} **\n\n'.format(e if e else 'unknown exception'), 10)
 
-if __name__ == '__main__':  main()      # called as script
+if __name__ == '__main__':  main()      # called as gopher
 else:                       pass        # loaded as module

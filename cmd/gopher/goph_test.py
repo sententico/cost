@@ -2,8 +2,8 @@
 
 import  sys
 import  os
-import  argparse
 import  signal
+import  argparse
 import  json
 from    datetime                import  datetime,timedelta
 #import  subprocess
@@ -49,7 +49,7 @@ def ex(err, code):
     sys.exit(code)
 
 def getWriter(m, cols):
-    section, flt, buf = '', str.maketrans('\n',' ','\r'), [
+    section,flt,buf = '', str.maketrans('\n',' ','\r'), [
         '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
         '\t'.join(cols),
     ]
@@ -68,9 +68,10 @@ def getWriter(m, cols):
     return csvWrite
 
 def gophAGTEST(model, settings, args):
-    #if not settings.get('test'): raise GError('no test configuration for {}'.format(model))
-    pipe, s = getWriter(model, ['agent','status',
-                               ]), ""
+    #if not settings.get('test'): raise GError('no test settings for {}'.format(model))
+    pipe,s = getWriter(model, [
+        'agent','status',
+    ]), ''
     pipe(s, {
         'agent':    'gopher',
         'status':   'great',
@@ -89,7 +90,7 @@ def main():
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This gopher agent fetches Cloud Monitor content for a test model''')
     parser.add_argument('model',        choices=gophModels, metavar='model',
-                        help='''gopher fetch model; {} are supported'''.format(', '.join(gophModels)))
+                        help='''test model; {} are supported'''.format(', '.join(gophModels)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''gopher option''')
     parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],

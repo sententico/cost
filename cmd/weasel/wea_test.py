@@ -2,8 +2,8 @@
 
 import  sys
 import  os
-import  argparse
 import  signal
+import  argparse
 import  json
 #from    datetime                import  datetime,timedelta
 #import  subprocess
@@ -49,7 +49,7 @@ def ex(err, code):
     sys.exit(code)
 
 def weaUPTEST(service, settings, args):
-    #if not settings.get('test'): raise WError('no test configuration for {}'.format(service))
+    #if not settings.get('test'): raise WError('no test settings for {}'.format(service))
     for line in sys.stdin:
         obj = json.loads(line.strip())
         sys.stdout.write('{}\n'.format(json.dumps([obj[0].upper()])))
@@ -62,7 +62,7 @@ def main():
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a test service''')
     parser.add_argument('service',      choices=weaServices, metavar='service',
-                        help='''weasel delivery service; {} are supported'''.format(', '.join(weaServices)))
+                        help='''test service; {} are supported'''.format(', '.join(weaServices)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''weasel option''')
     parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
