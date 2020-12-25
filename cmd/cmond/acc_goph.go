@@ -75,10 +75,18 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 	logD.Printf("started gopher for %q (err=%v)", n, err)
 	if err != nil {
 		panic(err)
-	} else if err = gophin.Close(); err != nil {
+	}
+	logD.Printf("closing gopher stdin for %q", n)
+	err = gophin.Close()
+	logD.Printf("closed gopher stdid for %q", n)
+	if err != nil {
 		gophout.Close()
 		panic(err)
-	} else if err = csvout.Open(gophout); err != nil {
+	}
+	logD.Printf("mapping gopher stdout for %q", n)
+	err = csvout.Open(gophout)
+	logD.Printf("mapped gopher stdout for %q", n)
+	if err != nil {
 		gophout.Close()
 		panic(err)
 	}
@@ -106,11 +114,12 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			break
 		}
 	}
+	logD.Printf("finished processing fetched results for %q", n)
 	csvout.Close()
 	if err := <-errors; err != nil {
 		panic(err)
 	}
-	logD.Printf("finished processing fetched results for %q", n)
+	logD.Printf("beginning exit for %q", n)
 	return
 }
 
