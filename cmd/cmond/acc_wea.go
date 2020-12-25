@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/url"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -18,64 +14,15 @@ const (
 )
 
 var (
-	weaselMap = map[string]string{
+	weaselCmd = cmdMap{
 		"aws":   "wea_aws.py",
 		"dd":    "wea_dd.py",
 		"slack": "wea_slack.py",
+		"twil":  "wea_twilio.py",
 		"":      "wea_test.py", // default weasel
+		"~":     "weasel",      // command type
 	}
 )
-
-func releaseWeasel(service string, options ...string) *exec.Cmd {
-	for suffix := service; ; suffix = suffix[1:] {
-		if wea := weaselMap[suffix]; wea != "" {
-			args := []string{
-				"python",
-				fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), wea),
-			}
-			// TODO: change to exec.CommandContext() to support timeouts?
-			return exec.Command(args[0], append(append(args[1:], options...), service)...)
-		} else if suffix == "" {
-			return nil
-		}
-	}
-}
-
-func weasel(service string) (weain io.WriteCloser, weaout io.ReadCloser, err error) {
-	var weaerr io.ReadCloser
-	if wea := releaseWeasel(service); wea == nil {
-		err = fmt.Errorf("unknown weasel: %q", service)
-	} else if weain, err = wea.StdinPipe(); err != nil {
-		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
-	} else if weaerr, err = wea.StderrPipe(); err != nil {
-		err = fmt.Errorf("problem connecting to %q weasel: %v", service, err)
-	} else if _, err = io.WriteString(weain, settings.JSON); err != nil {
-		err = fmt.Errorf("setup problem with %q weasel: %v", service, err)
-	} else if weaout, wea.Stdout = io.Pipe(); false {
-	} else if err = wea.Start(); err != nil {
-		err = fmt.Errorf("%q weasel refused release: %v", service, err)
-	} else {
-		go func() {
-			var em []byte
-			if eb, _ := ioutil.ReadAll(weaerr); len(eb) > 0 {
-				el := bytes.Split(bytes.Trim(eb, "\n\t "), []byte("\n"))
-				em = bytes.TrimLeft(el[len(el)-1], "\t ")
-			}
-			if e := wea.Wait(); e != nil {
-				switch e {
-				case io.ErrClosedPipe:
-					logE.Printf("%q weasel reply abandoned [%s]", service, em)
-				default:
-					logE.Printf("%q weasel errors: %v [%s]", service, e, em)
-				}
-			} else if len(em) > 0 {
-				logE.Printf("%q weasel warnings: [%s]", service, em)
-			}
-		}()
-		return
-	}
-	return nil, nil, err
-}
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	// prepare lookup and validate v; even on error return a result on res

@@ -67,7 +67,7 @@ def getWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
-def gophAGTEST(model, settings, args):
+def gophAGTEST(model, settings, inputs, args):
     #if not settings.get('test'): raise GError('no test settings for {}'.format(model))
     pipe,s = getWriter(model, [
         'agent','status',
@@ -102,9 +102,11 @@ def main():
     try:                                # release the gopher!
         signal.signal(signal.SIGTERM, terminate)
         overrideKVP({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
-        settings = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '~stdin' else json.load(open(KVP['settings'], 'r'))
+        settings,inputs = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '~stdin' else json.load(open(KVP['settings'], 'r')), []
+        for line in sys.stdin:
+            inputs.append(json.loads(line.strip()))
 
-        gophModels[args.model][0](args.model, settings, args)
+        gophModels[args.model][0](args.model, settings, inputs, args)
                                         # handle exceptions; broken pipe exit avoids console errors
     except  json.JSONDecodeError:       ex('\n** invalid JSON input **\n\n', 1)
     except  FileNotFoundError:          ex('\n** settings not found **\n\n', 1)

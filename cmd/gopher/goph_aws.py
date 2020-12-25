@@ -73,7 +73,7 @@ def getWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
-def gophEC2AWS(model, settings, args):
+def gophEC2AWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
     pipe,flt = getWriter(model, [
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
@@ -101,7 +101,7 @@ def gophEC2AWS(model, settings, args):
                         })
     pipe(None, None)
 
-def gophEBSAWS(model, settings, args):
+def gophEBSAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
     pipe,flt = getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
@@ -130,7 +130,7 @@ def gophEBSAWS(model, settings, args):
                         })
     pipe(None, None)
 
-def gophRDSAWS(model, settings, args):
+def gophRDSAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
     pipe,flt = getWriter(model, [
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
@@ -165,7 +165,7 @@ def gophRDSAWS(model, settings, args):
                         })
     pipe(None, None)
 
-def gophCURAWS(model, settings, args):
+def gophCURAWS(model, settings, inputs, args):
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     pipe,head,ids,s = getWriter(model, [
         'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
@@ -365,9 +365,11 @@ def main():
     try:                                # release the gopher!
         signal.signal(signal.SIGTERM, terminate)
         overrideKVP({k.partition('=')[0].strip():k.partition('=')[2].strip() for k in args.key})
-        settings = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '~stdin' else json.load(open(KVP['settings'], 'r'))
+        settings,inputs = json.loads(sys.stdin.readline().strip()) if KVP['settings'] == '~stdin' else json.load(open(KVP['settings'], 'r')), []
+        for line in sys.stdin:
+            inputs.append(json.loads(line.strip()))
 
-        gophModels[args.model][0](args.model, settings, args)
+        gophModels[args.model][0](args.model, settings, inputs, args)
                                         # handle exceptions; broken pipe exit avoids console errors
     except  json.JSONDecodeError:       ex('\n** invalid JSON input **\n\n', 1)
     except  FileNotFoundError:          ex('\n** settings not found **\n\n', 1)

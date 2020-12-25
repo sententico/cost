@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"math"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +37,7 @@ const (
 )
 
 var (
-	gopherMap = map[string]string{
+	gopherCmd = cmdMap{
 		"aws": "goph_aws.py",
 		"az":  "goph_az.py",
 		"gcs": "goph_gcs.py",
@@ -48,65 +45,49 @@ var (
 		"rax": "goph_rax.py",
 		"asp": "goph_asp.py",
 		"":    "goph_test.py", // default gopher
+		"~":   "gopher",       // command type
 	}
 )
 
-func looseGopher(n string, options ...string) *exec.Cmd {
-	for suffix := n; ; suffix = suffix[1:] {
-		if goph := gopherMap[suffix]; goph != "" {
-			args := []string{
-				"python",
-				fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), goph),
-			}
-			// TODO: change to exec.CommandContext() to support timeouts?
-			return exec.Command(args[0], append(append(args[1:], options...), n)...)
-		} else if suffix == "" {
-			return nil
-		}
-	}
-}
-
-func gopher(m *model, insert func(*model, map[string]string, int), meta bool) (items int) {
-	goph, eb, start, now := looseGopher(m.name), bytes.Buffer{}, int(time.Now().Unix()), 0
-	gophStdout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
-	acc, pages := m.newAcc(), 0
+func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), meta bool) (items int) {
+	start, now, pages := int(time.Now().Unix()), 0, 0
+	csvout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	defer func() {
-		if e := recover(); e != nil {
+		if r := recover(); r != nil {
 			if acc.rel() {
-				gophStdout.Close()
+				csvout.Close()
 			}
-			logE.Printf("gopher error while fetching %q: %v", m.name, e)
-		} else if e := goph.Wait(); e != nil {
-			logE.Printf("gopher errors from %q: %v [%v]", m.name, e, strings.Split(strings.Trim(
-				string(eb.Bytes()), "\n\t "), "\n")[0])
-		} else if items > 0 {
-			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, m.name)
+			logE.Printf("gopher error while fetching %q: %v", n, r)
 		}
-		if items > 0 && !meta {
-			acc.reqW()
-			insert(m, nil, start)
-			acc.rel()
+		if items > 0 {
+			if !meta {
+				defer func() { recover(); acc.rel() }()
+				acc.reqW()
+				insert(acc.m, nil, start)
+			}
+			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, n)
 		}
 	}()
-	if goph.Stdin, goph.Stderr = bytes.NewBufferString(settings.JSON), &eb; false {
-	} else if pipe, e := goph.StdoutPipe(); e != nil {
-		panic(e)
-	} else if e = goph.Start(); e != nil {
-		panic(e)
-	} else if e = gophStdout.Open(pipe); e != nil {
-		panic(e)
+	if gophin, gophout, err := gopherCmd.new(n, nil); err != nil {
+		panic(err)
+	} else if err = gophin.Close(); err != nil {
+		gophout.Close()
+		panic(err)
+	} else if err = csvout.Open(gophout); err != nil {
+		gophout.Close()
+		panic(err)
 	}
 
-	results, err := gophStdout.Get()
+	results, errors := csvout.Get()
 	for item := range results {
 		now = int(time.Now().Unix())
 		pages++
 		for acc.reqW(); ; {
 			if item["~meta"] == "" {
-				insert(m, item, now)
+				insert(acc.m, item, now)
 				items++
 			} else if meta {
-				insert(m, item, now)
+				insert(acc.m, item, now)
 			}
 			select {
 			case item = <-results:
@@ -119,9 +100,9 @@ func gopher(m *model, insert func(*model, map[string]string, int), meta bool) (i
 			break
 		}
 	}
-	gophStdout.Close()
-	if e := <-err; e != nil {
-		panic(e)
+	csvout.Close()
+	if err := <-errors; err != nil {
+		panic(err)
 	}
 	return
 }

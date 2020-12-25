@@ -36,12 +36,9 @@ func (s *API) Upper(args string, r *string) (err error) {
 
 	switch s.Ver {
 	case 0:
-		if weain, weaout, err = weasel("up.test"); err != nil {
-			return fmt.Errorf("couldn't release weasel: %v", err)
-		}
 		s := []string{args}
-		if err = json.NewEncoder(weain).Encode(&s); err != nil {
-			return fmt.Errorf("error encoding request: %v", err)
+		if weain, weaout, err = weaselCmd.new("up.test", []interface{}{s}); err != nil {
+			return fmt.Errorf("couldn't release weasel: %v", err)
 		}
 		weain.Close()
 		if err = json.NewDecoder(weaout).Decode(&s); err != nil {

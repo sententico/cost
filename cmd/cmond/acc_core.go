@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +19,8 @@ import (
 )
 
 type (
+	cmdMap map[string]string
+
 	trigItem struct {
 		Name   string
 		Snap   map[string][][]string
@@ -304,6 +310,73 @@ func (m *model) store(final bool) {
 	}
 }
 
+func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.WriteCloser, cout io.ReadCloser, err error) {
+	var cerr io.ReadCloser
+	if cmd := func() *exec.Cmd {
+		for suffix := key; ; suffix = suffix[1:] {
+			if c := m[suffix]; c != "" {
+				args := []string{
+					"python",
+					fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), c),
+				}
+				// TODO: change to exec.CommandContext() to support timeouts?
+				return exec.Command(args[0], append(append(args[1:], opt...), key)...)
+			} else if suffix == "" {
+				return nil
+			}
+		}
+	}(); cmd == nil {
+		err = fmt.Errorf("no %s found for %q", m["~"], key)
+	} else if cin, err = cmd.StdinPipe(); err != nil {
+		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
+	} else if cerr, err = cmd.StderrPipe(); err != nil {
+		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
+	} else if cout, cmd.Stdout = io.Pipe(); false {
+		// force cmd.Wait() cleanup to synchronize with cout emptying/closure
+	} else if err = cmd.Start(); err != nil {
+		err = fmt.Errorf("%q %s refused release: %v", key, m["~"], err)
+	} else if err = func() (err error) {
+		if _, err = io.WriteString(cin, settings.JSON); err == nil && len(input) > 0 {
+			enc := json.NewEncoder(cin)
+			for _, obj := range input {
+				if err = enc.Encode(obj); err != nil {
+					return
+				}
+			}
+		}
+		return
+	}(); err != nil {
+		cin.Close()
+		cout.Close()
+		cerr.Close()
+		cmd.Wait()
+		err = fmt.Errorf("setup problem with %q %s: %v", key, m["~"], err)
+	} else {
+		go func() {
+			var em string
+			// wait for external process to complete
+			if eb, _ := ioutil.ReadAll(cerr); len(eb) > 0 {
+				el := bytes.Split(bytes.Trim(eb, "\n\t "), []byte("\n"))
+				em = fmt.Sprintf(" [%s]", bytes.TrimLeft(el[len(el)-1], "\t "))
+			}
+			// Go-side cleanup (invoking thread guarantees cin/cout close)
+			if e := cmd.Wait(); e != nil {
+				switch e {
+				case io.ErrClosedPipe:
+					logE.Printf("%q %s reply abandoned%s", key, m["~"], em)
+				default:
+					logE.Printf("%q %s errors: %v%s", key, m["~"], e, em)
+				}
+			} else if len(em) > 0 {
+				logE.Printf("%q %s warnings:%s", key, m["~"], em)
+			}
+		}()
+
+		return
+	}
+	return nil, nil, err
+}
+
 // trig.cmon model core accessors
 //
 func trigcmonBoot(m *model) {
@@ -324,12 +397,12 @@ func trigcmonMaint(m *model) {
 	goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(m, true) })
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for cl, p :=
+	for cl, st :=
 		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(m, true) })
-		case <-p.C:
+		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case evt := <-m.evt:
@@ -430,28 +503,28 @@ func ec2awsClean(m *model, deep bool) {
 }
 func ec2awsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(m, ec2awsInsert, false) > 0 {
+		if fetch(m.name, m.newAcc(), ec2awsInsert, false) > 0 {
 			ec2awsClean(m, true)
 			evt <- m.name
 		}
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for g, sg, cl, p :=
+	for f, sf, cl, st :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
-		case <-g.C:
+		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if gopher(m, ec2awsInsert, false) > 0 {
+				if fetch(m.name, m.newAcc(), ec2awsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
-		case <-sg.C:
-			//goaftSession(0, 18*time.Second, func() { gopher(n+"/stats", ec2awsSInsert) })
+		case <-sf.C:
+			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), ec2awsSInsert, false) })
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { ec2awsClean(m, true) })
-		case <-p.C:
+		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case <-m.evt:
@@ -504,28 +577,28 @@ func ebsawsClean(m *model, deep bool) {
 }
 func ebsawsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(m, ebsawsInsert, false) > 0 {
+		if fetch(m.name, m.newAcc(), ebsawsInsert, false) > 0 {
 			ebsawsClean(m, true)
 			evt <- m.name
 		}
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for g, sg, cl, p :=
+	for f, sf, cl, st :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
-		case <-g.C:
+		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if gopher(m, ebsawsInsert, false) > 0 {
+				if fetch(m.name, m.newAcc(), ebsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
-		case <-sg.C:
-			//goaftSession(0, 18*time.Second, func() { gopher(n+"/stats", ebsawsSInsert) })
+		case <-sf.C:
+			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), ebsawsSInsert, false) })
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { ebsawsClean(m, true) })
-		case <-p.C:
+		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case <-m.evt:
@@ -581,28 +654,28 @@ func rdsawsClean(m *model, deep bool) {
 }
 func rdsawsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(m, rdsawsInsert, false) > 0 {
+		if fetch(m.name, m.newAcc(), rdsawsInsert, false) > 0 {
 			rdsawsClean(m, true)
 			evt <- m.name
 		}
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for g, sg, cl, p :=
+	for f, sf, cl, st :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
 		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
-		case <-g.C:
+		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if gopher(m, rdsawsInsert, false) > 0 {
+				if fetch(m.name, m.newAcc(), rdsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
-		case <-sg.C:
-			//goaftSession(0, 18*time.Second, func() { gopher(n+"/stats", rdsawsSInsert) })
+		case <-sf.C:
+			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), rdsawsSInsert, false) })
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { rdsawsClean(m, true) })
-		case <-p.C:
+		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case <-m.evt:
@@ -664,7 +737,7 @@ func curawsClean(m *model, deep bool) {
 func curawsMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 6*time.Second, func() {
-		if gopher(m, curawsInsert, true) > 0 {
+		if fetch(m.name, m.newAcc(), curawsInsert, true) > 0 {
 			curawsClean(m, true)
 			m.store(false)
 			evt <- m.name
@@ -672,13 +745,13 @@ func curawsMaint(m *model) {
 		goGo <- true
 	})
 
-	for g := time.NewTicker(720 * time.Second); ; {
+	for f := time.NewTicker(720 * time.Second); ; {
 		select {
-		case <-g.C:
+		case <-f.C:
 			goaftSession(0, 6*time.Second, func() {
 				select {
 				case <-goGo: // serialize cur.aws gophers
-					if gopher(m, curawsInsert, true) > 0 {
+					if fetch(m.name, m.newAcc(), curawsInsert, true) > 0 {
 						curawsClean(m, true)
 						m.store(false)
 						evt <- m.name
@@ -900,7 +973,7 @@ func cdraspClean(m *model, deep bool) {
 func cdraspMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 18*time.Second, func() {
-		if gopher(m, cdraspInsert, false) > 0 {
+		if fetch(m.name, m.newAcc(), cdraspInsert, false) > 0 {
 			cdraspClean(m, true)
 			evt <- m.name
 		}
@@ -908,15 +981,15 @@ func cdraspMaint(m *model) {
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(!<-goGo); goGo <- true })
 
-	for g, cl, p :=
+	for f, cl, st :=
 		time.NewTicker(360*time.Second),
 		time.NewTicker(1800*time.Second), time.NewTicker(14400*time.Second); ; {
 		select {
-		case <-g.C:
+		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
 				select {
 				case <-goGo: // serialize cdr.asp gophers
-					if gopher(m, cdraspInsert, false) > 0 {
+					if fetch(m.name, m.newAcc(), cdraspInsert, false) > 0 {
 						evt <- m.name
 					}
 					goGo <- true
@@ -925,7 +998,7 @@ func cdraspMaint(m *model) {
 			})
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(m, <-goGo); goGo <- true })
-		case <-p.C:
+		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(!<-goGo); goGo <- true })
 
 		case <-m.evt:
