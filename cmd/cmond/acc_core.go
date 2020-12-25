@@ -331,10 +331,11 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
 	} else if cerr, err = cmd.StderrPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
-	} else if cout, err = cmd.StdoutPipe(); err != nil {
-		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
-		//} else if cout, cmd.Stdout = io.Pipe(); false {
-		// force cmd.Wait() cleanup to synchronize with cout emptying/closure
+		//} else if cout, err = cmd.StdoutPipe(); err != nil {
+		//	err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
+	} else if cout, cmd.Stdout = io.Pipe(); false {
+		// ...this forces cmd.Wait() cleanup to synchronize with cout emptying/closure
+		// ...but appears to interfere with EOF/close processing
 	} else if err = cmd.Start(); err != nil {
 		err = fmt.Errorf("%q %s refused release: %v", key, m["~"], err)
 	} else if err = func() (err error) {
@@ -360,6 +361,8 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 			if eb, _ := ioutil.ReadAll(cerr); len(eb) > 0 {
 				el := bytes.Split(bytes.Trim(eb, "\n\t "), []byte("\n"))
 				em = fmt.Sprintf(" [%s]", bytes.TrimLeft(el[len(el)-1], "\t "))
+			} else {
+				time.Sleep(250 * time.Millisecond) // give cout opportunity to clear (hinky)
 			}
 			// Go-side cleanup (invoking thread guarantees cin/cout close)
 			if e := cmd.Wait(); e != nil {

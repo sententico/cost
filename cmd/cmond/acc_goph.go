@@ -50,11 +50,9 @@ var (
 )
 
 func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), meta bool) (items int) {
-	logD.Printf("starting fetch for %q", n)
 	start, now, pages := int(time.Now().Unix()), 0, 0
 	csvout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	defer func() {
-		logD.Printf("exiting fetch for %q", n)
 		if r := recover(); r != nil {
 			if acc.rel() {
 				csvout.Close()
@@ -82,7 +80,6 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 		panic(err)
 	}
 
-	logD.Printf("processing fetched results for %q", n)
 	results, errors := csvout.Get()
 	for item := range results {
 		now = int(time.Now().Unix())
@@ -105,7 +102,9 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			break
 		}
 	}
+	logD.Printf("closing gophout for %q", n)
 	csvout.Close()
+	logD.Printf("closed gophout for %q", n)
 	if err := <-errors; err != nil {
 		panic(err)
 	}
