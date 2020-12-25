@@ -50,6 +50,7 @@ var (
 )
 
 func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), meta bool) (items int) {
+	logI.Printf("starting fetch for %v", n)
 	start, now, pages := int(time.Now().Unix()), 0, 0
 	csvout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	defer func() {
@@ -67,6 +68,7 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			}
 			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, n)
 		}
+		logI.Printf("exiting fetch for %v", n)
 	}()
 	if gophin, gophout, err := gopherCmd.new(n, nil); err != nil {
 		panic(err)
@@ -78,6 +80,7 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 		panic(err)
 	}
 
+	logI.Printf("processing fetched results for %v", n)
 	results, errors := csvout.Get()
 	for item := range results {
 		now = int(time.Now().Unix())
