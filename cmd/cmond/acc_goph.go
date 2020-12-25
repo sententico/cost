@@ -50,6 +50,7 @@ var (
 )
 
 func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), meta bool) (items int) {
+	acc = mMod[n].newAcc()
 	logD.Printf("starting fetch for %q", n)
 	start, now, pages := int(time.Now().Unix()), 0, 0
 	csvout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
@@ -68,26 +69,16 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			}
 			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, n)
 		}
-		logD.Printf("exiting fetch for %q", n)
 	}()
-	logD.Printf("starting gopher for %q", n)
-	gophin, gophout, err := gopherCmd.new(n, nil)
-	logD.Printf("started gopher for %q (err=%v)", n, err)
-	if err != nil {
+	if gophin, gophout, err := gopherCmd.new(n, nil); err != nil {
 		panic(err)
-	}
-	logD.Printf("closing gopher stdin for %q", n)
-	err = gophin.Close()
-	logD.Printf("closed gopher stdid for %q", n)
-	if err != nil {
+	} else if err = gophin.Close(); err != nil {
 		gophout.Close()
 		panic(err)
-	}
-	logD.Printf("mapping gopher stdout for %q", n)
-	err = csvout.Open(gophout)
-	logD.Printf("mapped gopher stdout for %q", n)
-	if err != nil {
+	} else if err = csvout.Open(gophout); err != nil {
+		logD.Printf("closing gophout for %q", n)
 		gophout.Close()
+		logD.Printf("closed gophout for %q", n)
 		panic(err)
 	}
 
@@ -114,12 +105,10 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			break
 		}
 	}
-	logD.Printf("finished processing fetched results for %q", n)
 	csvout.Close()
 	if err := <-errors; err != nil {
 		panic(err)
 	}
-	logD.Printf("beginning exit for %q", n)
 	return
 }
 
