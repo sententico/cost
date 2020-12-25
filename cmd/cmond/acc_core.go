@@ -331,7 +331,9 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
 	} else if cerr, err = cmd.StderrPipe(); err != nil {
 		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
-	} else if cout, cmd.Stdout = io.Pipe(); false {
+	} else if cout, err = cmd.StdoutPipe(); err != nil {
+		err = fmt.Errorf("problem connecting to %q %s: %v", key, m["~"], err)
+		//} else if cout, cmd.Stdout = io.Pipe(); false {
 		// force cmd.Wait() cleanup to synchronize with cout emptying/closure
 	} else if err = cmd.Start(); err != nil {
 		err = fmt.Errorf("%q %s refused release: %v", key, m["~"], err)

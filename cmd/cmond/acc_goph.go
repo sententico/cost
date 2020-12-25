@@ -50,7 +50,6 @@ var (
 )
 
 func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), meta bool) (items int) {
-	acc = mMod[n].newAcc()
 	logD.Printf("starting fetch for %q", n)
 	start, now, pages := int(time.Now().Unix()), 0, 0
 	csvout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
@@ -102,7 +101,6 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 				}
 			default:
 			}
-			logD.Printf("paginating for %q", n)
 			acc.rel()
 			break
 		}
