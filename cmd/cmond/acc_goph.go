@@ -74,9 +74,7 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 		gophout.Close()
 		panic(err)
 	} else if err = csvout.Open(gophout); err != nil {
-		logD.Printf("closing gophout for %q", n)
 		gophout.Close()
-		logD.Printf("closed gophout for %q", n)
 		panic(err)
 	}
 
@@ -102,9 +100,7 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			break
 		}
 	}
-	logD.Printf("closing gophout for %q", n)
 	csvout.Close()
-	logD.Printf("closed gophout for %q", n)
 	if err := <-errors; err != nil {
 		panic(err)
 	}
