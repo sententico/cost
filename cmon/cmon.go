@@ -23,6 +23,11 @@ type (
 		Options        string
 		APIKey, AppKey string
 	}
+	// slackService settings
+	slackService struct {
+		Options  string
+		Webhooks map[string]string
+	}
 
 	// MonSettings are composite settings for Cloud Monitor
 	MonSettings struct {
@@ -32,6 +37,7 @@ type (
 		Models          map[string]string
 		AWS             awsService
 		Datadog         datadogService
+		Slack           slackService
 		JSON            string `json:"-"`
 	}
 )

@@ -12,6 +12,13 @@
 		"cur.aws":	".cmon_curaws.json",
 		"cdr.asp":	".cmon_cdrasp.json"
 	},
+	"Slack": {
+		"Options":	"<placeholder>",
+		"Webhooks": {
+			"#telecom-fraud":	"https://hooks.slack.com/services/T0xxx/B0xxx/xxx",
+			"default":			"https://hooks.slack.com/services/T0xxx/B0xxx/xxx"
+		}
+	},
 	"AWS": {
 		"Options":	"<placeholder>",
 		"SavPlan":	"3nc",

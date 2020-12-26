@@ -37,6 +37,7 @@ def overrideKVP(overrides):
                     if v is None: raise GError('validation failed')
                 elif len(meta) >= 3:    # convert string value to desired type with bounds check
                     try:    ev = eval(v) if type(v) is str else v
+                    except  KeyboardInterrupt: raise
                     except: raise GError('invalid value')
                     v = meta[0](ev)
                     if   v < meta[1]: v = meta[1]
@@ -115,7 +116,7 @@ def main():
     except  FileNotFoundError:          ex('\n** settings not found **\n\n', 1)
     except  BrokenPipeError:            os._exit(0)
     except  KeyboardInterrupt:          ex('\n** gopher interrupted **\n\n', 10)
-    except (AssertionError, IOError, RuntimeError,
+    except (AssertionError, RuntimeError, AttributeError, KeyError, TypeError, IndexError, IOError,
             GError) as e:               ex('\n** {} **\n\n'.format(e if e else 'unknown exception'), 10)
 
 if __name__ == '__main__':  main()      # called as gopher

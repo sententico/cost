@@ -1,10 +1,15 @@
 #!/usr/bin/python3
 
+# Slack notes:
+# https://aspectsoftware.slack.com/services/B01HMSM7Z6W?added=1
+# https://aspectsoftware.slack.com/services/1599905271234?updated=1
+
 import  sys
 import  os
 import  signal
 import  argparse
 import  json
+from    slack_sdk.webhook       import  WebhookClient
 #from    datetime                import  datetime,timedelta
 #import  subprocess
 #import  awslib.patterns         as      aws
@@ -49,21 +54,29 @@ def ex(err, code):
     if err: sys.stderr.write(err)
     sys.exit(code)
 
-def weaUPTEST(service, settings, args):
-    #if not settings.get('test'): raise WError('no test settings for {}'.format(service))
+def weaHOOKSLACK(service, settings, args):
+    if not settings.get('Slack'): raise WError('no Slack settings for {}'.format(service))
+    if not settings.get('Slack').get('Webhooks'): raise WError('no Slack webhooks found for {}'.format(service))
+    clients, sent, hooks = {}, 0, settings['Slack']['Webhooks']
     for line in sys.stdin:
-        obj = json.loads(line.strip())
-        sys.stdout.write('{}\n'.format(json.dumps([obj[0].upper()])))
+        alert = json.loads(line.strip())
+        ch,txt = alert['Channel'], alert['Text']
+        if ch not in clients:
+            clients[ch] = WebhookClient(hooks.get(ch, hooks['default']))
+        # blocks have replaced attachments
+        if clients[ch].send(text=txt).status_code == 200: sent += 1
+    sys.stdout.write('{}\n'.format(sent))
+
 
 def main():
     '''Parse command line args and release the weasel'''
     weaServices = {                     # weasel service map
-        'up.test':      [weaUPTEST,     'deliver first string in list in uppercase'],
+        'hook.slack':   [weaHOOKSLACK,  'write Slack messages to channels'],
     }
                                         # define and parse command line parameters
-    parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a test service''')
+    parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a Slack service''')
     parser.add_argument('service',      choices=weaServices, metavar='service',
-                        help='''test service; {} are supported'''.format(', '.join(weaServices)))
+                        help='''Slack service; {} are supported'''.format(', '.join(weaServices)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''weasel option''')
     parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],

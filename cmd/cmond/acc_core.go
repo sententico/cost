@@ -357,14 +357,14 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 	} else {
 		go func() {
 			var em string
-			// wait for external process to complete
+			// wait for command to complete; invoking thread must close cin/cout
 			if eb, _ := ioutil.ReadAll(cerr); len(eb) > 0 {
 				el := bytes.Split(bytes.Trim(eb, "\n\t "), []byte("\n"))
 				em = fmt.Sprintf(" [%s]", bytes.TrimLeft(el[len(el)-1], "\t "))
 			} else {
-				time.Sleep(250 * time.Millisecond) // give cout opportunity to clear (hinky)
+				// give cout opportunity to be cleared (hinky)
+				time.Sleep(250 * time.Millisecond)
 			}
-			// Go-side cleanup (invoking thread guarantees cin/cout close)
 			if e := cmd.Wait(); e != nil {
 				switch e {
 				case io.ErrClosedPipe:
