@@ -21,11 +21,11 @@ func ReadLn(r io.Reader, peekLines int) (<-chan string, <-chan string, <-chan er
 			close(err)
 			close(out)
 		}()
-		ln := bufio.NewScanner(r)
+		ln := bufio.NewScanner(r) // bufio.ReadString('\n') may handle EOF better with io.Pipe input
 
 		for len(out) < cap(peek) && len(out) < cap(out) && ln.Scan() {
 			peek <- ln.Text()
-			out <- ln.Text()
+			out <- ln.Text() // assumes out not processed until peek closed
 		}
 		for close(peek); ln.Scan(); {
 			select {

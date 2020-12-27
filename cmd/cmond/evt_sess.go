@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"math"
 	"sort"
 	"time"
@@ -24,18 +27,53 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	return
 }
 
+func slackAlerts(ch string, alerts []string) (err error) {
+	if len(alerts) == 0 {
+		return
+	}
+	var weain io.WriteCloser
+	var weaout io.ReadCloser
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+		weain.Close()
+		weaout.Close()
+	}()
+	if weain, weaout, err = weaselCmd.new("hook.slack", nil); err != nil {
+		return fmt.Errorf("couldn't release weasel: %v", err)
+	}
+	enc, arg, n := json.NewEncoder(weain), map[string]string{
+		"Channel": ch,
+	}, 0
+	for _, alert := range alerts {
+		arg["Text"] = alert
+		if err = enc.Encode(&arg); err != nil {
+			return fmt.Errorf("error encoding request: %v", err)
+		}
+	}
+	weain.Close()
+	if err = json.NewDecoder(weaout).Decode(&n); err != nil {
+		return fmt.Errorf("error decoding response: %v", err)
+	} else if n != len(alerts) {
+		return fmt.Errorf("response code %v", n)
+	}
+	return
+}
+
 func trigcmonScan(m *model, evt string) {
 	switch evt {
 	case "cdr.asp":
+		var alerts []string
 		for _, metric := range []struct {
 			name   string
 			thresh float64
 			sig    float64
 		}{
-			{"cdr.asp/term/geo", 60, 6.0},
-			{"cdr.asp/term/cust", 40, 6.0},
-			{"cdr.asp/term/sp", 320, 6.0},
-			{"cdr.asp/term/to", 60, 6.0},
+			{"cdr.asp/term/geo", 60, 4.0},
+			{"cdr.asp/term/cust", 40, 4.0},
+			{"cdr.asp/term/sp", 320, 4.0},
+			{"cdr.asp/term/to", 60, 4.0},
 		} {
 			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -45,9 +83,16 @@ func trigcmonScan(m *model, evt string) {
 					} else if u := se[0] + se[1]*(0.7*float64(3600-(time.Now().Unix()-90)%3600)/3600+0.3); u < metric.thresh {
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
 						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, na, ss[len(ss)*95/100])
+						alerts = append(alerts, fmt.Sprintf(
+							"%q metric signaling fraud: $%.0f usage for %q ($%.0f @median, $%.0f @95pct, $%.0f @max)",
+							metric.name, u, na, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1],
+						))
 					}
 				}
 			}
+		}
+		if err := slackAlerts("#telecom-fraud", alerts); err != nil {
+			logE.Printf("Slack alert problem: %v", err)
 		}
 	}
 }
