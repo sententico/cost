@@ -36,16 +36,32 @@ func (s *API) Upper(args string, r *string) (err error) {
 
 	switch s.Ver {
 	case 0:
-		s := []string{args}
-		if weain, weaout, err = weaselCmd.new("up.test", []interface{}{s}); err != nil {
+		// s := []string{args}
+		// if weain, weaout, err = weaselCmd.new("up.test", []interface{}{s}); err != nil {
+		// 	return fmt.Errorf("couldn't release weasel: %v", err)
+		// }
+		// weain.Close()
+		// if err = json.NewDecoder(weaout).Decode(&s); err != nil {
+		//	return fmt.Errorf("error decoding response: %v", err)
+		// }
+		// *r = s[0]
+
+		// *r = strings.ToUpper(args)
+
+		a, n := map[string]string{
+			"Channel": "#telecom-fraud",
+			"Text":    args,
+		}, 0
+		if weain, weaout, err = weaselCmd.new("hook.slack", []interface{}{a}); err != nil {
 			return fmt.Errorf("couldn't release weasel: %v", err)
 		}
 		weain.Close()
-		if err = json.NewDecoder(weaout).Decode(&s); err != nil {
+		if err = json.NewDecoder(weaout).Decode(&n); err != nil {
 			return fmt.Errorf("error decoding response: %v", err)
+		} else if n != 1 {
+			return fmt.Errorf("response code: %v", n)
 		}
-		*r = s[0]
-		// *r = strings.ToUpper(args)
+		*r = "ok"
 	default:
 		return fmt.Errorf("method version %v unimplemented", s.Ver)
 	}
