@@ -13,16 +13,17 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	if t, d := len(s)/48, 0.0; len(s) > 0 {
 		ss = append([]float64(nil), s...)
 		sort.Float64s(ss)
-		sub := ss[t : len(ss)-t]
-		for _, v := range sub {
+		for ss, t = ss[t:len(s)-t], len(s)*30/100; len(ss) > t && ss[0] == 0; ss = ss[1:] {
+		}
+		for _, v := range ss {
 			mean += v
 		}
-		mean /= float64(len(sub))
-		for _, v := range sub {
+		mean /= float64(len(ss))
+		for _, v := range ss {
 			d = v - mean
 			sdev += d * d
 		}
-		sdev = math.Sqrt(sdev / float64(len(sub)))
+		sdev = math.Sqrt(sdev / float64(len(ss)))
 	}
 	return
 }
