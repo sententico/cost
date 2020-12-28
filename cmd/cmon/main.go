@@ -180,7 +180,11 @@ func seriesCmd() {
 	}
 	client.Close()
 	for k, ser := range r {
-		fmt.Printf("%v: %.6g\n", k, ser)
+		if f, alt := fmt.Sprintf("%.2f", ser), fmt.Sprintf("%.6g", ser); len(alt) < len(f) {
+			fmt.Printf("%v: %s\n", k, alt)
+		} else {
+			fmt.Printf("%v: %s\n", k, f)
+		}
 	}
 }
 
