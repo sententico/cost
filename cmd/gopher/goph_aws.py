@@ -191,7 +191,7 @@ def gophCURAWS(model, settings, inputs, args):
                 if len(col) != len(head): continue
                 id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]
                 rec,typ = {
-                    'id':       id,                                     # line item ID
+                    'id':       id,                                     # compact line item ID
                     'hour':     hour,                                   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
                 },  col[head['lineItem/LineItemType']]
                 if typ != 'RIFee':                                      # TODO: expand calculation for SPs
