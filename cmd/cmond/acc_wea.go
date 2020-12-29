@@ -350,6 +350,40 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 	return
 }
 
+func getSlicer(from, to int32, un int16, tr float32, mo string, hrs *[2]int32, id string, li *curItem, dts string) func() []string {
+	// set up expanded usage-hours array for un < 720
+	sent := false
+	return func() []string {
+		if sent {
+			return nil
+		}
+		sent = true
+		return []string{
+			dts[:8] + id,
+			dts,
+			li.Acct,
+			li.Typ,
+			li.Svc,
+			li.UTyp,
+			li.UOp,
+			li.Reg,
+			li.RID,
+			li.Desc,
+			li.Name,
+			li.Env,
+			li.DC,
+			li.Prod,
+			li.App,
+			li.Cust,
+			li.Team,
+			li.Ver,
+			strconv.FormatInt(int64(li.Mu+1), 10),
+			strconv.FormatFloat(float64(li.Usg), 'g', -1, 32),
+			strconv.FormatFloat(float64(li.Cost), 'g', -1, 32),
+		}
+	}
+}
+
 func curawsExtract(from, to int32, units int16, items int, truncate float64) (res chan []string, err error) {
 	var acc *modAcc
 	if items++; from > to || units < 1 || items < 0 || items == 1 || truncate < 0 {
@@ -368,7 +402,7 @@ func curawsExtract(from, to int32, units int16, items int, truncate float64) (re
 				close(res)
 			}
 		}()
-		pg, threshold := pgSize, float32(truncate)
+		pg, trunc := pgSize, float32(truncate)
 		acc.reqR()
 
 	nextMonth:
@@ -376,46 +410,25 @@ func curawsExtract(from, to int32, units int16, items int, truncate float64) (re
 			if to >= hrs[0] && hrs[1] >= from {
 				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
 				for id, li := range acc.m.data[1].(*curDetail).Line[mo] {
-					if li.Cost < threshold && -threshold < li.Cost {
-						continue
-					} else if items--; items == 0 {
-						break nextMonth
-					}
-
-					ls := []string{
-						dts[:8] + id,
-						dts,
-						li.Acct,
-						li.Typ,
-						li.Svc,
-						li.UTyp,
-						li.UOp,
-						li.Reg,
-						li.RID,
-						li.Desc,
-						li.Name,
-						li.Env,
-						li.DC,
-						li.Prod,
-						li.App,
-						li.Cust,
-						li.Team,
-						li.Ver,
-						strconv.FormatInt(int64(li.Mu+1), 10),
-						strconv.FormatFloat(float64(li.Usg), 'g', -1, 32),
-						strconv.FormatFloat(float64(li.Cost), 'g', -1, 32),
-					}
-					if pg--; pg >= 0 {
-						select {
-						case res <- ls:
-							continue
-						default:
+					if li.Cost >= trunc || -trunc >= li.Cost {
+						slicer := getSlicer(from, to, units, trunc, mo, hrs, id, li, dts)
+						for ls := slicer(); ls != nil; ls = slicer() {
+							if items--; items == 0 {
+								break nextMonth
+							}
+							if pg--; pg >= 0 {
+								select {
+								case res <- ls:
+									continue
+								default:
+								}
+							}
+							acc.rel()
+							res <- ls
+							pg = pgSize
+							acc.reqR()
 						}
 					}
-					acc.rel()
-					res <- ls
-					pg = pgSize
-					acc.reqR()
 				}
 			}
 		}
