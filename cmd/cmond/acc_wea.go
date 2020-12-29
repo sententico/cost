@@ -350,14 +350,66 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 	return
 }
 
-func getSlicer(from, to int32, un int16, tr float32, mo string, hrs *[2]int32, id string, li *curItem, dts string) func() []string {
-	// set up expanded usage-hours array for un < 720
-	sent := false
-	return func() []string {
-		if sent {
-			return nil
+func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, dts string) func() []string {
+	var husg [744]float32
+	var rate float32
+	if from -= hrs[0]; from < 0 {
+		from = 0
+	}
+	if to > hrs[1] {
+		to = hrs[1]
+	}
+	if to -= hrs[0]; un < 720 {
+		if rate = li.Cost / li.Usg; len(li.Hour) > 0 {
+			for i, h := range li.Hour {
+				for ho, r := int32(h&baseMask)-hrs[0], int32(h>>rangeShift&rangeMask); r >= 0; r-- {
+					husg[ho+r] = li.HUsg[i]
+				}
+			}
+		} else {
+			husg[0] = li.Usg
 		}
-		sent = true
+	}
+
+	return func() []string {
+		var rec int16
+		var usg, cost float32
+		switch un {
+		case 1:
+			for prev := from; ; prev = from {
+				if from > to {
+					return nil
+				} else if from++; husg[prev] != 0 {
+					usg = husg[prev]
+					if cost = usg * rate; cost >= tr || -tr >= cost {
+						rec, dts = 1, dts[:8]+fmt.Sprintf("%02d %02d:00", prev/24+1, prev%24)
+						break
+					}
+				}
+			}
+		case 24:
+			for ; ; rec, usg = 0, 0 {
+				if from > to {
+					return nil
+				}
+				for day := from + 23; from <= day; from++ {
+					if husg[from] != 0 {
+						rec++
+						usg += husg[from]
+					}
+				}
+				if cost = usg * rate; cost >= tr || -tr >= cost {
+					dts = dts[:8] + fmt.Sprintf("%02d", from/24)
+					break
+				}
+			}
+		default:
+			if from > to {
+				return nil
+			}
+			rec, usg, cost = li.Mu+1, li.Usg, li.Cost
+			from = to + 1
+		}
 		return []string{
 			dts[:8] + id,
 			dts,
@@ -377,9 +429,9 @@ func getSlicer(from, to int32, un int16, tr float32, mo string, hrs *[2]int32, i
 			li.Cust,
 			li.Team,
 			li.Ver,
-			strconv.FormatInt(int64(li.Mu+1), 10),
-			strconv.FormatFloat(float64(li.Usg), 'g', -1, 32),
-			strconv.FormatFloat(float64(li.Cost), 'g', -1, 32),
+			strconv.FormatInt(int64(rec), 10),
+			strconv.FormatFloat(float64(usg), 'g', -1, 32),
+			strconv.FormatFloat(float64(cost), 'g', -1, 32),
 		}
 	}
 }
@@ -411,7 +463,7 @@ func curawsExtract(from, to int32, units int16, items int, truncate float64) (re
 				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
 				for id, li := range acc.m.data[1].(*curDetail).Line[mo] {
 					if li.Cost >= trunc || -trunc >= li.Cost {
-						slicer := getSlicer(from, to, units, trunc, mo, hrs, id, li, dts)
+						slicer := getSlicer(from, to, units, trunc, hrs, id, li, dts)
 						for ls := slicer(); ls != nil; ls = slicer() {
 							if items--; items == 0 {
 								break nextMonth
