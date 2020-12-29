@@ -71,10 +71,10 @@ func trigcmonScan(m *model, evt string) {
 			thresh float64
 			sig    float64
 		}{
-			{"cdr.asp/term/geo", 60, 3},
-			{"cdr.asp/term/cust", 40, 3},
-			{"cdr.asp/term/sp", 320, 3},
-			{"cdr.asp/term/to", 60, 3},
+			{"cdr.asp/term/geo", 60, 2},
+			{"cdr.asp/term/cust", 40, 2},
+			{"cdr.asp/term/sp", 320, 2},
+			{"cdr.asp/term/to", 60, 2},
 		} {
 			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -83,10 +83,10 @@ func trigcmonScan(m *model, evt string) {
 					if len(se) < 2 {
 					} else if u := se[0] + se[1]*(0.7*float64(3600-(time.Now().Unix()-90)%3600)/3600+0.3); u < metric.thresh {
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
-						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @99pct)", metric.name, u, na, ss[len(ss)*99/100])
+						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, na, ss[len(ss)*95/100])
 						alerts = append(alerts, fmt.Sprintf(
-							"%q metric signaling fraud: $%.0f hourly usage for %q ($%.0f @median, $%.0f @99pct, $%.0f @max)",
-							metric.name, u, na, ss[len(ss)*50/100], ss[len(ss)*99/100], ss[len(ss)-1],
+							"%q metric signaling fraud: $%.0f hourly usage for %q ($%.0f @median, $%.0f @95pct, $%.0f @max)",
+							metric.name, u, na, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1],
 						))
 					}
 				}
