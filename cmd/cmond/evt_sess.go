@@ -71,10 +71,10 @@ func trigcmonScan(m *model, evt string) {
 			thresh float64
 			sig    float64
 		}{
-			{"cdr.asp/term/geo", 60, 3.5},
-			{"cdr.asp/term/cust", 40, 3.5},
-			{"cdr.asp/term/sp", 320, 3.5},
-			{"cdr.asp/term/to", 60, 3.5},
+			{"cdr.asp/term/geo", 60, 3},
+			{"cdr.asp/term/cust", 40, 3},
+			{"cdr.asp/term/sp", 320, 3},
+			{"cdr.asp/term/to", 60, 3},
 		} {
 			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
