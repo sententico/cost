@@ -110,6 +110,32 @@ func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) (err error)
 	return
 }
 
+// Stream method of API service ...
+func (s *API) Stream(args *cmon.StreamArgs, r *[][]string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
+	switch authVer(args.Token, 0, s.Ver) {
+	case 0:
+		var c chan []string
+		if c, err = streamExtract(args.Model, args.Items); err != nil {
+			return
+		}
+		*r = make([][]string, 0, args.Items)
+		for s := range c {
+			*r = append(*r, s)
+		}
+	case auNOAUTH:
+		return fmt.Errorf("method access not allowed")
+	default:
+		return fmt.Errorf("method version %v unimplemented", s.Ver)
+	}
+	return
+}
+
 // StreamCUR method of API service ...
 func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) (err error) {
 	defer func() {
