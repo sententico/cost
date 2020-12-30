@@ -362,8 +362,8 @@ func active(since, last int, ap []int) float32 {
 func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 	pg := pgSize
 	acc.reqR()
-	for id, ec2 := range d.Inst {
-		if ec2.Last < d.Current {
+	for id, inst := range d.Inst {
+		if inst.Last < d.Current {
 			continue
 		} else if items--; items == 0 {
 			break
@@ -371,25 +371,25 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 
 		ls := []string{
 			id,
-			ec2.Acct,
-			ec2.Typ,
-			ec2.Plat,
-			strconv.FormatInt(int64(ec2.Vol), 10),
-			ec2.AZ,
-			ec2.AMI,
-			ec2.Spot,
-			ec2.Tag["env"],
-			ec2.Tag["dc"],
-			ec2.Tag["product"],
-			ec2.Tag["app"],
-			ec2.Tag["cust"],
-			ec2.Tag["team"],
-			ec2.Tag["version"],
-			ec2.State,
-			time.Unix(int64(ec2.Since), 0).Format("2006-01-02 15:04:05"),
-			time.Unix(int64(ec2.Last), 0).Format("2006-01-02 15:04:05"),
-			strconv.FormatFloat(float64(active(ec2.Since, ec2.Last, ec2.Active)), 'g', -1, 32),
-			strconv.FormatFloat(float64(ec2.Rate), 'g', -1, 32),
+			inst.Acct,
+			inst.Typ,
+			inst.Plat,
+			strconv.FormatInt(int64(inst.Vol), 10),
+			inst.AZ,
+			inst.AMI,
+			inst.Spot,
+			inst.Tag["env"],
+			inst.Tag["dc"],
+			inst.Tag["product"],
+			inst.Tag["app"],
+			inst.Tag["cust"],
+			inst.Tag["team"],
+			inst.Tag["version"],
+			inst.State,
+			time.Unix(int64(inst.Since), 0).Format("2006-01-02 15:04:05"),
+			time.Unix(int64(inst.Last), 0).Format("2006-01-02 15:04:05"),
+			strconv.FormatFloat(float64(active(inst.Since, inst.Last, inst.Active)), 'g', -1, 32),
+			strconv.FormatFloat(float64(inst.Rate), 'g', -1, 32),
 		}
 		if pg--; pg >= 0 {
 			select {

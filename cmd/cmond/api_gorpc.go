@@ -27,8 +27,8 @@ func (s *API) Upper(args string, r *string) (err error) {
 	var weain io.WriteCloser
 	var weaout io.ReadCloser
 	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
+		if re := recover(); re != nil {
+			err = re.(error)
 		}
 		weain.Close()
 		weaout.Close()
@@ -71,8 +71,8 @@ func (s *API) Upper(args string, r *string) (err error) {
 // LookupVM method of API service ...
 func (s *API) LookupVM(args *cmon.LookupArgs, r *string) (err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
+		if re := recover(); re != nil {
+			err = re.(error)
 		}
 	}()
 
@@ -90,8 +90,8 @@ func (s *API) LookupVM(args *cmon.LookupArgs, r *string) (err error) {
 // Series method of API service ...
 func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) (err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
+		if re := recover(); re != nil {
+			err = re.(error)
 		}
 	}()
 
@@ -113,8 +113,8 @@ func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) (err error)
 // Stream method of API service ...
 func (s *API) Stream(args *cmon.StreamArgs, r *[][]string) (err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
+		if re := recover(); re != nil {
+			err = re.(error)
 		}
 	}()
 
@@ -139,8 +139,8 @@ func (s *API) Stream(args *cmon.StreamArgs, r *[][]string) (err error) {
 // StreamCUR method of API service ...
 func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) (err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
+		if re := recover(); re != nil {
+			err = re.(error)
 		}
 	}()
 
