@@ -504,7 +504,7 @@ func streamExtract(n string, items int) (res chan []string, err error) {
 	var acc *modAcc
 	if items++; items < 0 || items == 1 {
 		return nil, fmt.Errorf("invalid argument(s)")
-	} else if acc = mMod[n].newAcc(); acc == nil {
+	} else if acc = mMod[n].newAcc(); acc == nil || len(acc.m.data) < 2 {
 		return nil, fmt.Errorf("%q model not found", n)
 	}
 
@@ -520,11 +520,11 @@ func streamExtract(n string, items int) (res chan []string, err error) {
 		}()
 
 		switch det := acc.m.data[1].(type) {
-		case ec2Detail:
+		case *ec2Detail:
 			det.extract(acc, res, items)
-		case ebsDetail:
+		case *ebsDetail:
 			det.extract(acc, res, items)
-		case rdsDetail:
+		case *rdsDetail:
 			det.extract(acc, res, items)
 		}
 		close(res)
