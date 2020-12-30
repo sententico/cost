@@ -351,6 +351,187 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 	return
 }
 
+func active(since, last int, ap []int) float32 {
+	var a int
+	for i := 0; i+1 < len(ap); i += 2 {
+		a += ap[i+1] - ap[i] + 1
+	}
+	return float32(a) / float32(last-since+1)
+}
+
+func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
+	pg := pgSize
+	acc.reqR()
+	for id, ec2 := range d.Inst {
+		if ec2.Last < d.Current {
+			continue
+		} else if items--; items == 0 {
+			break
+		}
+
+		ls := []string{
+			id,
+			ec2.Acct,
+			ec2.Typ,
+			ec2.Plat,
+			strconv.FormatInt(int64(ec2.Vol), 10),
+			ec2.AZ,
+			ec2.AMI,
+			ec2.Spot,
+			ec2.Tag["env"],
+			ec2.Tag["dc"],
+			ec2.Tag["product"],
+			ec2.Tag["app"],
+			ec2.Tag["cust"],
+			ec2.Tag["team"],
+			ec2.Tag["version"],
+			ec2.State,
+			time.Unix(int64(ec2.Since), 0).Format("2006-01-02 15:04:05"),
+			time.Unix(int64(ec2.Last), 0).Format("2006-01-02 15:04:05"),
+			strconv.FormatFloat(float64(active(ec2.Since, ec2.Last, ec2.Active)), 'g', -1, 32),
+			strconv.FormatFloat(float64(ec2.Rate), 'g', -1, 32),
+		}
+		if pg--; pg >= 0 {
+			select {
+			case res <- ls:
+				continue
+			default:
+			}
+		}
+		acc.rel()
+		res <- ls
+		pg = pgSize
+		acc.reqR()
+	}
+	acc.rel()
+}
+
+func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
+	pg := pgSize
+	acc.reqR()
+	for id, vol := range d.Vol {
+		if vol.Last < d.Current {
+			continue
+		} else if items--; items == 0 {
+			break
+		}
+
+		ls := []string{
+			id,
+			vol.Acct,
+			vol.Typ,
+			strconv.FormatInt(int64(vol.Size), 10),
+			strconv.FormatInt(int64(vol.IOPS), 10),
+			vol.AZ,
+			vol.Mount,
+			vol.Tag["env"],
+			vol.Tag["dc"],
+			vol.Tag["product"],
+			vol.Tag["app"],
+			vol.Tag["cust"],
+			vol.Tag["team"],
+			vol.Tag["version"],
+			vol.State,
+			time.Unix(int64(vol.Since), 0).Format("2006-01-02 15:04:05"),
+			time.Unix(int64(vol.Last), 0).Format("2006-01-02 15:04:05"),
+			strconv.FormatFloat(float64(active(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
+			strconv.FormatFloat(float64(vol.Rate), 'g', -1, 32),
+		}
+		if pg--; pg >= 0 {
+			select {
+			case res <- ls:
+				continue
+			default:
+			}
+		}
+		acc.rel()
+		res <- ls
+		pg = pgSize
+		acc.reqR()
+	}
+	acc.rel()
+}
+
+func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
+	pg := pgSize
+	acc.reqR()
+	for id, db := range d.DB {
+		if db.Last < d.Current {
+			continue
+		} else if items--; items == 0 {
+			break
+		}
+
+		ls := []string{
+			id,
+			db.Acct,
+			db.Typ,
+			db.STyp,
+			strconv.FormatInt(int64(db.Size), 10),
+			db.Engine,
+			db.Ver,
+			db.Lic,
+			db.AZ,
+			db.Tag["env"],
+			db.Tag["dc"],
+			db.Tag["product"],
+			db.Tag["app"],
+			db.Tag["cust"],
+			db.Tag["team"],
+			db.Tag["version"],
+			db.State,
+			time.Unix(int64(db.Since), 0).Format("2006-01-02 15:04:05"),
+			time.Unix(int64(db.Last), 0).Format("2006-01-02 15:04:05"),
+			strconv.FormatFloat(float64(active(db.Since, db.Last, db.Active)), 'g', -1, 32),
+			strconv.FormatFloat(float64(db.Rate), 'g', -1, 32),
+		}
+		if pg--; pg >= 0 {
+			select {
+			case res <- ls:
+				continue
+			default:
+			}
+		}
+		acc.rel()
+		res <- ls
+		pg = pgSize
+		acc.reqR()
+	}
+	acc.rel()
+}
+
+func streamExtract(n string, items int) (res chan []string, err error) {
+	var acc *modAcc
+	if items++; items < 0 || items == 1 {
+		return nil, fmt.Errorf("invalid argument(s)")
+	} else if acc = mMod[n].newAcc(); acc == nil {
+		return nil, fmt.Errorf("%q model not found", n)
+	}
+
+	res = make(chan []string, 32)
+	go func() {
+		defer func() {
+			acc.rel()
+			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
+				logE.Printf("error while accessing %q: %v", acc.m.name, e)
+				defer func() { recover() }()
+				close(res)
+			}
+		}()
+
+		switch det := acc.m.data[1].(type) {
+		case ec2Detail:
+			det.extract(acc, res, items)
+		case ebsDetail:
+			det.extract(acc, res, items)
+		case rdsDetail:
+			det.extract(acc, res, items)
+		}
+		close(res)
+	}()
+	return
+}
+
 func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, dts string) func() []string {
 	var husg [744]float32
 	var rate float32
@@ -486,187 +667,6 @@ func curawsExtract(from, to int32, units int16, items int, truncate float64) (re
 			}
 		}
 		acc.rel()
-		close(res)
-	}()
-	return
-}
-
-func active(since, last int, ap []int) float32 {
-	var a int
-	for i := 0; i+1 < len(ap); i += 2 {
-		a += ap[i+1] - ap[i] + 1
-	}
-	return float32(a) / float32(last-since+1)
-}
-
-func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
-	pg := pgSize
-	acc.reqR()
-
-	for id, ec2 := range d.Inst {
-		if ec2.Last < d.Current {
-			continue
-		} else if items--; items == 0 {
-			break
-		}
-		ls := []string{
-			id,
-			ec2.Acct,
-			ec2.Typ,
-			ec2.Plat,
-			strconv.FormatInt(int64(ec2.Vol), 10),
-			ec2.AZ,
-			ec2.AMI,
-			ec2.Spot,
-			ec2.Tag["env"],
-			ec2.Tag["dc"],
-			ec2.Tag["product"],
-			ec2.Tag["app"],
-			ec2.Tag["cust"],
-			ec2.Tag["team"],
-			ec2.Tag["version"],
-			ec2.State,
-			time.Unix(int64(ec2.Since), 0).Format("2006-01-02 15:04:05"),
-			time.Unix(int64(ec2.Last), 0).Format("2006-01-02 15:04:05"),
-			strconv.FormatFloat(float64(active(ec2.Since, ec2.Last, ec2.Active)), 'g', -1, 32),
-			strconv.FormatFloat(float64(ec2.Rate), 'g', -1, 32),
-		}
-		if pg--; pg >= 0 {
-			select {
-			case res <- ls:
-				continue
-			default:
-			}
-		}
-		acc.rel()
-		res <- ls
-		pg = pgSize
-		acc.reqR()
-	}
-	acc.rel()
-}
-
-func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
-	pg := pgSize
-	acc.reqR()
-
-	for id, vol := range d.Vol {
-		if vol.Last < d.Current {
-			continue
-		} else if items--; items == 0 {
-			break
-		}
-		ls := []string{
-			id,
-			vol.Acct,
-			vol.Typ,
-			strconv.FormatInt(int64(vol.Size), 10),
-			strconv.FormatInt(int64(vol.IOPS), 10),
-			vol.AZ,
-			vol.Mount,
-			vol.Tag["env"],
-			vol.Tag["dc"],
-			vol.Tag["product"],
-			vol.Tag["app"],
-			vol.Tag["cust"],
-			vol.Tag["team"],
-			vol.Tag["version"],
-			vol.State,
-			time.Unix(int64(vol.Since), 0).Format("2006-01-02 15:04:05"),
-			time.Unix(int64(vol.Last), 0).Format("2006-01-02 15:04:05"),
-			strconv.FormatFloat(float64(active(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
-			strconv.FormatFloat(float64(vol.Rate), 'g', -1, 32),
-		}
-		if pg--; pg >= 0 {
-			select {
-			case res <- ls:
-				continue
-			default:
-			}
-		}
-		acc.rel()
-		res <- ls
-		pg = pgSize
-		acc.reqR()
-	}
-	acc.rel()
-}
-
-func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
-	pg := pgSize
-	acc.reqR()
-
-	for id, db := range d.DB {
-		if db.Last < d.Current {
-			continue
-		} else if items--; items == 0 {
-			break
-		}
-		ls := []string{
-			id,
-			db.Acct,
-			db.Typ,
-			db.STyp,
-			strconv.FormatInt(int64(db.Size), 10),
-			db.Engine,
-			db.Ver,
-			db.Lic,
-			db.AZ,
-			db.Tag["env"],
-			db.Tag["dc"],
-			db.Tag["product"],
-			db.Tag["app"],
-			db.Tag["cust"],
-			db.Tag["team"],
-			db.Tag["version"],
-			db.State,
-			time.Unix(int64(db.Since), 0).Format("2006-01-02 15:04:05"),
-			time.Unix(int64(db.Last), 0).Format("2006-01-02 15:04:05"),
-			strconv.FormatFloat(float64(active(db.Since, db.Last, db.Active)), 'g', -1, 32),
-			strconv.FormatFloat(float64(db.Rate), 'g', -1, 32),
-		}
-		if pg--; pg >= 0 {
-			select {
-			case res <- ls:
-				continue
-			default:
-			}
-		}
-		acc.rel()
-		res <- ls
-		pg = pgSize
-		acc.reqR()
-	}
-	acc.rel()
-}
-
-func streamExtract(n string, items int) (res chan []string, err error) {
-	var acc *modAcc
-	if items++; items < 0 || items == 1 {
-		return nil, fmt.Errorf("invalid argument(s)")
-	} else if acc = mMod[n].newAcc(); acc == nil {
-		return nil, fmt.Errorf("%q model not found", n)
-	}
-
-	res = make(chan []string, 32)
-	go func() {
-		defer func() {
-			acc.rel()
-			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
-				logE.Printf("error while accessing %q: %v", acc.m.name, e)
-				defer func() { recover() }()
-				close(res)
-			}
-		}()
-
-		switch det := acc.m.data[1].(type) {
-		case ec2Detail:
-			det.extract(acc, res, items)
-		case ebsDetail:
-			det.extract(acc, res, items)
-		case rdsDetail:
-			det.extract(acc, res, items)
-		}
 		close(res)
 	}()
 	return

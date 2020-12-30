@@ -282,7 +282,7 @@ func main() {
 		"stream cur.aws": streamCURCmd,
 		"stream ec2.aws": streamCmd,
 		"stream ebs.aws": streamCmd,
-		"stream eds.aws": streamCmd,
+		"stream rds.aws": streamCmd,
 		"stream cdr.asp": streamCmd,
 		"":               defaultCmd,
 	}[command]; cfn == nil {
