@@ -28,6 +28,7 @@ var (
 		debug     bool     // debug output enabled
 		more      []string // unparsed arguments
 		metric    string   // series metric
+		model     string   // stream model
 		items     int      // maximum stream items
 		truncate  float64  // series/stream amount truncation filter
 		interval  intHours // from/to/units hours
@@ -69,6 +70,7 @@ func init() {
 	}
 
 	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
+	args.streamSet.StringVar(&args.model, "model", "cur.aws", "stream model `type`")
 	y, m, _ := time.Now().Date() // set default to prior month
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
@@ -188,7 +190,37 @@ func seriesCmd() {
 	}
 }
 
-func streamcurCmd() {
+func streamCmd() {
+	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
+	if err != nil {
+		fatal(1, "error dialing GoRPC server: %v", err)
+	}
+	var r [][]string
+	if err = client.Call("API.Stream", &cmon.StreamArgs{
+		Token: "placeholder_access_token",
+		Model: args.model,
+		Items: args.items,
+	}, &r); err != nil {
+		fatal(1, "error calling GoRPC: %v", err)
+	}
+	if client.Close(); len(r) > 0 {
+		switch args.model {
+		case "ec2.aws":
+			fmt.Println("inst id,...")
+		case "ebs.aws":
+			fmt.Println("vol id,...")
+		case "rds.aws":
+			fmt.Println("DB id,...")
+		}
+		for _, row := range r {
+			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
+		}
+	} else {
+		fatal(1, "no items returned")
+	}
+}
+
+func streamCURCmd() {
 	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
@@ -218,7 +250,7 @@ func streamcurCmd() {
 		fmt.Printf("Invoice ID%s,%s,Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
 			",Item Description,Name,Env,DC,Product,App,Cust,Team,Ver,Recs,Usage,Billed\n", warn, unit)
 		for _, row := range r {
-			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in text
+			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
 		}
 	} else {
 		fatal(1, "no items returned")
@@ -229,10 +261,10 @@ func main() {
 	switch flag.Parse(); flag.Arg(0) {
 	case "series":
 		args.seriesSet.Parse(flag.Args()[1:])
-		command, args.more = "Series", args.seriesSet.Args()
+		command, args.more = "series", args.seriesSet.Args()
 	case "stream":
 		args.streamSet.Parse(flag.Args()[1:])
-		command, args.more = "StreamCUR", args.streamSet.Args()
+		command, args.more = "stream "+args.model, args.streamSet.Args()
 	case "":
 		args.more = flag.Args()
 	default:
@@ -245,9 +277,17 @@ func main() {
 	}
 	address = cmon.Getarg([]string{args.address, settings.Address, "CMON_ADDRESS", ":4404"})
 
-	map[string]func(){
-		"Series":    seriesCmd,
-		"StreamCUR": streamcurCmd,
-		"":          defaultCmd,
-	}[command]()
+	if cfn := map[string]func(){
+		"series":         seriesCmd,
+		"stream cur.aws": streamCURCmd,
+		"stream ec2.aws": streamCmd,
+		"stream ebs.aws": streamCmd,
+		"stream eds.aws": streamCmd,
+		"stream cdr.asp": streamCmd,
+		"":               defaultCmd,
+	}[command]; cfn == nil {
+		fatal(1, "can't %s", command)
+	} else {
+		cfn()
+	}
 }

@@ -65,6 +65,13 @@ type (
 		Truncate float64 // filter metrics with recent amounts below this in absolute value
 	}
 
+	// StreamArgs ...
+	StreamArgs struct {
+		Token string // Admin.Auth access token (renew hourly to avoid expiration)
+		Model string // model name
+		Items int    // maximum items
+	}
+
 	// StreamCURArgs ...
 	StreamCURArgs struct {
 		Token    string  // Admin.Auth access token (renew hourly to avoid expiration)
