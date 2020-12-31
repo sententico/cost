@@ -206,13 +206,13 @@ func streamCmd() {
 	if client.Close(); len(r) > 0 {
 		switch args.model {
 		case "ec2.aws":
-			fmt.Println("inst,acct,type,plat,vol,AZ,AMI,spot,env,dc,product,app,cust,team,version," +
+			fmt.Println("inst,acct,type,plat,vol,AZ,AMI,spot,name,env,dc,product,app,cust,team,version" +
 				",state,since,last,active,rate")
 		case "ebs.aws":
-			fmt.Println("vol,acct,type,size,IOPS,AZ,mount,env,dc,product,app,cust,team,version," +
+			fmt.Println("vol,acct,type,size,IOPS,AZ,mount,name,env,dc,product,app,cust,team,version" +
 				",state,since,last,active,rate")
 		case "rds.aws":
-			fmt.Println("db,acct,type,sto,size,engine,eng ver,lic,AZ,env,dc,product,app,cust,team,version," +
+			fmt.Println("db,acct,type,sto,size,engine,eng ver,lic,AZ,name,env,dc,product,app,cust,team,version" +
 				",state,since,last,active,rate")
 		case "cdr.asp/term", "cdr.asp/orig":
 			fmt.Println("cdr,loc,to,from,prov,cust,start,minutes,tries,billable,margin")

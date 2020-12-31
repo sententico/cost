@@ -98,7 +98,7 @@ def gophEC2AWS(model, settings, inputs, args):
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in i.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                    'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+                                    'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                         })
     pipe(None, None)
 
@@ -127,7 +127,7 @@ def gophEBSAWS(model, settings, inputs, args):
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in v.tags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                    'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+                                    'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                         })
     pipe(None, None)
 
@@ -162,7 +162,7 @@ def gophRDSAWS(model, settings, inputs, args):
                                     '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in dtags if
                                     t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
                                     'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                    'SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+                                    'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
                         })
     pipe(None, None)
 
