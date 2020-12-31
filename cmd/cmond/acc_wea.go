@@ -572,7 +572,7 @@ func streamExtract(n string, items int) (res chan []string, err error) {
 			case "cdr.asp/term":
 				acc.m.data[2].(*termDetail).CDR.extract(acc, res, items)
 			case "cdr.asp/orig":
-				acc.m.data[3].(*termDetail).CDR.extract(acc, res, items)
+				acc.m.data[3].(*origDetail).CDR.extract(acc, res, items)
 			}
 		}
 		close(res)
