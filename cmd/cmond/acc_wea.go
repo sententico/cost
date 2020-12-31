@@ -504,11 +504,12 @@ func (d *hiD) extract(acc *modAcc, res chan []string, items int) {
 	var to, from tel.E164full
 	pg := pgSize
 	acc.reqR()
+nextHour:
 	for h, hm := range *d {
 		t := int64(h) * 3600
 		for id, cdr := range hm {
 			if items--; items == 0 {
-				break
+				break nextHour
 			}
 
 			cdr.To.Full(nil, &to)
