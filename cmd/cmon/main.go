@@ -214,7 +214,7 @@ func streamCmd() {
 		case "rds.aws":
 			fmt.Println("db,acct,type,sto,size,engine,eng ver,lic,AZ,env,dc,product,app,cust,team,version," +
 				",state,since,last,active,rate")
-		case "cdr.asp":
+		case "cdr.asp/term", "cdr.asp/orig":
 			fmt.Println("cdrs...")
 		}
 		for _, row := range r {
@@ -283,13 +283,14 @@ func main() {
 	address = cmon.Getarg([]string{args.address, settings.Address, "CMON_ADDRESS", ":4404"})
 
 	if cfn := map[string]func(){
-		"series":         seriesCmd,
-		"stream cur.aws": streamCURCmd,
-		"stream ec2.aws": streamCmd,
-		"stream ebs.aws": streamCmd,
-		"stream rds.aws": streamCmd,
-		"stream cdr.asp": streamCmd,
-		"":               defaultCmd,
+		"series":              seriesCmd,
+		"stream cur.aws":      streamCURCmd,
+		"stream ec2.aws":      streamCmd,
+		"stream ebs.aws":      streamCmd,
+		"stream rds.aws":      streamCmd,
+		"stream cdr.asp/term": streamCmd,
+		"stream cdr.asp/orig": streamCmd,
+		"":                    defaultCmd,
 	}[command]; cfn == nil {
 		fatal(1, "can't %s", command)
 	} else {
