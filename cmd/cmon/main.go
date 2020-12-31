@@ -206,11 +206,16 @@ func streamCmd() {
 	if client.Close(); len(r) > 0 {
 		switch args.model {
 		case "ec2.aws":
-			fmt.Println("inst id,...")
+			fmt.Println("inst,acct,type,plat,vol,AZ,AMI,spot,env,dc,product,app,cust,team,version," +
+				",state,since,last,active,rate")
 		case "ebs.aws":
-			fmt.Println("vol id,...")
+			fmt.Println("vol,acct,type,size,IOPS,AZ,mount,env,dc,product,app,cust,team,version," +
+				",state,since,last,active,rate")
 		case "rds.aws":
-			fmt.Println("DB id,...")
+			fmt.Println("db,acct,type,sto,size,engine,eng ver,lic,AZ,env,dc,product,app,cust,team,version," +
+				",state,since,last,active,rate")
+		case "cdr.asp":
+			fmt.Println("cdrs...")
 		}
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
