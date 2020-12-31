@@ -215,7 +215,7 @@ func streamCmd() {
 			fmt.Println("db,acct,type,sto,size,engine,eng ver,lic,AZ,env,dc,product,app,cust,team,version," +
 				",state,since,last,active,rate")
 		case "cdr.asp/term", "cdr.asp/orig":
-			fmt.Println("cdr,to,from,cust,start,minutes,billable,margin,info")
+			fmt.Println("cdr,loc,to,from,prov,cust,start,minutes,tries,billable,margin")
 		}
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields

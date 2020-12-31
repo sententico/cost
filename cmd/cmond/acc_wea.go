@@ -502,6 +502,10 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 
 func (d *hiD) extract(acc *modAcc, res chan []string, items int) {
 	var to, from tel.E164full
+	var sp tel.SPmap
+	var sl tel.SLmap
+	sp.Load(nil)
+	sl.Load(nil)
 	pg := pgSize
 	acc.reqR()
 nextHour:
@@ -515,15 +519,17 @@ nextHour:
 			cdr.To.Full(nil, &to)
 			cdr.From.Full(nil, &from)
 			ls := []string{
-				fmt.Sprintf("%X_%X_%X_%X", id>>gwlocShift, id>>shelfShift&shelfMask, id>>bootShift&bootMask, id&callMask),
+				fmt.Sprintf("0x%016X", id&idMask),
+				sl.Name(cdr.Info >> locShift),
 				fmt.Sprintf("+%s %s %s %s", to.CC, to.P, to.Sub, to.Geo),
 				fmt.Sprintf("+%s %s %s %s", from.CC, from.P, from.Sub, from.Geo),
+				sp.Name(cdr.Info & spMask),
 				cdr.Cust,
 				time.Unix(t+int64(cdr.Time&offMask), 0).Format("2006-01-02 15:04:05"),
 				strconv.FormatFloat(float64(cdr.Time>>durShift)/600, 'g', -1, 32),
+				strconv.FormatInt(int64(cdr.Info>>triesShift&triesMask), 10),
 				strconv.FormatFloat(float64(cdr.Bill), 'g', -1, 32),
 				strconv.FormatFloat(float64(cdr.Marg), 'g', -1, 32),
-				fmt.Sprintf("%X_%X_%X", cdr.Info>>locShift, cdr.Info>>triesShift&triesMask, cdr.Info&spMask),
 			}
 			if pg--; pg >= 0 {
 				select {
