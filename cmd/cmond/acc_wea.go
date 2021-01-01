@@ -455,6 +455,7 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 }
 
 func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
+	var name string
 	pg := pgSize
 	acc.reqR()
 	for id, db := range d.DB {
@@ -464,6 +465,10 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			break
 		}
 
+		if name = db.Tag["Name"]; name == "" {
+			s := strings.Split(id, ":")
+			name = s[len(s)-1]
+		}
 		ls := []string{
 			id,
 			db.Acct,
@@ -474,7 +479,7 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			db.Ver,
 			db.Lic,
 			db.AZ,
-			db.Tag["Name"],
+			name,
 			db.Tag["env"],
 			db.Tag["dc"],
 			db.Tag["product"],
