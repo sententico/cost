@@ -25,528 +25,139 @@
 		"SavCov":	0.7,
 		"SpotDisc":	0.65,
 		"UsageAdj":	0.94,
+		"Regions": {
+			"APS2": {"dc":"syd"},
+			"EUW1": {"dc":"dub"},
+			"EUW2": {"dc":"lgw"},
+			"USW1": {"dc":"sfo"},
+			"USW2": {"dc":"eug"}
+		},
+		"Profiles": {
+			"minimum": {
+				"us-east-1":0.0001,"us-east-2":0.0001,"us-west-1":0.0001,"us-west-2":0.0001,
+				"ap-south-1":0.0001,"ap-northeast-1":0.0001,"ap-northeast-2":0.0001,"ap-southeast-1":0.0001,"ap-southeast-2":0.0001,
+				"eu-central-1":0.0001,"eu-west-1":0.0001,"eu-west-2":0.0001,"eu-west-3":0.0001,"eu-north-1":0.0001,
+				"ca-central-1":0.0001,"sa-east-1":0.0001
+			},"eu west": {
+				"us-east-1":0.01,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ca-central-1":0.001,"sa-east-1":0.001
+			},"us": {
+				"us-east-1":1.0,"us-east-2":0.01,"us-west-1":1.0,"us-west-2":1.0,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2": 0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ca-central-1":0.001,"sa-east-1":0.001
+			},"us east": {
+				"us-east-1":1.0,"us-east-2":1.0,"us-west-1":0.001,"us-west-2":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ca-central-1":0.001,"sa-east-1":0.001
+			},"us east 1": {
+				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ca-central-1":0.001,"sa-east-1":0.001
+			},"global": {
+				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.01,"us-west-2":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.01,
+				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":1.0,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ca-central-1":0.001,"sa-east-1":0.001
+			},"global alt": {
+				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":1.0,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.1,"ap-southeast-2":0.001,
+				"eu-central-1":0.1,"eu-west-1":0.1,"eu-west-2":1.0,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ca-central-1":0.001,"sa-east-1":0.001
+			}
+		},
 		"Accounts": {
 			"default": {
-				"us-east-1": 0.0001,
-				"us-east-2": 0.0001,
-				"us-west-1": 0.0001,
-				"us-west-2": 0.0001,
-				"ap-south-1": 0.0001,
-				"ap-northeast-1": 0.0001,
-				"ap-northeast-2": 0.0001,
-				"ap-southeast-1": 0.0001,
-				"ap-southeast-2": 0.0001,
-				"ca-central-1": 0.0001,
-				"eu-central-1": 0.0001,
-				"eu-west-1": 0.0001,
-				"eu-west-2": 0.0001,
-				"eu-west-3": 0.0001,
-				"eu-north-1": 0.0001,
-				"sa-east-1": 0.0001
-			},
-			"542603770289": {
-				"us-east-1": 1.0,
-				"us-east-2": 1.0,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"673138677489": {
-				"us-east-1": 0.0001,
-				"us-east-2": 0.0001,
-				"us-west-1": 0.0001,
-				"us-west-2": 0.0001,
-				"ap-south-1": 0.0001,
-				"ap-northeast-1": 0.0001,
-				"ap-northeast-2": 0.0001,
-				"ap-southeast-1": 0.0001,
-				"ap-southeast-2": 0.0001,
-				"ca-central-1": 0.0001,
-				"eu-central-1": 0.0001,
-				"eu-west-1": 0.0001,
-				"eu-west-2": 0.0001,
-				"eu-west-3": 0.0001,
-				"eu-north-1": 0.0001,
-				"sa-east-1": 0.0001
-			},
-			"927185244192": {
-				"us-east-1": 1.0,
-				"us-east-2": 1.0,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"484878871463": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"606721501982": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 1.0,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 1.0,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 1.0,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"211656475552": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"007925789654": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"931353328580": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"213446661952": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"018805767579": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"271773505756": {
-				"us-east-1": 0.0001,
-				"us-east-2": 0.0001,
-				"us-west-1": 0.0001,
-				"us-west-2": 0.0001,
-				"ap-south-1": 0.0001,
-				"ap-northeast-1": 0.0001,
-				"ap-northeast-2": 0.0001,
-				"ap-southeast-1": 0.0001,
-				"ap-southeast-2": 0.0001,
-				"ca-central-1": 0.0001,
-				"eu-central-1": 0.0001,
-				"eu-west-1": 0.0001,
-				"eu-west-2": 0.0001,
-				"eu-west-3": 0.0001,
-				"eu-north-1": 0.0001,
-				"sa-east-1": 0.0001
-			},
-			"991879500211": {
-				"us-east-1": 0.0001,
-				"us-east-2": 0.0001,
-				"us-west-1": 0.0001,
-				"us-west-2": 0.0001,
-				"ap-south-1": 0.0001,
-				"ap-northeast-1": 0.0001,
-				"ap-northeast-2": 0.0001,
-				"ap-southeast-1": 0.0001,
-				"ap-southeast-2": 0.0001,
-				"ca-central-1": 0.0001,
-				"eu-central-1": 0.0001,
-				"eu-west-1": 0.0001,
-				"eu-west-2": 0.0001,
-				"eu-west-3": 0.0001,
-				"eu-north-1": 0.0001,
-				"sa-east-1": 0.0001
-			},
-			"093999772290": {
-				"us-east-1": 1.0,
-				"us-east-2": 1.0,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"922837348894": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 1.0,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 1.0,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"236630710668": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"175907869967": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 1.0,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 1.0,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"637527135380": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 1.0,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 1.0,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"492780541286": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 1.0,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"501424725652": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"127403002470": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 1.0,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 1.0,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"634901471063": {
-				"us-east-1": 0.0001,
-				"us-east-2": 0.0001,
-				"us-west-1": 0.0001,
-				"us-west-2": 0.0001,
-				"ap-south-1": 0.0001,
-				"ap-northeast-1": 0.0001,
-				"ap-northeast-2": 0.0001,
-				"ap-southeast-1": 0.0001,
-				"ap-southeast-2": 0.0001,
-				"ca-central-1": 0.0001,
-				"eu-central-1": 0.0001,
-				"eu-west-1": 0.0001,
-				"eu-west-2": 0.0001,
-				"eu-west-3": 0.0001,
-				"eu-north-1": 0.0001,
-				"sa-east-1": 0.0001
-			},
-			"896971561935": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 1.0,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 1.0,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"537601688677": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"162790430163": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 1.0,
-				"us-west-2": 1.0,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"042050835575": {
-				"us-east-1": 0.01,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"768575443820": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 1.0,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 1.0,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"841478974408": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 1.0,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 1.0,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 0.01,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
-			},
-			"286334278062": {
-				"us-east-1": 1.0,
-				"us-east-2": 0.001,
-				"us-west-1": 0.001,
-				"us-west-2": 0.001,
-				"ap-south-1": 0.001,
-				"ap-northeast-1": 0.001,
-				"ap-northeast-2": 0.001,
-				"ap-southeast-1": 0.001,
-				"ap-southeast-2": 0.01,
-				"ca-central-1": 0.001,
-				"eu-central-1": 0.001,
-				"eu-west-1": 1.0,
-				"eu-west-2": 0.01,
-				"eu-west-3": 0.001,
-				"eu-north-1": 0.001,
-				"sa-east-1": 0.001
+				"name":"master",
+				"profile":"minimum"
+			},"542603770289": {
+				"name":"Brooklyn", "env":"dev", "prod":"via", "team":"via",
+				"profile":"us east"
+			},"673138677489": {
+				"name":"Brooklyn DR", "env":"dev", "prod":"via",
+				"profile":"minimum"
+			},"927185244192": {
+				"name":"Cloudcore", "env":"dev", "prod":"via.core",
+				"profile":"us east"
+			},"484878871463": {
+				"name":"Brooklyn CXP", "env":"dev", "prod":"via.cxp", "team":"cxp",
+				"profile":"us east 1"
+			},"606721501982": {
+				"name":"infrastructure", "env":"dev",
+				"profile":"global"
+			},"211656475552": {
+				"name":"Manhattan", "env":"dev", "prod":"via.core", "team":"mmd",
+				"profile":"us east 1"
+			},"007925789654": {
+				"name":"architecture", "env":"dev",
+				"profile":"us east 1"
+			},"931353328580": {
+				"name":"PES", "env":"dev", "prod":"pes", "team":"pes",
+				"profile":"us east 1"
+			},"213446661952": {
+				"name":"QA", "env":"dev",
+				"profile":"us east 1"
+			},"018805767579": {
+				"name":"SCRM", "env":"dev", "team":"scrm",
+				"profile":"us east 1"
+			},"271773505756": {
+				"name":"WFM", "env":"dev", "prod":"wfm",
+				"profile":"minimum"
+			},"991879500211": {
+				"name":"Zipwire", "env":"dev", "prod":"zipwire", "team":"zipwire",
+				"profile":"minimum"
+			},"093999772290": {
+				"name":"premises demo",
+				"profile":"us east"
+			},"922837348894": {
+				"name":"APS", "env":"prod", "prod":"via.cec", "team":"apsdevops",
+				"profile":"global"
+			},"236630710668": {
+				"name":"APS Innovations", "env":"prod", "prod":"via", "team":"apsdevops",
+				"profile":"us east 1"
+			},"175907869967": {
+				"name":"Brooklyn", "env":"prod", "prod":"via", "team":"via",
+				"profile":"global"
+			},"637527135380": {
+				"name":"Brooklyn CXP", "env":"prod", "prod":"via.cxp", "team":"cxp",
+				"profile":"global"
+			},"492780541286": {
+				"name":"CXP", "env":"prod", "prod":"cxp",
+				"profile":"global alt"
+			},"501424725652": {
+				"name":"CXP staging", "env":"prod", "prod":"cxp",
+				"profile":"global"
+			},"127403002470": {
+				"name":"Cloudcore", "env":"prod", "prod":"via.core",
+				"profile":"global"
+			},"634901471063": {
+				"name":"Hosted AQM", "env":"prod", "prod":"uip",
+				"profile":"minimum"
+			},"896971561935": {
+				"name":"Manhattan", "env":"prod", "prod":"via.core",
+				"profile":"global"
+			},"537601688677": {
+				"name":"Omnichannel", "env":"prod", "prod":"zipwire",
+				"profile":"global"
+			},"162790430163": {
+				"name":"operations", "env":"sandbox", "prod":"via.core",
+				"profile":"us"
+			},"042050835575": {
+				"name":"PES", "env":"prod", "prod":"pes", "team":"pes",
+				"profile":"eu west"
+			},"768575443820": {
+				"name":"transit VPC", "env":"prod", "prod":"via",
+				"profile":"global alt"
+			},"841478974408": {
+				"name":"VoD", "env":"prod", "prod":"cxp", "team":"cxp",
+				"profile":"global alt"
+			},"286334278062": {
+				"name":"WFM", "env":"prod", "prod":"wfm",
+				"profile":"global"
 			}
 		}
 	},

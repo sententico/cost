@@ -81,7 +81,7 @@ func trigcmonScan(m *model, evt string) {
 			} else if mm := <-c; mm != nil {
 				for na, se := range mm {
 					if len(se) < 2 {
-					} else if u := se[0] + se[1]*(0.7*float64(3600-(time.Now().Unix()-90)%3600)/3600+0.3); u < metric.thresh {
+					} else if u := se[0] + se[1]*(0.8*float64(3600-(time.Now().Unix()-90)%3600)/3600+0.2); u < metric.thresh {
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
 						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, na, ss[len(ss)*95/100])
 						alerts = append(alerts, fmt.Sprintf(

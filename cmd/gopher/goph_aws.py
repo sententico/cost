@@ -76,12 +76,12 @@ def getWriter(m, cols):
 
 def gophEC2AWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
-    pipe,flt = getWriter(model, [
+    pipe,flt,prof = getWriter(model, [
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
-    ]), str.maketrans('\t',' ','=')
-    for a,ar in settings['AWS']['Accounts'].items():
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
+    for a,at in settings['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
-        for r,u in ar.items():
+        for r,u in prof[at.get('profile','global')].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
@@ -104,12 +104,12 @@ def gophEC2AWS(model, settings, inputs, args):
 
 def gophEBSAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
-    pipe,flt = getWriter(model, [
+    pipe,flt,prof = getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
-    ]), str.maketrans('\t',' ','=')
-    for a,ar in settings['AWS']['Accounts'].items():
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
+    for a,at in settings['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
-        for r,u in ar.items():
+        for r,u in prof[at.get('profile','global')].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for v in ec2.volumes.all():
@@ -133,12 +133,12 @@ def gophEBSAWS(model, settings, inputs, args):
 
 def gophRDSAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
-    pipe,flt = getWriter(model, [
+    pipe,flt,prof = getWriter(model, [
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
-    ]), str.maketrans('\t',' ','=')
-    for a,ar in settings['AWS']['Accounts'].items():
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
+    for a,at in settings['AWS']['Accounts'].items():
         session = boto3.Session(profile_name=a)
-        for r,u in ar.items():
+        for r,u in prof[at.get('profile','global')].items():
             if u < 1.0 and u <= random.random(): continue
             rds, s = session.client('rds', region_name=r), a+':'+r
             for d in rds.describe_db_instances().get('DBInstances',[]):

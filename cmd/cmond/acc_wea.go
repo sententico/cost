@@ -369,6 +369,11 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 			break
 		}
 
+		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
+		// AZ maps dc (incl. "N/A") default
+		// SCRM_Group maps team default
+		// Acct maps env, product, team defaults
+		// Inst:CUR[Resource ID] corrects Plat, Rate (indirect)
 		ls := []string{
 			id,
 			inst.Acct,
@@ -388,7 +393,6 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 			inst.Tag["version"],
 			inst.State,
 			time.Unix(int64(inst.Since), 0).UTC().Format("2006-01-02 15:04:05"),
-			time.Unix(int64(inst.Last), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(inst.Since, inst.Last, inst.Active)), 'g', -1, 32),
 			strconv.FormatFloat(float64(inst.Rate), 'g', -1, 32),
 		}
@@ -417,6 +421,11 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 			break
 		}
 
+		// Mount:EC2[Inst] maps Name, env, ..., version defaults (indirect)
+		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
+		// AZ maps dc (incl. "N/A") default
+		// SCRM_Group maps team default
+		// Acct maps env, product, team defaults
 		ls := []string{
 			id,
 			vol.Acct,
@@ -435,7 +444,6 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 			vol.Tag["version"],
 			vol.State,
 			time.Unix(int64(vol.Since), 0).UTC().Format("2006-01-02 15:04:05"),
-			time.Unix(int64(vol.Last), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
 			strconv.FormatFloat(float64(vol.Rate), 'g', -1, 32),
 		}
@@ -469,6 +477,12 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			s := strings.Split(id, ":")
 			name = s[len(s)-1]
 		}
+
+		// DB maps Name default
+		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
+		// AZ maps dc (incl. "N/A") default
+		// SCRM_Group maps team default
+		// Acct maps env, product, team defaults
 		ls := []string{
 			id,
 			db.Acct,
@@ -489,7 +503,6 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			db.Tag["version"],
 			db.State,
 			time.Unix(int64(db.Since), 0).UTC().Format("2006-01-02 15:04:05"),
-			time.Unix(int64(db.Last), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(db.Since, db.Last, db.Active)), 'g', -1, 32),
 			strconv.FormatFloat(float64(db.Rate), 'g', -1, 32),
 		}
@@ -654,6 +667,11 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			rec, usg, cost = li.Mu+1, li.Usg, li.Cost
 			from = to + 1
 		}
+		// Resource ID (for RDS) maps Name default; (for EBS):EBS[Vol]:EC2[Inst] maps Name, env, ..., version defaults (indirect)
+		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
+		// Region maps dc (incl. "N/A") default
+		// SCRM_Group maps team default
+		// Acct maps env, product, team defaults
 		return []string{
 			dts[:8] + id,
 			dts,

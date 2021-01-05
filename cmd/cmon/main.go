@@ -76,7 +76,7 @@ func init() {
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
 	args.streamSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to stream")
 	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
-	args.streamSet.Float64Var(&args.truncate, "truncate", 0.005, "`cost` item truncation threshold")
+	args.streamSet.Float64Var(&args.truncate, "truncate", 0.002, "`cost` item truncation threshold")
 	args.streamSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"stream\" subcommand returns an item detail stream.\n")
@@ -206,16 +206,16 @@ func streamCmd() {
 	if client.Close(); len(r) > 0 {
 		switch args.model {
 		case "ec2.aws":
-			fmt.Println("inst,acct,type,plat,vol,AZ,AMI,spot,name,env,dc,product,app,cust,team,version" +
-				",state,since,last,active,rate")
+			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,AMI,Spot," +
+				"Name,Env,DC,Product,App,Cust,Team,Version,State,Since,Active,Rate")
 		case "ebs.aws":
-			fmt.Println("vol,acct,type,size,IOPS,AZ,mount,name,env,dc,product,app,cust,team,version" +
-				",state,since,last,active,rate")
+			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount," +
+				"Name,Env,DC,Product,App,Cust,Team,Version,State,Since,Active,Rate")
 		case "rds.aws":
-			fmt.Println("db,acct,type,sto,size,engine,eng ver,lic,AZ,name,env,dc,product,app,cust,team,version" +
-				",state,since,last,active,rate")
+			fmt.Println("DB,Acct,Type,Sto,Size,Engine,EngVer,Lic,AZ," +
+				"Name,Env,DC,Product,App,Cust,Team,Version,State,Since,Active,Rate")
 		case "cdr.asp/term", "cdr.asp/orig":
-			fmt.Println("cdr,loc,to,from,prov,cust/app,start,min,tries,billable,margin")
+			fmt.Println("CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin")
 		}
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
@@ -252,8 +252,8 @@ func streamCURCmd() {
 		if len(r) == args.items {
 			warn = " [item limit reached]"
 		}
-		fmt.Printf("Invoice ID%s,%s,Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
-			",Item Description,Name,Env,DC,Product,App,Cust,Team,Ver,Recs,Usage,Billed\n", warn, unit)
+		fmt.Printf("Invoice Item%s,%s,Acct,Type,Service,Usage Type,Operation,Region,Resource ID"+
+			",Item Description,Name,Env,DC,Product,App,Cust,Team,Version,Recs,Usage,Billed\n", warn, unit)
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
 		}
