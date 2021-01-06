@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sententico/cost/aws"
+	"github.com/sententico/cost/cmon"
 	"github.com/sententico/cost/tel"
 )
 
@@ -53,12 +54,12 @@ type (
 	ec2Item struct {
 		Acct   string
 		Typ    string
-		Plat   string            `json:",omitempty"`
-		Vol    int               `json:",omitempty"`
-		AZ     string            `json:",omitempty"`
-		AMI    string            `json:",omitempty"`
-		Spot   string            `json:",omitempty"`
-		Tag    map[string]string `json:",omitempty"`
+		Plat   string      `json:",omitempty"`
+		Vol    int         `json:",omitempty"`
+		AZ     string      `json:",omitempty"`
+		AMI    string      `json:",omitempty"`
+		Spot   string      `json:",omitempty"`
+		Tag    cmon.TagMap `json:",omitempty"`
 		State  string
 		Since  int
 		Last   int
@@ -83,11 +84,11 @@ type (
 	ebsItem struct {
 		Acct   string
 		Typ    string
-		Size   int               `json:",omitempty"`
-		IOPS   int               `json:",omitempty"`
-		AZ     string            `json:",omitempty"`
-		Mount  string            `json:",omitempty"`
-		Tag    map[string]string `json:",omitempty"`
+		Size   int         `json:",omitempty"`
+		IOPS   int         `json:",omitempty"`
+		AZ     string      `json:",omitempty"`
+		Mount  string      `json:",omitempty"`
+		Tag    cmon.TagMap `json:",omitempty"`
 		State  string
 		Since  int
 		Last   int
@@ -112,15 +113,15 @@ type (
 	rdsItem struct {
 		Acct    string
 		Typ     string
-		STyp    string            `json:",omitempty"`
-		Size    int               `json:",omitempty"`
-		IOPS    int               `json:",omitempty"`
-		Engine  string            `json:",omitempty"`
-		Ver     string            `json:",omitempty"`
-		Lic     string            `json:",omitempty"`
-		AZ      string            `json:",omitempty"`
-		MultiAZ bool              `json:",omitempty"`
-		Tag     map[string]string `json:",omitempty"`
+		STyp    string      `json:",omitempty"`
+		Size    int         `json:",omitempty"`
+		IOPS    int         `json:",omitempty"`
+		Engine  string      `json:",omitempty"`
+		Ver     string      `json:",omitempty"`
+		Lic     string      `json:",omitempty"`
+		AZ      string      `json:",omitempty"`
+		MultiAZ bool        `json:",omitempty"`
+		Tag     cmon.TagMap `json:",omitempty"`
 		State   string
 		Since   int
 		Last    int

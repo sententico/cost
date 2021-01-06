@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sententico/cost/cmon"
 	"github.com/sententico/cost/tel"
 )
 
@@ -359,6 +360,13 @@ func active(since, last int, ap []int) float32 {
 	return float32(a) / float32(last-since+1)
 }
 
+func nTags(name string) cmon.TagMap {
+	switch settings.Unit {
+	case "cmon-aspect":
+	}
+	return nil
+}
+
 func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 	pg := pgSize
 	acc.reqR()
@@ -370,10 +378,10 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 		}
 
 		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
-		// AZ maps dc (incl. "N/A") default
-		// SCRM_Group maps team default
-		// Acct maps env, product, team defaults
 		// Inst:CUR[Resource ID] corrects Plat, Rate (indirect)
+		if inst.Tag.Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
+			inst.Tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
+		}
 		ls := []string{
 			id,
 			inst.Acct,
@@ -422,10 +430,9 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 		}
 
 		// Mount:EC2[Inst] maps Name, env, ..., version defaults (indirect)
-		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
-		// AZ maps dc (incl. "N/A") default
-		// SCRM_Group maps team default
-		// Acct maps env, product, team defaults
+		if vol.Tag.Update(nTags(vol.Tag["Name"])).UpdateT("team", vol.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
+			vol.Tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
+		}
 		ls := []string{
 			id,
 			vol.Acct,
@@ -477,12 +484,9 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			s := strings.Split(id, ":")
 			name = s[len(s)-1]
 		}
-
-		// DB maps Name default
-		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
-		// AZ maps dc (incl. "N/A") default
-		// SCRM_Group maps team default
-		// Acct maps env, product, team defaults
+		if db.Tag.Update(nTags(name)).UpdateT("team", db.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[db.Acct]); db.AZ != "" {
+			db.Tag.Update(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]])
+		}
 		ls := []string{
 			id,
 			db.Acct,
@@ -493,6 +497,7 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			db.Ver,
 			db.Lic,
 			db.AZ,
+			// TODO: include MultiAZ
 			name,
 			db.Tag["env"],
 			db.Tag["dc"],
@@ -668,10 +673,16 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			from = to + 1
 		}
 		// Resource ID (for RDS) maps Name default; (for EBS):EBS[Vol]:EC2[Inst] maps Name, env, ..., version defaults (indirect)
-		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
-		// Region maps dc (incl. "N/A") default
-		// SCRM_Group maps team default
-		// Acct maps env, product, team defaults
+		// SCRM_Group tag available to map team default?
+		t := cmon.TagMap{
+			"env":     li.Env,
+			"dc":      li.DC,
+			"product": li.Prod,
+			"app":     li.App,
+			"cust":    li.Cust,
+			"team":    li.Team,
+			"version": li.Ver,
+		}.Update(nTags(li.Name)).Update(settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg])
 		return []string{
 			dts[:8] + id,
 			dts,
@@ -684,13 +695,13 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			li.RID,
 			li.Desc,
 			li.Name,
-			li.Env,
-			li.DC,
-			li.Prod,
-			li.App,
-			li.Cust,
-			li.Team,
-			li.Ver,
+			t["env"],
+			t["dc"],
+			t["product"],
+			t["app"],
+			t["cust"],
+			t["team"],
+			t["version"],
 			strconv.FormatInt(int64(rec), 10),
 			strconv.FormatFloat(float64(usg), 'g', -1, 32),
 			strconv.FormatFloat(float64(cost), 'g', -1, 32),

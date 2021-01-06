@@ -11,13 +11,16 @@ import (
 
 // Cloud Monitor settings types
 type (
+	// TagMap ...
+	TagMap map[string]string
+
 	// awsService settings
 	awsService struct {
 		Options                    string
 		SavPlan                    string
 		SavCov, SpotDisc, UsageAdj float32
 		Profiles                   map[string]map[string]float32
-		Regions, Accounts          map[string]map[string]string
+		Regions, Accounts          map[string]TagMap
 	}
 	// datadogService settings
 	datadogService struct {
@@ -115,4 +118,28 @@ func (s *MonSettings) Load(loc string) (err error) {
 		s.JSON = bb.String()
 	}
 	return nil
+}
+
+// Update method on TagMap ...
+func (t TagMap) Update(u TagMap) TagMap {
+	if t == nil {
+		t = make(TagMap)
+	}
+	for k, v := range u {
+		if v != "" && k != "" && k[0] != '~' && t[k] == "" {
+			t[k] = v
+		}
+	}
+	return t
+}
+
+// UpdateT method on TagMap ...
+func (t TagMap) UpdateT(k, v string) TagMap {
+	if t == nil {
+		t = make(TagMap)
+	}
+	if v != "" && k != "" && k[0] != '~' && t[k] == "" {
+		t[k] = v
+	}
+	return t
 }

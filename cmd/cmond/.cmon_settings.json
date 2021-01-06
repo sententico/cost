@@ -26,138 +26,136 @@
 		"SpotDisc":	0.65,
 		"UsageAdj":	0.94,
 		"Regions": {
-			"APS2": {"dc":"syd"},
-			"EUW1": {"dc":"dub"},
-			"EUW2": {"dc":"lgw"},
-			"USW1": {"dc":"sfo"},
-			"USW2": {"dc":"eug"}
+			"USW1": {"dc":"sfo"},"us-west-1": {"dc":"sfo"},
+			"USW2": {"dc":"eug"},"us-west-2": {"dc":"eug"},
+			"EUW1": {"dc":"dub"},"eu-west-1": {"dc":"dub"},
+			"EUW2": {"dc":"lgw"},"eu-west-2": {"dc":"lgw"},
+			"APS2": {"dc":"syd"},"ap-southeast-2": {"dc":"syd"}
 		},
 		"Profiles": {
 			"minimum": {
 				"us-east-1":0.0001,"us-east-2":0.0001,"us-west-1":0.0001,"us-west-2":0.0001,
-				"ap-south-1":0.0001,"ap-northeast-1":0.0001,"ap-northeast-2":0.0001,"ap-southeast-1":0.0001,"ap-southeast-2":0.0001,
 				"eu-central-1":0.0001,"eu-west-1":0.0001,"eu-west-2":0.0001,"eu-west-3":0.0001,"eu-north-1":0.0001,
+				"ap-south-1":0.0001,"ap-northeast-1":0.0001,"ap-northeast-2":0.0001,"ap-southeast-1":0.0001,"ap-southeast-2":0.0001,
 				"ca-central-1":0.0001,"sa-east-1":0.0001
 			},"eu west": {
 				"us-east-1":0.01,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"us": {
 				"us-east-1":1.0,"us-east-2":0.01,"us-west-1":1.0,"us-west-2":1.0,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2": 0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2": 0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"us east": {
 				"us-east-1":1.0,"us-east-2":1.0,"us-west-1":0.001,"us-west-2":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"us east 1": {
 				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"global": {
 				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.01,"us-west-2":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.01,
 				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":1.0,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.01,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"global alt": {
 				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":1.0,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.1,"ap-southeast-2":0.001,
 				"eu-central-1":0.1,"eu-west-1":0.1,"eu-west-2":1.0,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.1,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			}
 		},
 		"Accounts": {
 			"default": {
-				"name":"master",
-				"profile":"minimum"
+				"~name":"master","~profile":"minimum"
 			},"542603770289": {
-				"name":"Brooklyn", "env":"dev", "prod":"via", "team":"via",
-				"profile":"us east"
+				"env":"dev","prod":"via","team":"via",
+				"~name":"Brooklyn","~profile":"us east"
 			},"673138677489": {
-				"name":"Brooklyn DR", "env":"dev", "prod":"via",
-				"profile":"minimum"
+				"env":"dev","prod":"via",
+				"~name":"Brooklyn DR","~profile":"minimum"
 			},"927185244192": {
-				"name":"Cloudcore", "env":"dev", "prod":"via.core",
-				"profile":"us east"
+				"env":"dev","prod":"via.core",
+				"~name":"Cloudcore","~profile":"us east"
 			},"484878871463": {
-				"name":"Brooklyn CXP", "env":"dev", "prod":"via.cxp", "team":"cxp",
-				"profile":"us east 1"
+				"env":"dev","prod":"via.cxp","team":"cxp",
+				"~name":"Brooklyn CXP","~profile":"us east 1"
 			},"606721501982": {
-				"name":"infrastructure", "env":"dev",
-				"profile":"global"
+				"env":"dev",
+				"~name":"infrastructure","~profile":"global"
 			},"211656475552": {
-				"name":"Manhattan", "env":"dev", "prod":"via.core", "team":"mmd",
-				"profile":"us east 1"
+				"env":"dev","prod":"via.core","team":"mmd",
+				"~name":"Manhattan","~profile":"us east 1"
 			},"007925789654": {
-				"name":"architecture", "env":"dev",
-				"profile":"us east 1"
+				"env":"dev",
+				"~name":"architecture","~profile":"us east 1"
 			},"931353328580": {
-				"name":"PES", "env":"dev", "prod":"pes", "team":"pes",
-				"profile":"us east 1"
+				"env":"dev","prod":"pes","team":"pes",
+				"~name":"PES","~profile":"us east 1"
 			},"213446661952": {
-				"name":"QA", "env":"dev",
-				"profile":"us east 1"
+				"env":"dev",
+				"~name":"QA","~profile":"us east 1"
 			},"018805767579": {
-				"name":"SCRM", "env":"dev", "team":"scrm",
-				"profile":"us east 1"
+				"env":"dev","team":"scrm",
+				"~name":"SCRM","~profile":"us east 1"
 			},"271773505756": {
-				"name":"WFM", "env":"dev", "prod":"wfm",
-				"profile":"minimum"
+				"env":"dev","prod":"wfm",
+				"~name":"WFM","~profile":"minimum"
 			},"991879500211": {
-				"name":"Zipwire", "env":"dev", "prod":"zipwire", "team":"zipwire",
-				"profile":"minimum"
+				"env":"dev","prod":"zipwire","team":"zipwire",
+				"~name":"Zipwire","~profile":"minimum"
 			},"093999772290": {
-				"name":"premises demo",
-				"profile":"us east"
+				"~name":"premises demo","~profile":"us east"
 			},"922837348894": {
-				"name":"APS", "env":"prod", "prod":"via.cec", "team":"apsdevops",
-				"profile":"global"
+				"env":"prod","prod":"via.cec","team":"apsdevops",
+				"~name":"APS","~profile":"global"
 			},"236630710668": {
-				"name":"APS Innovations", "env":"prod", "prod":"via", "team":"apsdevops",
-				"profile":"us east 1"
+				"env":"prod","prod":"via","team":"apsdevops",
+				"~name":"APS Innovations","~profile":"us east 1"
 			},"175907869967": {
-				"name":"Brooklyn", "env":"prod", "prod":"via", "team":"via",
-				"profile":"global"
+				"env":"prod","prod":"via","team":"via",
+				"~name":"Brooklyn","~profile":"global"
 			},"637527135380": {
-				"name":"Brooklyn CXP", "env":"prod", "prod":"via.cxp", "team":"cxp",
-				"profile":"global"
+				"env":"prod","prod":"via.cxp","team":"cxp",
+				"~name":"Brooklyn CXP","~profile":"global"
 			},"492780541286": {
-				"name":"CXP", "env":"prod", "prod":"cxp",
-				"profile":"global alt"
+				"env":"prod","prod":"cxp",
+				"~name":"CXP","~profile":"global alt"
 			},"501424725652": {
-				"name":"CXP staging", "env":"prod", "prod":"cxp",
-				"profile":"global"
+				"env":"prod","prod":"cxp",
+				"~name":"CXP staging","~profile":"global"
 			},"127403002470": {
-				"name":"Cloudcore", "env":"prod", "prod":"via.core",
-				"profile":"global"
+				"env":"prod","prod":"via.core",
+				"~name":"Cloudcore","~profile":"global"
 			},"634901471063": {
-				"name":"Hosted AQM", "env":"prod", "prod":"uip",
-				"profile":"minimum"
+				"env":"prod","prod":"uip",
+				"~name":"Hosted AQM","~profile":"minimum"
 			},"896971561935": {
-				"name":"Manhattan", "env":"prod", "prod":"via.core",
-				"profile":"global"
+				"env":"prod","prod":"via.core",
+				"~name":"Manhattan","~profile":"global"
 			},"537601688677": {
-				"name":"Omnichannel", "env":"prod", "prod":"zipwire",
-				"profile":"global"
+				"env":"prod","prod":"zipwire",
+				"~name":"Omnichannel","~profile":"global"
 			},"162790430163": {
-				"name":"operations", "env":"sandbox", "prod":"via.core",
-				"profile":"us"
+				"env":"sandbox","prod":"via.core",
+				"~name":"operations","~profile":"us"
 			},"042050835575": {
-				"name":"PES", "env":"prod", "prod":"pes", "team":"pes",
-				"profile":"eu west"
+				"env":"prod","prod":"pes","team":"pes",
+				"~name":"PES","~profile":"eu west"
 			},"768575443820": {
-				"name":"transit VPC", "env":"prod", "prod":"via",
-				"profile":"global alt"
+				"env":"prod","prod":"via",
+				"~name":"transit VPC","~profile":"global alt"
 			},"841478974408": {
-				"name":"VoD", "env":"prod", "prod":"cxp", "team":"cxp",
-				"profile":"global alt"
+				"env":"prod","prod":"cxp","team":"cxp",
+				"~name":"VoD","~profile":"global alt"
 			},"286334278062": {
-				"name":"WFM", "env":"prod", "prod":"wfm",
-				"profile":"global"
+				"env":"prod","prod":"wfm",
+				"~name":"WFM","~profile":"global"
 			}
 		}
 	},

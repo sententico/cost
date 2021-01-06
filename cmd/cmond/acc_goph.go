@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sententico/cost/aws"
+	"github.com/sententico/cost/cmon"
 	"github.com/sententico/cost/csv"
 	"github.com/sententico/cost/tel"
 )
@@ -145,7 +146,7 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	inst.AZ = item["az"]
 	inst.Spot = item["spot"]
 	if tag := item["tag"]; tag != "" {
-		inst.Tag = make(map[string]string)
+		inst.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
 			kvs := strings.Split(kv, "=")
 			inst.Tag[kvs[0]] = kvs[1]
@@ -227,7 +228,7 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		vol.Mount = ""
 	}
 	if tag := item["tag"]; tag != "" {
-		vol.Tag = make(map[string]string)
+		vol.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
 			kvs := strings.Split(kv, "=")
 			vol.Tag[kvs[0]] = kvs[1]
@@ -303,7 +304,7 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 		az = 2
 	}
 	if tag := item["tag"]; tag != "" {
-		db.Tag = make(map[string]string)
+		db.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
 			kvs := strings.Split(kv, "=")
 			db.Tag[kvs[0]] = kvs[1]
