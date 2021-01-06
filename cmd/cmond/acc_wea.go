@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,12 @@ var (
 		"":      "wea_test.py", // default weasel
 		"~":     "weasel",      // command type
 	}
+	aspTags *regexp.Regexp
 )
+
+func init() {
+	aspTags = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
+}
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	// prepare lookup and validate v; even on error return a result on res
@@ -360,11 +366,17 @@ func active(since, last int, ap []int) float32 {
 	return float32(a) / float32(last-since+1)
 }
 
-func nTags(name string) cmon.TagMap {
+func nTags(name string) (t cmon.TagMap) {
 	switch settings.Unit {
 	case "cmon-aspect":
+		if v := aspTags.FindStringSubmatch(name); v != nil {
+			t = make(cmon.TagMap)
+			for i, k := range aspTags.SubexpNames()[1:] {
+				t[k] = v[i+1]
+			}
+		}
 	}
-	return nil
+	return
 }
 
 func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
@@ -377,7 +389,6 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 			break
 		}
 
-		// Name maps product, app, cust (incl. "customer","none","shared"), version defaults
 		// Inst:CUR[Resource ID] corrects Plat, Rate (indirect)
 		if inst.Tag.Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
 			inst.Tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
