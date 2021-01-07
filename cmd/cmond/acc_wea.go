@@ -25,12 +25,8 @@ var (
 		"":      "wea_test.py", // default weasel
 		"~":     "weasel",      // command type
 	}
-	aspTags *regexp.Regexp
+	aspN = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
 )
-
-func init() {
-	aspTags = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
-}
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	// prepare lookup and validate v; even on error return a result on res
@@ -369,9 +365,9 @@ func active(since, last int, ap []int) float32 {
 func nTags(name string) (t cmon.TagMap) {
 	switch settings.Unit {
 	case "cmon-aspect":
-		if v := aspTags.FindStringSubmatch(name); v != nil {
+		if v := aspN.FindStringSubmatch(name); v != nil {
 			t = make(cmon.TagMap)
-			for i, k := range aspTags.SubexpNames()[1:] {
+			for i, k := range aspN.SubexpNames()[1:] {
 				t[k] = v[i+1]
 			}
 		}
@@ -431,6 +427,30 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 }
 
 func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
+	itags := make(map[string]cmon.TagMap)
+	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
+		acc.reqR()
+		for _, vol := range d.Vol {
+			if vol.Last >= d.Current && strings.HasPrefix(vol.Mount, "i-") {
+				itags[strings.SplitN(vol.Mount, ":", 2)[0]] = nil
+			}
+		}
+		acc.rel()
+		func() {
+			ec2.reqR()
+			defer func() { recover(); ec2.rel() }()
+			for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
+				if _, found := itags[id]; found {
+					if inst.Tag.Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
+						inst.Tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
+					}
+					itags[id] = inst.Tag
+				}
+			}
+			ec2.rel()
+		}()
+	}
+
 	pg := pgSize
 	acc.reqR()
 	for id, vol := range d.Vol {
@@ -440,8 +460,7 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 			break
 		}
 
-		// Mount:EC2[Inst] maps Name, env, ..., version defaults (indirect)
-		if vol.Tag.Update(nTags(vol.Tag["Name"])).UpdateT("team", vol.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
+		if vol.Tag.Update(nTags(vol.Tag["Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]]).UpdateT("team", vol.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
 			vol.Tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
 		}
 		ls := []string{
@@ -643,6 +662,17 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			husg[0] = li.Usg
 		}
 	}
+	// for RDS: Resource ID maps Name default; for EBS: EBS[Vol]:EC2[Inst] maps Name, env, ..., version defaults (indirect)
+	// make SCRM_Group tag available to map team default?
+	tag := cmon.TagMap{
+		"env":     li.Env,
+		"dc":      li.DC,
+		"product": li.Prod,
+		"app":     li.App,
+		"cust":    li.Cust,
+		"team":    li.Team,
+		"version": li.Ver,
+	}.Update(nTags(li.Name)).Update(settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg])
 
 	return func() []string {
 		var rec int16
@@ -683,17 +713,6 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			rec, usg, cost = li.Mu+1, li.Usg, li.Cost
 			from = to + 1
 		}
-		// Resource ID (for RDS) maps Name default; (for EBS):EBS[Vol]:EC2[Inst] maps Name, env, ..., version defaults (indirect)
-		// SCRM_Group tag available to map team default?
-		t := cmon.TagMap{
-			"env":     li.Env,
-			"dc":      li.DC,
-			"product": li.Prod,
-			"app":     li.App,
-			"cust":    li.Cust,
-			"team":    li.Team,
-			"version": li.Ver,
-		}.Update(nTags(li.Name)).Update(settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg])
 		return []string{
 			dts[:8] + id,
 			dts,
@@ -706,13 +725,13 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			li.RID,
 			li.Desc,
 			li.Name,
-			t["env"],
-			t["dc"],
-			t["product"],
-			t["app"],
-			t["cust"],
-			t["team"],
-			t["version"],
+			tag["env"],
+			tag["dc"],
+			tag["product"],
+			tag["app"],
+			tag["cust"],
+			tag["team"],
+			tag["version"],
 			strconv.FormatInt(int64(rec), 10),
 			strconv.FormatFloat(float64(usg), 'g', -1, 32),
 			strconv.FormatFloat(float64(cost), 'g', -1, 32),
