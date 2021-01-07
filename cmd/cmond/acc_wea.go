@@ -385,9 +385,9 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 			break
 		}
 
-		// Inst:CUR[Resource ID] corrects Plat, Rate (indirect)
-		if inst.Tag.Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
-			inst.Tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
+		tag := cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
+		if tag.Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
+			tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
 		}
 		ls := []string{
 			id,
@@ -398,14 +398,14 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 			inst.AZ,
 			inst.AMI,
 			inst.Spot,
-			inst.Tag["Name"],
-			inst.Tag["env"],
-			inst.Tag["dc"],
-			inst.Tag["product"],
-			inst.Tag["app"],
-			inst.Tag["cust"],
-			inst.Tag["team"],
-			inst.Tag["version"],
+			tag["Name"],
+			tag["env"],
+			tag["dc"],
+			tag["product"],
+			tag["app"],
+			tag["cust"],
+			tag["team"],
+			tag["version"],
 			inst.State,
 			time.Unix(int64(inst.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(inst.Since, inst.Last, inst.Active)), 'g', -1, 32),
@@ -439,15 +439,15 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 		func() {
 			ec2.reqR()
 			defer func() { recover(); ec2.rel() }()
-			for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
-				if _, found := itags[id]; found {
-					if inst.Tag.Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
-						inst.Tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
+			for id := range itags {
+				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
+					tag := cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
+					if tag.Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
+						tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
 					}
-					itags[id] = inst.Tag
+					itags[id] = tag
 				}
 			}
-			ec2.rel()
 		}()
 	}
 
@@ -460,8 +460,9 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 			break
 		}
 
-		if vol.Tag.Update(nTags(vol.Tag["Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]]).UpdateT("team", vol.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
-			vol.Tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
+		tag := cmon.TagMap{}.Update(vol.Tag).Update(nTags(vol.Tag["Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]]).UpdateT("team", vol.Tag["SCRM_Group"])
+		if tag.Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
+			tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
 		}
 		ls := []string{
 			id,
@@ -471,14 +472,14 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 			strconv.FormatInt(int64(vol.IOPS), 10),
 			vol.AZ,
 			vol.Mount,
-			vol.Tag["Name"],
-			vol.Tag["env"],
-			vol.Tag["dc"],
-			vol.Tag["product"],
-			vol.Tag["app"],
-			vol.Tag["cust"],
-			vol.Tag["team"],
-			vol.Tag["version"],
+			tag["Name"],
+			tag["env"],
+			tag["dc"],
+			tag["product"],
+			tag["app"],
+			tag["cust"],
+			tag["team"],
+			tag["version"],
 			vol.State,
 			time.Unix(int64(vol.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
@@ -514,7 +515,8 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			s := strings.Split(id, ":")
 			name = s[len(s)-1]
 		}
-		if db.Tag.Update(nTags(name)).UpdateT("team", db.Tag["SCRM_Group"]).Update(settings.AWS.Accounts[db.Acct]); db.AZ != "" {
+		tag := cmon.TagMap{}.Update(db.Tag).Update(nTags(name)).UpdateT("team", db.Tag["SCRM_Group"])
+		if tag.Update(settings.AWS.Accounts[db.Acct]); db.AZ != "" {
 			db.Tag.Update(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]])
 		}
 		ls := []string{
@@ -529,13 +531,13 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 			db.AZ,
 			// TODO: include MultiAZ
 			name,
-			db.Tag["env"],
-			db.Tag["dc"],
-			db.Tag["product"],
-			db.Tag["app"],
-			db.Tag["cust"],
-			db.Tag["team"],
-			db.Tag["version"],
+			tag["env"],
+			tag["dc"],
+			tag["product"],
+			tag["app"],
+			tag["cust"],
+			tag["team"],
+			tag["version"],
 			db.State,
 			time.Unix(int64(db.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(db.Since, db.Last, db.Active)), 'g', -1, 32),
