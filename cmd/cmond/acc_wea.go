@@ -427,7 +427,7 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 }
 
 func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
-	itags := make(map[string]cmon.TagMap)
+	itags := make(map[string]cmon.TagMap, 4096)
 	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
 		acc.reqR()
 		for _, vol := range d.Vol {
@@ -441,11 +441,7 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 			defer func() { recover(); ec2.rel() }()
 			for id := range itags {
 				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-					tag := cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
-					if tag.Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
-						tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
-					}
-					itags[id] = tag
+					itags[id] = cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
 				}
 			}
 		}()
@@ -644,7 +640,7 @@ func streamExtract(n string, items int) (res chan []string, err error) {
 	return
 }
 
-func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, dts string) func() []string {
+func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, itag cmon.TagMap, dts string) func() []string {
 	var husg [744]float32
 	var rate float32
 	if from -= hrs[0]; from < 0 {
@@ -664,17 +660,15 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			husg[0] = li.Usg
 		}
 	}
-	// for RDS: Resource ID maps Name default; for EBS: EBS[Vol]:EC2[Inst] maps Name, env, ..., version defaults (indirect)
-	// make SCRM_Group tag available to map team default?
 	tag := cmon.TagMap{
 		"env":     li.Env,
 		"dc":      li.DC,
 		"product": li.Prod,
 		"app":     li.App,
 		"cust":    li.Cust,
-		"team":    li.Team,
+		"team":    li.Team, // TODO: make SCRM_Group tag available as default?
 		"version": li.Ver,
-	}.Update(nTags(li.Name)).Update(settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg])
+	}.Update(nTags(li.Name)).Update(nTags(li.RID)).Update(itag).Update(settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg])
 
 	return func() []string {
 		var rec int16
@@ -760,15 +754,52 @@ func curawsExtract(from, to int32, units int16, items int, truncate float64) (re
 			}
 		}()
 		pg, trunc := pgSize, float32(truncate)
-		acc.reqR()
 
+		vinst, itags := make(map[string]string, 8192), make(map[string]cmon.TagMap, 4096)
+		if ebs, ec2 := mMod["ebs.aws"].newAcc(), mMod["ec2.aws"].newAcc(); ebs != nil && ec2 != nil && len(ebs.m.data) > 1 && len(ec2.m.data) > 1 {
+			acc.reqR()
+			for mo, hrs := range acc.m.data[1].(*curDetail).Month {
+				if to >= hrs[0] && hrs[1] >= from {
+					for _, li := range acc.m.data[1].(*curDetail).Line[mo] {
+						if (li.Cost >= trunc || -trunc >= li.Cost) && strings.HasPrefix(li.RID, "vol-") {
+							vinst[li.RID] = ""
+						}
+					}
+				}
+			}
+			acc.rel()
+			func() {
+				ebs.reqR()
+				defer func() { recover(); ebs.rel() }()
+				var inst string
+				for id := range vinst {
+					if vol := ebs.m.data[1].(*ebsDetail).Vol[id]; vol != nil {
+						if strings.HasPrefix(vol.Mount, "i-") {
+							inst = strings.SplitN(vol.Mount, ":", 2)[0]
+							vinst[id], itags[inst] = inst, nil
+						}
+					}
+				}
+			}()
+			func() {
+				ec2.reqR()
+				defer func() { recover(); ec2.rel() }()
+				for id := range itags {
+					if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
+						itags[id] = cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
+					}
+				}
+			}()
+		}
+
+		acc.reqR()
 	nextMonth:
 		for mo, hrs := range acc.m.data[1].(*curDetail).Month {
 			if to >= hrs[0] && hrs[1] >= from {
 				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
 				for id, li := range acc.m.data[1].(*curDetail).Line[mo] {
 					if li.Cost >= trunc || -trunc >= li.Cost {
-						slicer := getSlicer(from, to, units, trunc, hrs, id, li, dts)
+						slicer := getSlicer(from, to, units, trunc, hrs, id, li, itags[vinst[li.RID]], dts)
 						for ls := slicer(); ls != nil; ls = slicer() {
 							if items--; items == 0 {
 								break nextMonth
