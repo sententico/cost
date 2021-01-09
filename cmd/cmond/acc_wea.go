@@ -660,7 +660,7 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 			husg[0] = li.Usg
 		}
 	}
-	tag := cmon.TagMap{
+	acct, tag := li.Acct+" "+settings.AWS.Accounts[li.Acct]["~name"], cmon.TagMap{
 		"env":     li.Env,
 		"dc":      li.DC,
 		"product": li.Prod,
@@ -712,7 +712,7 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 		return []string{
 			dts[:8] + id,
 			dts,
-			li.Acct,
+			acct,
 			li.Typ,
 			li.Svc,
 			li.UTyp,

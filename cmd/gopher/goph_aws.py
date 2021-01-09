@@ -80,8 +80,9 @@ def gophEC2AWS(model, settings, inputs, args):
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
     for a,at in settings['AWS']['Accounts'].items():
+        if not at.get('~profile') or not prof.get(at['~profile']): continue
         session = boto3.Session(profile_name=a)
-        for r,u in prof[at.get('~profile','global')].items():
+        for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for i in ec2.instances.all():
@@ -108,8 +109,9 @@ def gophEBSAWS(model, settings, inputs, args):
         'id','acct','type','size','iops','az','state','mount','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
     for a,at in settings['AWS']['Accounts'].items():
+        if not at.get('~profile') or not prof.get(at['~profile']): continue
         session = boto3.Session(profile_name=a)
-        for r,u in prof[at.get('~profile','global')].items():
+        for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
             for v in ec2.volumes.all():
@@ -137,8 +139,9 @@ def gophRDSAWS(model, settings, inputs, args):
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
     for a,at in settings['AWS']['Accounts'].items():
+        if not at.get('~profile') or not prof.get(at['~profile']): continue
         session = boto3.Session(profile_name=a)
-        for r,u in prof[at.get('~profile','global')].items():
+        for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             rds, s = session.client('rds', region_name=r), a+':'+r
             for d in rds.describe_db_instances().get('DBInstances',[]):
