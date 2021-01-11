@@ -170,7 +170,7 @@ func seriesCmd() {
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
-	var r cmon.SeriesRet
+	var r map[string][]float64
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:    "placeholder_access_token",
 		Metric:   args.metric,
@@ -181,7 +181,7 @@ func seriesCmd() {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	client.Close()
-	for k, ser := range r.Series {
+	for k, ser := range r {
 		if f, alt := fmt.Sprintf("%.2f", ser), fmt.Sprintf("%.6g", ser); len(alt) < len(f) {
 			fmt.Printf("%v: %s\n", k, alt)
 		} else {
