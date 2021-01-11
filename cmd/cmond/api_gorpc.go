@@ -98,10 +98,12 @@ func (s *API) Series(args *cmon.SeriesArgs, r *cmon.SeriesRet) (err error) {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
 		var c chan *cmon.SeriesRet
+		logD.Println(args.Metric, args.Span, args.Recent, args.Truncate)
 		if c, err = seriesExtract(args.Metric, args.Span, args.Recent, args.Truncate); err != nil {
 			return
 		}
 		r = <-c
+		logD.Println(*r)
 	case auNOAUTH:
 		return fmt.Errorf("method access not allowed")
 	default:

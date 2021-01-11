@@ -170,7 +170,7 @@ func seriesCmd() {
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
-	var r *cmon.SeriesRet
+	var r cmon.SeriesRet
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:    "placeholder_access_token",
 		Metric:   args.metric,
