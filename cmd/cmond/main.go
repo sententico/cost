@@ -352,9 +352,9 @@ func main() {
 	}()
 	switch err := srv.ListenAndServe(); err {
 	case nil, http.ErrServerClosed:
-		logI.Printf("stopped listening for HTTP requests (%v sessions open)", seOpen)
+		logI.Printf("stopped listening for HTTP port %v requests (%v sessions open)", port, seOpen)
 	default:
-		logE.Printf("beginning shutdown on HTTP listener failure: %v", err)
+		logE.Printf("beginning shutdown on HTTP port %v listener failure: %v", port, err)
 		exit = 1
 	}
 	sig <- nil
