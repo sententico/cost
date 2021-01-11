@@ -251,7 +251,7 @@ func (sum hnC) extract(typ byte, cur int32, span, recent int, truncate float64) 
 	return
 }
 
-func seriesExtract(metric string, span, recent int, truncate float64) (res chan map[string][]float64, err error) {
+func seriesExtract(metric string, span, recent int, truncate float64) (res chan *cmon.SeriesRet, err error) {
 	var acc *modAcc
 	var sum interface{}
 	var cur int32
@@ -324,7 +324,7 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 	default:
 		return nil, fmt.Errorf("unknown metric")
 	}
-	res = make(chan map[string][]float64, 1)
+	res = make(chan *cmon.SeriesRet, 1)
 
 	go func() {
 		defer func() {
@@ -348,7 +348,7 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 			ser = sum.extract(typ, cur, span, recent, truncate)
 		}
 		acc.rel()
-		res <- ser
+		res <- &cmon.SeriesRet{From: cur, Series: ser}
 		close(res)
 	}()
 	return

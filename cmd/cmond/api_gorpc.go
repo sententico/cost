@@ -88,7 +88,7 @@ func (s *API) LookupVM(args *cmon.LookupArgs, r *string) (err error) {
 }
 
 // Series method of API service ...
-func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) (err error) {
+func (s *API) Series(args *cmon.SeriesArgs, r *cmon.SeriesRet) (err error) {
 	defer func() {
 		if re := recover(); re != nil {
 			err = re.(error)
@@ -97,11 +97,11 @@ func (s *API) Series(args *cmon.SeriesArgs, r *map[string][]float64) (err error)
 
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
-		var c chan map[string][]float64
+		var c chan *cmon.SeriesRet
 		if c, err = seriesExtract(args.Metric, args.Span, args.Recent, args.Truncate); err != nil {
 			return
 		}
-		*r = <-c
+		r = <-c
 	case auNOAUTH:
 		return fmt.Errorf("method access not allowed")
 	default:

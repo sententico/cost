@@ -74,6 +74,9 @@
 			"default": {
 				"env":"corp",
 				"~name":"master","~profile":"minimum"
+			},"601180688311": {
+				"env":"corp",
+				"~name":"master"
 			},"518369941250": {
 				"env":"dev","prod":"via","team":"apsdevops",
 				"~name":"APS EMEA dev"

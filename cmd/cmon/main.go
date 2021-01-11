@@ -170,7 +170,7 @@ func seriesCmd() {
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
-	var r map[string][]float64
+	var r cmon.SeriesRet
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:    "placeholder_access_token",
 		Metric:   args.metric,
@@ -181,7 +181,7 @@ func seriesCmd() {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	client.Close()
-	for k, ser := range r {
+	for k, ser := range r.Series {
 		if f, alt := fmt.Sprintf("%.2f", ser), fmt.Sprintf("%.6g", ser); len(alt) < len(f) {
 			fmt.Printf("%v: %s\n", k, alt)
 		} else {
@@ -252,8 +252,8 @@ func streamCURCmd() {
 		if len(r) == args.items {
 			warn = " [item limit reached]"
 		}
-		fmt.Printf("Invoice Item%s,%s,Acct,Type,Service,Usage Type,Operation,Region,Resource ID"+
-			",Item Description,Name,Env,DC,Product,App,Cust,Team,Version,Recs,Usage,Billed\n", warn, unit)
+		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
+			",Item Description,Name,env,dc,product,app,cust,team,version,Recs,Usage,Billed\n", warn, unit)
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
 		}

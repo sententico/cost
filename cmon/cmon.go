@@ -69,6 +69,12 @@ type (
 		Truncate float64 // filter metrics with recent amounts below this in absolute value
 	}
 
+	// SeriesRet ...
+	SeriesRet struct {
+		From   int32                // most recent hour in series (hours in Unix epoch)
+		Series map[string][]float64 // map of metric values to hourly amounts
+	}
+
 	// StreamArgs ...
 	StreamArgs struct {
 		Token string // Admin.Auth access token (renew hourly to avoid expiration)

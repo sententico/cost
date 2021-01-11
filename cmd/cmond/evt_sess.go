@@ -78,15 +78,18 @@ func trigcmonScan(m *model, evt string) {
 		} {
 			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
-			} else if mm := <-c; mm != nil {
-				for na, se := range mm {
+			} else if sx, now, adj := <-c, time.Now().Unix(), 0.0; sx != nil {
+				if adj = 0.2; int32(now/3600) == sx.From {
+					adj += float64(3600-now%3600) / 3600 * 0.8
+				}
+				for k, se := range sx.Series {
 					if len(se) < 2 {
-					} else if u := se[0] + se[1]*(0.8*float64(3600-(time.Now().Unix()-90)%3600)/3600+0.2); u < metric.thresh {
+					} else if u := se[0] + se[1]*adj; u < metric.thresh {
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
-						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, na, ss[len(ss)*95/100])
+						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, k, ss[len(ss)*95/100])
 						alerts = append(alerts, fmt.Sprintf(
 							"%q metric signaling fraud: $%.0f hourly usage for %q ($%.0f @median, $%.0f @95pct, $%.0f @max)",
-							metric.name, u, na, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1],
+							metric.name, u, k, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1],
 						))
 					}
 				}
