@@ -52,6 +52,10 @@ const (
 	atSEQ
 )
 
+const (
+	tokExpire = 30 // model access token expiration (seconds)
+)
+
 var (
 	// cloud monitor globals
 	sig                    chan os.Signal    // termination signal channel
@@ -136,35 +140,67 @@ func init() {
 }
 
 func modManager(m *model) {
-	var tc chan accTok
 	m.reqP, m.reqR, m.reqW = make(chan chan accTok, 16), make(chan chan accTok, 16), make(chan chan accTok, 16)
 	m.rel = make(chan accTok, 16)
 	m.evt = make(chan string, 4)
 	m.boot(m)
 	ctl <- m.name // signal boot complete; enter model access manager loop
 
-	for tokseq, accessors, reqw := accTok(0), int32(0), m.reqW; ; {
+	var tc chan accTok
+	var tok, write, tokseq accTok
+	reqw, read, ttl := m.reqW, make(map[accTok]int16), int16(0)
+	for tick, tock := time.NewTicker(1*time.Second), func() {
+		for tok, ttl = range read {
+			if ttl <= 1 {
+				delete(read, tok)
+				logE.Printf("%q read access token expired", m.name)
+				continue
+			}
+			read[tok]--
+		}
+	}; ; {
 		select {
+		case <-tick.C:
+			tock()
 		case tc = <-m.reqR:
-			tc <- tokseq | atRD
+			tok = tokseq | atRD
+			tc <- tok
 			tokseq += atSEQ
-			accessors++
-			reqw = nil
+			read[tok], reqw = tokExpire, nil
 			continue
-		case <-m.rel:
-			if accessors--; accessors <= 0 {
-				reqw, accessors = m.reqW, 0
+		case tok = <-m.rel:
+			if delete(read, tok); len(read) == 0 {
+				reqw = m.reqW
 			}
 			continue
 		case tc = <-m.reqP:
-			for reqw = m.reqW; accessors > 0; accessors-- {
-				<-m.rel
+			for reqw = m.reqW; len(read) > 0; {
+				select {
+				case <-tick.C:
+					tock()
+				case tok = <-m.rel:
+					delete(read, tok)
+				}
 			}
 		case tc = <-reqw:
 		}
-		tc <- tokseq | atWR
+		write = tokseq | atWR
+		tc <- write
 		tokseq += atSEQ
-		<-m.rel
+		for ttl = tokExpire; ; {
+			select {
+			case <-tick.C:
+				if ttl--; ttl > 0 {
+					continue
+				}
+				logE.Printf("%q write access token expired", m.name)
+			case tok = <-m.rel:
+				if tok != write {
+					continue
+				}
+			}
+			break
+		}
 	}
 }
 
