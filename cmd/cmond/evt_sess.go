@@ -80,7 +80,7 @@ func trigcmonScan(m *model, evt string) {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
 			} else if sx, now, adj := <-c, time.Now().Unix(), 0.0; sx != nil {
 				if adj = 0.2; int32(now/3600) == sx.From {
-					adj += float64(3600-now%3600) / 3600 * 0.8
+					adj += float64(3600-now%3600) / 3600
 				}
 				for k, se := range sx.Series {
 					if len(se) < 2 {

@@ -30,7 +30,8 @@ var (
 		metric    string   // series metric
 		model     string   // stream model
 		items     int      // maximum stream items
-		truncate  float64  // series/stream amount truncation filter
+		seTrunc   float64  // series amount truncation filter
+		stTrunc   float64  // stream amount truncation filter
 		interval  intHours // from/to/units hours
 		span      int      // series total hours
 		recent    int      // series recent/active hours
@@ -62,7 +63,7 @@ func init() {
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `type`")
 	args.seriesSet.IntVar(&args.span, "span", 12, "series total `hours`")
 	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of span")
-	args.seriesSet.Float64Var(&args.truncate, "truncate", 0, "recent `amount` metric truncation threshold")
+	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "recent `amount` metric truncation threshold")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"series\" subcommand returns an hourly series for a metric type.\n")
@@ -76,7 +77,7 @@ func init() {
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
 	args.streamSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to stream")
 	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
-	args.streamSet.Float64Var(&args.truncate, "truncate", 0.002, "`cost` item truncation threshold")
+	args.streamSet.Float64Var(&args.stTrunc, "truncate", 0.002, "`cost` item truncation threshold")
 	args.streamSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"stream\" subcommand returns an item detail stream.\n")
@@ -176,7 +177,7 @@ func seriesCmd() {
 		Metric:   args.metric,
 		Span:     args.span,
 		Recent:   args.recent,
-		Truncate: args.truncate,
+		Truncate: args.seTrunc,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
@@ -237,7 +238,7 @@ func streamCURCmd() {
 		To:       args.interval.to,
 		Units:    args.interval.units,
 		Items:    args.items,
-		Truncate: args.truncate,
+		Truncate: args.stTrunc,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
