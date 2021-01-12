@@ -162,6 +162,7 @@ func modManager(m *model) {
 		select {
 		case <-tick.C:
 			tock()
+			continue
 		case tc = <-m.reqR:
 			tok = tokseq | atRD
 			tc <- tok
