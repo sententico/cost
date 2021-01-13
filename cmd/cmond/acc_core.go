@@ -534,7 +534,7 @@ func ec2awsMaint(m *model) {
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case <-m.evt:
-			// TODO: process event notifications
+			// TODO: process "cur.aws" notification to update Plat/Rate
 		}
 	}
 }

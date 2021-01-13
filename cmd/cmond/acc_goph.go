@@ -144,7 +144,7 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 		detail.Inst[id] = inst
 	}
 	inst.Acct = item["acct"]
-	inst.Plat = item["plat"]
+	inst.Plat = item["plat"] // TODO: Plat/Rate should not override CUR data
 	inst.Vol = atoi(item["vol"], 0)
 	inst.AZ = item["az"]
 	inst.Spot = item["spot"]

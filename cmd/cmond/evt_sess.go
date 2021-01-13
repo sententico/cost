@@ -9,16 +9,23 @@ import (
 	"time"
 )
 
+const (
+	samplePage = 90 // statistics sample page size (1 high/low value eliminated per page)
+)
+
 func basicStats(s []float64) (ss []float64, mean, sdev float64) {
-	if t, d := len(s)/48, 0.0; len(s) > 0 {
+	if len(s) > 0 {
 		ss = append([]float64(nil), s...)
-		sort.Float64s(ss)
-		for ss, t = ss[t:len(s)-t], len(s)*30/100; len(ss) > t && ss[0] == 0; ss = ss[1:] {
+		for sort.Float64s(ss); len(ss) >= samplePage && ss[0] == 0; ss = ss[1:] {
+		}
+		if t := len(ss) / samplePage; t > 0 {
+			ss = ss[t : len(ss)-t]
 		}
 		for _, v := range ss {
 			mean += v
 		}
 		mean /= float64(len(ss))
+		var d float64
 		for _, v := range ss {
 			d = v - mean
 			sdev += d * d
@@ -89,7 +96,7 @@ func trigcmonScan(m *model, evt string) {
 						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, k, ss[len(ss)*95/100])
 						alerts = append(alerts, fmt.Sprintf(
 							"%q metric signaling fraud: $%.0f hourly usage for %q "+
-								"(normally $%.0f with bursts to $%.0f; not known to exceed $%.0f)",
+								"(normally $%.0f with bursts to $%.0f to as much as $%.0f)",
 							metric.name, u, k, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1],
 						))
 					}
