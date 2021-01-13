@@ -53,7 +53,8 @@ const (
 )
 
 const (
-	tokExpire = 30 // model access token expiration (seconds)
+	tokReadExp  = 30 // model read access token expiration (seconds)
+	tokWriteExp = 6  // model write access token expiration (seconds)
 )
 
 var (
@@ -151,31 +152,28 @@ func modManager(m *model) {
 	reqw, read, ttl := m.reqW, make(map[accTok]int16), int16(0)
 	for tick, tock := time.NewTicker(1*time.Second), func() {
 		for tok, ttl = range read {
-			if ttl <= 1 {
-				delete(read, tok)
-				logE.Printf("%q read access token expired", m.name)
+			if ttl > 1 {
+				read[tok]--
 				continue
 			}
-			read[tok]--
+			delete(read, tok)
+			logE.Printf("%q read access token expired", m.name)
 		}
 	}; ; {
 		select {
 		case <-tick.C:
 			tock()
-			continue
 		case tc = <-m.reqR:
 			tok = tokseq | atRD
 			tc <- tok
 			tokseq += atSEQ
-			read[tok], reqw = tokExpire, nil
-			continue
+			read[tok], reqw = tokReadExp, nil
 		case tok = <-m.rel:
 			if delete(read, tok); len(read) == 0 {
 				reqw = m.reqW
 			}
-			continue
 		case tc = <-m.reqP:
-			for reqw = m.reqW; len(read) > 0; {
+			for len(read) > 0 {
 				select {
 				case <-tick.C:
 					tock()
@@ -183,24 +181,29 @@ func modManager(m *model) {
 					delete(read, tok)
 				}
 			}
-		case tc = <-reqw:
-		}
-		write = tokseq | atWR
-		tc <- write
-		tokseq += atSEQ
-		for ttl = tokExpire; ; {
-			select {
-			case <-tick.C:
-				if ttl--; ttl > 0 {
-					continue
-				}
-				logE.Printf("%q write access token expired", m.name)
-			case tok = <-m.rel:
-				if tok != write {
-					continue
-				}
+			write = tokseq | atWR
+			tc <- write
+			tokseq += atSEQ
+			for reqw = m.reqW; <-m.rel != write; {
 			}
-			break
+		case tc = <-reqw:
+			write = tokseq | atWR
+			tc <- write
+			tokseq += atSEQ
+			for ttl = tokWriteExp; ; {
+				select {
+				case <-tick.C:
+					if ttl--; ttl > 0 {
+						continue
+					}
+					logE.Printf("%q write access token expired", m.name)
+				case tok = <-m.rel:
+					if tok != write {
+						continue
+					}
+				}
+				break
+			}
 		}
 	}
 }
