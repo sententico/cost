@@ -53,8 +53,9 @@ const (
 )
 
 const (
-	tokReadExp  = 30 // model read access token expiration (seconds)
-	tokWriteExp = 6  // model write access token expiration (seconds)
+	tokReadExp  = 30  // model read access token expiration (seconds)
+	tokWriteExp = 6   // model write access token expiration (seconds)
+	pgSize      = 512 // model access page size (gopher/weasel items)
 )
 
 var (
@@ -169,7 +170,7 @@ func modManager(m *model) {
 			tok = tokseq | atRD
 			tc <- tok
 			tokseq += atSEQ
-			read[tok], reqw = tokReadExp, nil
+			read[tok], reqw = tokReadExp+1, nil
 		case tok = <-m.rel:
 			if delete(read, tok); len(read) == 0 {
 				reqw = m.reqW
@@ -192,7 +193,7 @@ func modManager(m *model) {
 			write = tokseq | atWR
 			tc <- write
 			tokseq += atSEQ
-			for ttl = tokWriteExp; ; {
+			for ttl = tokWriteExp + 1; ; {
 				select {
 				case <-tick.C:
 					if ttl--; ttl > 0 {

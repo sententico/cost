@@ -79,9 +79,10 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 		panic(err)
 	}
 
+	var pg int16
 	results, errors := csvout.Get()
 	for item := range results {
-		now = int(time.Now().Unix())
+		now, pg = int(time.Now().Unix()), pgSize
 		pages++
 		for acc.reqW(); ; {
 			if item["~meta"] == "" {
@@ -90,12 +91,14 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			} else if meta {
 				insert(acc.m, item, now)
 			}
-			select {
-			case item = <-results:
-				if item != nil {
-					continue
+			if pg--; pg > 0 {
+				select {
+				case item = <-results:
+					if item != nil {
+						continue
+					}
+				default:
 				}
-			default:
 			}
 			acc.rel()
 			break

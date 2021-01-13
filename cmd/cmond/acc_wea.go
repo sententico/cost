@@ -12,10 +12,6 @@ import (
 	"github.com/sententico/cost/tel"
 )
 
-const (
-	pgSize = 512
-)
-
 var (
 	weaselCmd = cmdMap{
 		"aws":   "wea_aws.py",
