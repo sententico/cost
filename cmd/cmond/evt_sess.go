@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( Spot| with SQL (SE|EE|Web|EX))?|SQL (SE|EE|Web|EX))\b`)
+	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( with SQL (SE|EE|Web|EX)| Spot)?|SQL (SE|EE|Web|EX))\b`)
 )
 
 func basicStats(s []float64) (ss []float64, mean, sdev float64) {
@@ -102,7 +102,7 @@ func trigcmonScan(m *model, event string) {
 						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, k, ss[len(ss)*95/100])
 						alerts = append(alerts, fmt.Sprintf(
 							"%q metric signaling fraud: $%.0f hourly usage for %q "+
-								"(normally $%.0f with bursts to $%.0f to as much as $%.0f)",
+								"(normally $%.0f bursting to $%.0f to as much as $%.0f)",
 							metric.name, u, k, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1],
 						))
 					}
@@ -183,7 +183,7 @@ func ec2awsFeedback(m *model, event string) {
 					inst.Plat = f.plat
 					inst.ORate = f.cost / f.usage
 					if f.spot && inst.Spot == "" {
-						inst.Spot = "unknown SIR"
+						inst.Spot = "unknown SIR" // TODO: verify this even happens
 					}
 				}
 			}

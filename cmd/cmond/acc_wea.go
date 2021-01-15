@@ -405,6 +405,7 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 			inst.State,
 			time.Unix(int64(inst.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(inst.Since, inst.Last, inst.Active)), 'g', -1, 32),
+			// TODO: include ORate
 			strconv.FormatFloat(float64(inst.Rate), 'g', -1, 32),
 		}
 		if pg--; pg >= 0 {

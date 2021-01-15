@@ -73,10 +73,10 @@
 		"Accounts": {
 			"default": {
 				"env":"corp",
-				"~name":"master","~profile":"minimum"
+				"~name":"master corp","~profile":"minimum"
 			},"601180688311": {
 				"env":"corp",
-				"~name":"master"
+				"~name":"master corp"
 			},"518369941250": {
 				"env":"dev","prod":"via","team":"apsdevops",
 				"~name":"APS EMEA dev"
@@ -94,22 +94,22 @@
 				"~name":"Brooklyn CXP dev","~profile":"us east 1"
 			},"606721501982": {
 				"env":"dev",
-				"~name":"infrastructure","~profile":"global"
+				"~name":"infrastr dev","~profile":"global"
 			},"211656475552": {
 				"env":"dev","prod":"via.core","team":"mmd",
 				"~name":"Manhattan dev","~profile":"us east 1"
 			},"007925789654": {
 				"env":"dev",
-				"~name":"architecture","~profile":"us east 1"
+				"~name":"arch dev","~profile":"us east 1"
 			},"931353328580": {
 				"env":"dev","prod":"pes","team":"pes",
 				"~name":"PES dev","~profile":"us east 1"
 			},"213446661952": {
 				"env":"dev",
-				"~name":"QA","~profile":"us east 1"
+				"~name":"QA dev","~profile":"us east 1"
 			},"018805767579": {
 				"env":"dev","team":"scrm",
-				"~name":"SCRM","~profile":"us east 1"
+				"~name":"SCRM dev","~profile":"us east 1"
 			},"271773505756": {
 				"env":"dev","prod":"wfm",
 				"~name":"WFM dev","~profile":"minimum"
@@ -118,7 +118,7 @@
 				"~name":"Zipwire dev","~profile":"minimum"
 			},"093999772290": {
 				"env":"corp",
-				"~name":"premises demo","~profile":"us east"
+				"~name":"demo corp","~profile":"us east"
 			},"922837348894": {
 				"env":"prod","prod":"via.cec","team":"apsdevops",
 				"~name":"APS","~profile":"global"
@@ -154,10 +154,10 @@
 				"~name":"Zipwire","~profile":"global"
 			},"990744926661": {
 				"env":"prod","prod":"cxp",
-				"~name":"CXP operations"
+				"~name":"CXP ops"
 			},"162790430163": {
 				"env":"sandbox","prod":"via.core",
-				"~name":"tools","~profile":"us"
+				"~name":"tools dev","~profile":"us"
 			},"042050835575": {
 				"env":"prod","prod":"pes","team":"pes",
 				"~name":"PES","~profile":"eu west"
