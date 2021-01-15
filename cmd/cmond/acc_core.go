@@ -65,6 +65,7 @@ type (
 		Last   int
 		Active []int                `json:",omitempty"`
 		Perf   map[string]*perfItem `json:",omitempty"`
+		ORate  float32              `json:",omitempty"`
 		Rate   float32              `json:",omitempty"`
 	}
 	ec2Detail struct {
@@ -411,8 +412,8 @@ func trigcmonMaint(m *model) {
 		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-		case evt := <-m.evt:
-			goaftSession(0, 0, func() { trigcmonScan(m, evt) })
+		case event := <-m.evt:
+			goaftSession(0, 0, func() { trigcmonScan(m, event) })
 		}
 	}
 }
@@ -533,8 +534,11 @@ func ec2awsMaint(m *model) {
 		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-		case <-m.evt:
-			// TODO: process "cur.aws" notification to update Plat/Rate
+		case event := <-m.evt:
+			switch event {
+			case "cur.aws":
+				goaftSession(0, 0, func() { ec2awsFeedback(m, event); evt <- m.name })
+			}
 		}
 	}
 }

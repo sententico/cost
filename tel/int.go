@@ -357,7 +357,7 @@ const (
 		"687":	{"Geo":"apac",	"ISO3166":"NC",	"Pl":3,	"CCn":"New Caledonia"},
 		"688":	{"Geo":"apac",	"ISO3166":"TV",	"Pl":3,	"CCn":"Tuvalu"},
 		"689":	{"Geo":"apac",	"ISO3166":"PF",	"Pl":3,	"CCn":"French Polynesia"},
-		"690":	{"Geo":"apac",	"ISO3166":"TK",	"Pl":3,	"CCn":"Tokelau"},
+		"690":	{"Geo":"apac",	"ISO3166":"TK",	"Pl":1,	"CCn":"Tokelau"},
 		"691":	{"Geo":"apac",	"ISO3166":"FM",	"Pl":3,	"CCn":"Micronesia"},
 		"692":	{"Geo":"apac",	"ISO3166":"MH",	"Pl":3,	"CCn":"Marshall Islands"},
 
@@ -435,12 +435,16 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	}
 
 	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc {
-	case "1":
+	case "1": // NANPA
 		if len(nat) != 10 {
 			return i, p, ""
 		}
-	case "20":
+	case "20": // Egypt
 		if len(nat) < 8 || len(nat) > 10 {
+			return i, p, ""
+		}
+	case "690": // Tokelau
+		if len(nat) != 5 {
 			return i, p, ""
 		}
 	default:

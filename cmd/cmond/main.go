@@ -19,15 +19,15 @@ type (
 	modSt  uint8
 	accTok uint32
 	model  struct {
-		name              string
-		state             modSt
-		immed             bool
-		reqP, reqR, reqW  chan chan accTok
-		rel               chan accTok
-		evt               chan string
-		boot, term, maint func(*model)
-		persist           int
-		data              []interface{}
+		name              string           // model name of the form <type>.<domain>
+		state             modSt            // model state
+		immed             bool             // immediate maintenance accessor start
+		reqP, reqR, reqW  chan chan accTok // priority/read/write access channels
+		rel               chan accTok      // access release channel
+		evt               chan string      // event notification channel
+		boot, term, maint func(*model)     // boot/termination/maintenance accessors
+		persist           int              // slice of persisted data blocks [:persist]
+		data              []interface{}    // super slice of model data blocks (references to these stable after boot)
 	}
 	modAcc struct {
 		m   *model

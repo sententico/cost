@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 )
 
 const (
-	samplePage = 90 // statistics sample page size (1 high/low value eliminated per page)
+	samplePage = 180 // statistics sample page size (1 high/low value eliminated per page)
+)
+
+var (
+	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( Spot| with SQL (SE|EE|Web|EX))?|SQL (SE|EE|Web|EX))\b`)
 )
 
 func basicStats(s []float64) (ss []float64, mean, sdev float64) {
@@ -69,8 +75,8 @@ func slackAlerts(ch string, alerts []string) (err error) {
 	return
 }
 
-func trigcmonScan(m *model, evt string) {
-	switch evt {
+func trigcmonScan(m *model, event string) {
+	switch event {
 	case "cdr.asp":
 		var alerts []string
 		for _, metric := range []struct {
@@ -90,7 +96,7 @@ func trigcmonScan(m *model, evt string) {
 					adj += float64(3600-now%3600) / 3600
 				}
 				for k, se := range sx.Series {
-					if len(se) < 2 {
+					if len(se) < 2 { // TODO: special handling for new/sparse samples?
 					} else if u := se[0] + se[1]*adj; u < metric.thresh {
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
 						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, k, ss[len(ss)*95/100])
@@ -106,5 +112,82 @@ func trigcmonScan(m *model, evt string) {
 		if err := slackAlerts("#telecom-fraud", alerts); err != nil {
 			logE.Printf("Slack alert problem: %v", err)
 		}
+	}
+}
+
+func ec2awsFeedback(m *model, event string) {
+	defer func() {
+		if r := recover(); r != nil {
+			logE.Printf("error looping in %q feedback for %q: %v", event, m.name, r)
+		}
+	}()
+	switch event {
+	case "cur.aws":
+		func() {
+			type feedback struct {
+				plat        string
+				spot        bool
+				usage, cost float32
+			}
+			ec2, det, active := m.newAcc(), m.data[1].(*ec2Detail), make(map[string]*feedback, 4096)
+			ec2.reqR()
+			defer func() { ec2.rel() }()
+			for id, inst := range det.Inst {
+				switch inst.State {
+				case "running", "pending", "stopped":
+					active[id] = nil
+				}
+			}
+			ec2.rel()
+			cur, now, pmap := mMod[event].newAcc(), "", map[string]string{
+				"RHEL":                 "rhel",
+				"Windows":              "windows",
+				"Windows Spot":         "windows",
+				"Windows with SQL SE":  "sqlserver-se",
+				"Windows with SQL EE":  "sqlserver-ee",
+				"Windows with SQL Web": "sqlserver-web",
+				"Windows with SQL EX":  "sqlserver-ex",
+				"SQL SE":               "sqlserver-se",
+				"SQL EE":               "sqlserver-ee",
+				"SQL Web":              "sqlserver-web",
+				"SQL EX":               "sqlserver-ex",
+			}
+			cur.reqR()
+			defer func() { cur.rel() }()
+			for mo := range cur.m.data[1].(*curDetail).Line {
+				if mo > now {
+					now = mo
+				}
+			}
+			for _, item := range cur.m.data[1].(*curDetail).Line[now] {
+				if f, found := active[item.RID]; found {
+					if f == nil {
+						f = &feedback{cost: item.Cost}
+						active[item.RID] = f
+					} else {
+						f.cost += item.Cost
+					}
+					if p := ec2P.FindString(item.Desc); p != "" {
+						if f.plat = pmap[p]; strings.HasSuffix(p, " Spot") {
+							f.spot = true
+						}
+						f.usage += item.Usg
+					}
+				}
+			}
+			cur.rel()
+			ec2.reqW()
+			for id, f := range active {
+				if f == nil || f.usage == 0 {
+				} else if inst := det.Inst[id]; inst != nil {
+					inst.Plat = f.plat
+					inst.ORate = f.cost / f.usage
+					if f.spot && inst.Spot == "" {
+						inst.Spot = "unknown SIR"
+					}
+				}
+			}
+			ec2.rel()
+		}()
 	}
 }

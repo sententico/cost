@@ -134,20 +134,20 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	} else if id == "" {
 		return
 	}
-	inst := detail.Inst[id]
-	if inst == nil {
+	inst, initialized := detail.Inst[id]
+	if !initialized {
 		inst = &ec2Item{
 			Typ:   item["type"],
+			Plat:  item["plat"],
 			AMI:   item["ami"],
+			Spot:  item["spot"],
 			Since: now,
 		}
 		detail.Inst[id] = inst
 	}
 	inst.Acct = item["acct"]
-	inst.Plat = item["plat"] // TODO: Plat/Rate should not override CUR data
 	inst.Vol = atoi(item["vol"], 0)
 	inst.AZ = item["az"]
-	inst.Spot = item["spot"]
 	if tag := item["tag"]; tag != "" {
 		inst.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
@@ -157,7 +157,10 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	} else {
 		inst.Tag = nil
 	}
-	ec2awsHack(inst)
+	if !initialized {
+		ec2awsHack(inst)
+	}
+
 	k := aws.RateKey{
 		Region: inst.AZ,
 		Typ:    inst.Typ,
@@ -168,6 +171,9 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 	case "running":
 		if r := work.rates.Lookup(&k); r.Rate == 0 {
 			logE.Printf("no EC2 %v rate found for %v/%v in %v", k.Terms, k.Typ, k.Plat, inst.AZ)
+			inst.Rate = inst.ORate * settings.AWS.UsageAdj
+		} else if inst.ORate != 0 {
+			inst.Rate = inst.ORate * settings.AWS.UsageAdj
 		} else if inst.Spot == "" {
 			k.Terms = settings.AWS.SavPlan
 			if s := work.rates.Lookup(&k); s.Rate == 0 {
