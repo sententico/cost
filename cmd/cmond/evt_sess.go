@@ -85,33 +85,38 @@ func trigcmonScan(m *model, event string) {
 			sig    float64
 		}{
 			{"cdr.asp/term/geo", 320, 5},
-			{"cdr.asp/term/cust", 160, 5},
+			{"cdr.asp/term/cust", 240, 5},
 			{"cdr.asp/term/sp", 1200, 5},
-			{"cdr.asp/term/to", 200, 5},
+			{"cdr.asp/term/to", 240, 5},
 		} {
-			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh); err != nil {
+			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh/2.2); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
 			} else if sx, now, adj := <-c, time.Now().Unix(), 0.0; sx != nil {
 				if adj = 0.2; int32(now/3600) == sx.From {
 					adj += float64(3600-now%3600) / 3600
 				}
 				for k, se := range sx.Series {
-					if len(se) == 1 && se[0] >= metric.thresh*0.9 {
-						a := fmt.Sprintf("%q metric signaling fraud: new $%.0f usage burst for %q", metric.name, se[0], k)
-						logW.Printf(a)
-						alerts = append(alerts, a)
+					if len(se) == 1 && se[0]*(1+adj) > metric.thresh {
+						alerts = append(alerts, fmt.Sprintf(
+							"%q metric signaling fraud: new $%.0f usage burst for %q",
+							metric.name, se[0], k))
 					} else if len(se) < 2 {
 					} else if u := se[0] + se[1]*adj; u < metric.thresh {
+					} else if len(se) < 4 {
+						alerts = append(alerts, fmt.Sprintf(
+							"%q metric signaling fraud: new $%.0f hourly usage burst for %q",
+							metric.name, u, k))
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
-						logW.Printf("%q metric signaling fraud: $%.0f usage for %q ($%.0f @95pct)", metric.name, u, k, ss[len(ss)*95/100])
 						alerts = append(alerts, fmt.Sprintf(
 							"%q metric signaling fraud: $%.0f hourly usage for %q "+
 								"(normally $%.0f bursting to $%.0f to as much as $%.0f)",
-							metric.name, u, k, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1],
-						))
+							metric.name, u, k, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]))
 					}
 				}
 			}
+		}
+		for _, a := range alerts {
+			logW.Printf(a)
 		}
 		if err := slackAlerts("#telecom-fraud", alerts); err != nil {
 			logE.Printf("Slack alert problem: %v", err)
