@@ -192,7 +192,7 @@ const (
 				{"Geo":"car",   "ISO3166":"JM",	"Pl":3,	"CCn":"Jamaica",
 								"P":["658","876"]} ]},
 
-		"20":	{"Geo":"afr",	"ISO3166":"EG",	"Pl":3,	"CCn":"Egypt"},
+		"20":	{"Geo":"afr",	"ISO3166":"EG",	"Pl":2,	"CCn":"Egypt"},
 		"211":	{"Geo":"afr",	"ISO3166":"SS",	"Pl":3,	"CCn":"South Sudan"},
 		"212":	{"Geo":"afr",	"ISO3166":"MA",	"Pl":3,	"CCn":"Morocco"},
 		"213":	{"Geo":"afr",	"ISO3166":"DZ",	"Pl":3,	"CCn":"Algeria"},
@@ -433,20 +433,290 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	if i == nil || i.Pl >= len(nat) {
 		return
 	}
+	set, err := func(pl, sl int) bool {
+		if pl+sl != len(nat) {
+			if s = ""; pl != len(p) && pl < len(nat) {
+				p = nat[:pl]
+			}
+			return false
+		} else if pl != len(p) || s == "" {
+			p, s = nat[:pl], nat[pl:]
+		}
+		return true
+	}, func() { p, s = "", "" }
 
 	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc {
-	case "1": // NANPA
-		if len(nat) != 10 {
-			return i, p, ""
+	case "1": // NANPA (Jan21)
+		set(3, 7)
+
+	case "20": // Egypt (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Egypt
+		switch nat[0] {
+		case '2':
+			set(1, 8)
+		case '3':
+			set(1, 7)
+		default:
+			set(2, 8)
 		}
-	case "20": // Egypt
-		if len(nat) < 8 || len(nat) > 10 {
-			return i, p, ""
+	case "212": // Morocco (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Morocco
+		switch nat[0] {
+		case '5':
+			set(4, 5)
+		case '6':
+			set(3, 6)
+		default:
+			set(1, 8)
 		}
-	case "690": // Tokelau
-		if len(nat) != 5 {
-			return i, p, ""
+	//case "211": // South Sudan (3)
+	//case "213": // Algeria (3)
+	//case "216": // Tunisia (3)
+	//case "218": // Libya (3)
+	//case "220": // Gambia (3)
+	//case "221": // Senegal (3)
+	//case "222": // Mauritania (3)
+	//case "223": // Mali (3)
+	//case "224": // Guinea (3)
+	//case "225": // Ivory Coast (3)
+	//case "226": // Burkina Faso (3)
+	//case "227": // Niger (3)
+	//case "228": // Togo (3)
+	//case "229": // Benin (3)
+	//case "230": // Mauritius (3)
+	//case "231": // Liberia (3)
+	//case "232": // Sierra Leone (3)
+	//case "233": // Ghana (3)
+	//case "234": // Nigeria (3)
+	//case "235": // Chad (3)
+	//case "236": // Central African Republic (3)
+	//case "237": // Cameroon (3)
+	//case "238": // Cape Verde (3)
+	//case "239": // Sao Tome & Principe (3)
+	//case "240": // Equatorial Guinea (3)
+	//case "241": // Gabon (3)
+	//case "242": // Congo (3)
+	//case "243": // Congo DR (3)
+	//case "244": // Angola (3)
+	//case "245": // Guinea-Bissau (3)
+	//case "246": // Diego Garcia (3)
+	//case "247": // Ascension (3)
+	//case "248": // Seychelles (3)
+	//case "249": // Sudan (3)
+	//case "250": // Rwanda (3)
+	//case "251": // Ethiopia (3)
+	//case "252": // Somalia (3)
+	//case "253": // Djibouti (3)
+	//case "254": // Kenya (3)
+	//case "255": // Tanzania (3)
+	//case "256": // Uganda (3)
+	//case "257": // Burundi (3)
+	//case "258": // Mozambique (3)
+	//case "260": // Zambia (3)
+	//case "261": // Madagascar (3)
+	//case "262": // Reunion (3)
+	//case "263": // Zimbabwe (3)
+	//case "264": // Namibia (3)
+	//case "265": // Malawi (3)
+	//case "266": // Lesotho (3)
+	//case "267": // Botswana (3)
+	//case "268": // Swaziland (3)
+	//case "269": // Comoros (3)
+	case "27": // South Africa (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_South_Africa
+		switch nat[0] {
+		case '1', '2', '3', '4', '5':
+			set(2, 7)
+		default:
+			set(3, 6)
 		}
+	//case "290": // Saint Helena & Tristan da Cunha (3)
+	//case "291": // Eritrea (3)
+	//case "297": // Aruba (3)
+	//case "298": // Faroe Islands (3)
+	//case "299": // Greenland (3)
+
+	//case "30": // Greece (3)
+	//case "31": // Netherlands (3)
+	//case "32": // Belgium (3)
+	//case "33": // France (1)
+	//case "34": // Spain (3)
+	//case "350": // Gibraltar (3)
+	//case "351": // Portugal (3)
+	//case "352": // Luxembourg (3)
+	//case "353": // Ireland (3)
+	//case "354": // Iceland (3)
+	//case "355": // Albania (3)
+	//case "356": // Malta (3)
+	//case "357": // Cyprus (3)
+	//case "358": // Finland (3)
+	//case "359": // Bulgaria (3)
+	//case "36": // Hungary (3)
+	//case "370": // Lithuania (3)
+	//case "371": // Latvia (3)
+	//case "372": // Estonia (3)
+	//case "373": // Moldova (3)
+	//case "374": // Armenia (3)
+	//case "375": // Belarus (3)
+	//case "376": // Andorra (3)
+	//case "377": // Monaco (3)
+	//case "378": // San Marino (3)
+	//case "379": // Holy See (3)
+	//case "380": // Ukraine (3)
+	//case "381": // Serbia (3)
+	//case "382": // Montenegro (3)
+	//case "385": // Croatia (3)
+	//case "386": // Slovenia (2)
+	//case "387": // Bosnia & Herzegovina (3)
+	//case "388": // EU shared (0)
+	//case "389": // Macedonia (3)
+	//case "39": // Italy (3)
+
+	//case "40": // Romania (3)
+	//case "41": // Switzerland (3)
+	//case "420": // Czech Republic (3)
+	//case "421": // Slovakia (3)
+	//case "423": // Liechtenstein (3)
+	//case "43": // Austria (3)
+	case "44": // United Kingdom (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_United_Kingdom
+		switch nat[0] {
+		case '1':
+			if nat[1] == '1' || nat[2] == '1' {
+				set(3, 7)
+			} else if set(4, 6) || set(4, 5) {
+			}
+		case '2', '5':
+			set(2, 8)
+		case '3', '8', '9':
+			if set(3, 7) || nat[:3] == "800" && set(3, 6) {
+			}
+		case '7':
+			switch nat[1] {
+			case '0', '6':
+				set(2, 8)
+			default:
+				set(4, 6)
+			}
+		default:
+			err()
+		}
+	//case "45": // Denmark (3)
+	//case "46": // Sweden (3)
+	//case "47": // Norway (3)
+	//case "48": // Poland (3)
+	//case "49": // Germany (3)
+
+	//case "500": // Falkland Islands (3)
+	//case "501": // Belize (3)
+	//case "502": // Guatemala (3)
+	//case "503": // El Salvador (3)
+	//case "504": // Honduras (3)
+	//case "505": // Nicaragua (3)
+	//case "506": // Costa Rica (3)
+	//case "507": // Panama (3)
+	//case "508": // Saint Pierre & Miquelon (3)
+	//case "509": // Haiti (3)
+	//case "51": // Peru (3)
+	//case "52": // Mexico (3)
+	//case "53": // Cuba (3)
+	//case "54": // Argentina (3)
+	//case "55": // Brazil (3)
+	//case "56": // Chile (3)
+	//case "57": // Colombia (3)
+	//case "58": // Venezuela (3)
+	//case "590": // Guadeloupe (3)
+	//case "591": // Bolivia (3)
+	//case "592": // Guyana (3)
+	//case "593": // Ecuador (3)
+	//case "594": // French Guiana (3)
+	//case "595": // Paraguay (3)
+	//case "596": // Martinique (3)
+	//case "597": // Suriname (3)
+	//case "598": // Uruguay (3)
+	//case "599": // Caribbean Netherlands (3)
+
+	//case "60": // Malaysia (3)
+	//case "61": // Australia (3)
+	//case "62": // Indonesia (3)
+	//case "63": // Philippines (3)
+	//case "64": // New Zealand (3)
+	//case "65": // Singapore (1)
+	//case "66": // Thailand (4)
+	//case "670": // Timor-Leste (3)
+	//case "672": // Australian External Territories (3)
+	//case "673": // Brunei Darussalam (3)
+	//case "674": // Nauru (3)
+	//case "675": // Papua New Guinea (3)
+	//case "676": // Tonga (3)
+	//case "677": // Solomon Islands (3)
+	//case "678": // Vanuatu (3)
+	//case "679": // Fiji (3)
+	//case "680": // Palau (3)
+	//case "681": // Wallis & Futuna (3)
+	//case "682": // Cook Islands (3)
+	//case "683": // Niue (3)
+	//case "685": // Samoa (3)
+	//case "686": // Kiribati (3)
+	//case "687": // New Caledonia (3)
+	//case "688": // Tuvalu (3)
+	//case "689": // French Polynesia (3)
+	case "690": // Tokelau (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tokelau
+		set(1, 4)
+	//case "691": // Micronesia (3)
+	//case "692": // Marshall Islands (3)
+
+	//case "7": // Russia & Kazakhstan" (1)
+
+	//case "800": // global freephone (0)
+	//case "808": // global shared cost (0)
+	//case "81": // Japan (3)
+	//case "82": // Korea (3)
+	//case "84": // Vietnam (3)
+	//case "850": // Korea DPR (3)
+	//case "852": // Hong Kong (1)
+	//case "853": // Macao (3)
+	//case "855": // Cambodia (3)
+	//case "856": // Laos (3)
+	//case "86": // China (3)
+	//case "870": // global Inmarsat (0)
+	//case "878": // global personal numbers (0)
+	//case "880": // Bangladesh (3)
+	//case "881": // global satphone (0)
+	//case "882": // global 882 (2)
+	//case "883": // global 883 (0)
+	//case "886": // Taiwan (3)
+	//case "888": // global disaster relief (0)
+
+	//case "90" : // Turkey (3)
+	//case "91" : // India (3)
+	//case "92" : // Pakistan (3)
+	//case "93" : // Afghanistan (3)
+	//case "94" : // Sri Lanka (3)
+	//case "95" : // Myanmar (3)
+	//case "960": // Maldives (3)
+	//case "961": // Lebanon (3)
+	//case "962": // Jordan (3)
+	//case "963": // Syria (3)
+	//case "964": // Iraq (3)
+	//case "965": // Kuwait (4)
+	//case "966": // Saudi Arabia (3)
+	//case "967": // Yemen (3)
+	//case "968": // Oman (3)
+	//case "970": // Palestine (3)
+	//case "971": // United Arab Emirates (3)
+	//case "972": // Israel (1)
+	//case "973": // Bahrain (3)
+	//case "974": // Qatar (3)
+	//case "975": // Bhutan (3)
+	//case "976": // Mongolia (3)
+	//case "977": // Nepal (3)
+	//case "979": // global premium rate (0)
+	//case "98" : // Iran (3)
+	//case "991": // global ITPCS trial (0)
+	//case "992": // Tajikistan (3)
+	//case "993": // Turkmenistan (3)
+	//case "994": // Azerbaijan (3)
+	//case "995": // Georgia (3)
+	//case "996": // Kyrgyzstan (3)
+	//case "998": // Uzbekistan (3)
+
 	default:
 		// TODO: insert rules per CC for more precise P/Sub (p/s) partitioning
 	}
