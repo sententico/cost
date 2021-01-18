@@ -554,8 +554,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 	default:
 		// outbound/termination CDR
 		decoder, brater, crater := methods(false)
-		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil ||
-			decoder.Full(item["to"], &work.to) != nil {
+		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil {
+			break
+		} else if err := decoder.Full(item["to"], &work.to); err != nil {
+			//logE.Printf("invalid term number: %v", err)
 			break
 		}
 		cdr.To, cdr.From = work.to.Digest(0), decoder.Digest(item["from"])
