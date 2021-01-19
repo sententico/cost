@@ -557,7 +557,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil {
 			break
 		} else if err := decoder.Full(item["to"], &work.to); err != nil {
-			//logE.Printf("invalid term number: %v", err)
+			//if !strings.HasPrefix(err.Error(), "invalid E.164 filtered") {
+			//	logE.Print(err)
+			//}
 			break
 		}
 		cdr.To, cdr.From = work.to.Digest(0), decoder.Digest(item["from"])
