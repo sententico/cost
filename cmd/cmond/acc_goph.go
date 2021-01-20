@@ -559,13 +559,18 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			break
 		} else if err := decoder.Full(item["to"], &work.to); err != nil {
 			// TODO: remove E.164 decoder debug section when validated...
+			var sp string
 			if tg = item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
-				cdr.Info = work.sp.Code(tg[6:])
+				sp = work.sl.Name(work.sp.Code(tg[6:]))
 			} else if len(tg) > 4 { // BYOC/PBXC
-				cdr.Info = work.sp.Code(tg[:4])
+				sp = work.sl.Name(work.sp.Code(tg[:4]))
 			}
-			if e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), work.sp.Name(cdr.Info),
-				err); !strings.Contains(e, "customer] prefix [0") {
+			if sp == "" || sp == "unknown" {
+				sp = tg
+			}
+			if e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), sp,
+				err); !strings.Contains(e, "customer] prefix [0") &&
+				!strings.Contains(e, "customer] invalid E.164 filtered") {
 				if work.dexcept[e]++; work.dexcept[e] == 1 {
 					logE.Printf("%016X%v", id, e)
 				}
