@@ -561,9 +561,9 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			// TODO: remove E.164 decoder debug section when validated...
 			var sp string
 			if tg = item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
-				sp = work.sl.Name(work.sp.Code(tg[6:]))
+				sp = work.sp.Name(work.sp.Code(tg[6:]))
 			} else if len(tg) > 4 { // BYOC/PBXC
-				sp = work.sl.Name(work.sp.Code(tg[:4]))
+				sp = work.sp.Name(work.sp.Code(tg[:4]))
 			}
 			if sp == "" || sp == "unknown" {
 				sp = tg
