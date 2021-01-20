@@ -856,6 +856,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	case "49": // Germany (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Germany
 		switch nat[:2] {
 		case "15", "16", "17":
+			// 49[1624120015 31] answers with 2 extra digits
 			set(3, 10, 11)
 		case "30", "40", "69", "89":
 			set(2, 7, 10)
@@ -870,7 +871,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 				case '0', '1':
 					err()
 				default:
-					// 49[228978915397] 1 digit too long
+					// 49[228978915397] 1 digit too long (network answer?)
 					set(4, 7, 11)
 				}
 			}
@@ -905,6 +906,9 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 			case "33", "55", "56", "81":
 				set(2, 10)
 			default:
+				// 52[19999099978] (answers) leading '1' stripped by Global Crossing?
+				// 52[16141558734] (answers) leading '1' stripped by Verizon?
+				// 52[17713961515] (answers) leading '1' stripped by Tata?
 				set(3, 10)
 			}
 		default:

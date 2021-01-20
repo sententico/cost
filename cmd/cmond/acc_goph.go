@@ -517,8 +517,8 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		return
 	}
 
-	switch typ, ip, tg := item["type"], item["IP"], item["iTG"]; {
-	case typ == "CORE" || tg == "USPRODMBZ_ZIPWIRE_TG":
+	switch typ, ip, itg, etg := item["type"], item["IP"], item["iTG"], item["eTG"]; {
+	case typ == "CORE" || itg == "USPRODMBZ_ZIPWIRE_TG" || strings.HasPrefix(etg, "ACCESS_"):
 		// agent/ignored CDR
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
 		// inbound/origination CDR
@@ -529,16 +529,16 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		decoder.Full(item["from"], &work.fr)
 		cdr.To, cdr.From = work.to.Digest(0), work.fr.Digest(0)
 		cdr.Bill, cdr.Marg = billmarg(brater.Lookup(&work.to), crater.Lookup(&work.to), dur)
-		if len(tg) > 6 && tg[:6] == "ASPTIB" {
-			cdr.Info |= work.sp.Code(tg[6:]) & spMask
-		} else if len(tg) > 5 && tg[:5] == "SUAIB" {
-			cdr.Info |= work.sp.Code(tg[5:]) & spMask
-		} else if len(tg) > 4 { // BYOC/PBXC
-			cdr.Info |= work.sp.Code(tg[:4]) & spMask
+		if len(itg) > 6 && itg[:6] == "ASPTIB" {
+			cdr.Info |= work.sp.Code(itg[6:]) & spMask
+		} else if len(itg) > 5 && itg[:5] == "SUAIB" {
+			cdr.Info |= work.sp.Code(itg[5:]) & spMask
+		} else if len(itg) > 4 { // BYOC/PBXC
+			cdr.Info |= work.sp.Code(itg[:4]) & spMask
 		}
 		if odetail.CDR.add(hr, cdrID(lc)<<gwlocShift|id&idMask, cdr) {
 			if cdr.Info&spMask == 0 {
-				work.except["iTG:"+tg]++
+				work.except["iTG:"+itg]++
 			}
 			if hr > osum.Current {
 				osum.Current, odetail.Current = hr, hr
@@ -560,13 +560,10 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		} else if err := decoder.Full(item["to"], &work.to); err != nil {
 			// TODO: remove E.164 decoder debug section when validated...
 			var sp string
-			if tg = item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
-				sp = work.sp.Name(work.sp.Code(tg[6:]))
-			} else if len(tg) > 4 { // BYOC/PBXC
-				sp = work.sp.Name(work.sp.Code(tg[:4]))
-			}
-			if sp == "" || sp == "unknown" {
-				sp = tg
+			if len(etg) > 6 && etg[:6] == "ASPTOB" {
+				sp = work.sp.Name(work.sp.Code(etg[6:]))
+			} else if len(etg) > 4 { // BYOC/PBXC
+				sp = work.sp.Name(work.sp.Code(etg[:4]))
 			}
 			if e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), sp,
 				err); !strings.Contains(e, "customer] prefix [0") &&
@@ -589,14 +586,14 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		} else {
 			cdr.Info |= tries << triesShift
 		}
-		if tg = item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
-			cdr.Info |= work.sp.Code(tg[6:]) & spMask
-		} else if len(tg) > 4 { // BYOC/PBXC
-			cdr.Info |= work.sp.Code(tg[:4]) & spMask
+		if len(etg) > 6 && etg[:6] == "ASPTOB" {
+			cdr.Info |= work.sp.Code(etg[6:]) & spMask
+		} else if len(etg) > 4 { // BYOC/PBXC
+			cdr.Info |= work.sp.Code(etg[:4]) & spMask
 		}
 		if tdetail.CDR.add(hr, cdrID(lc)<<gwlocShift|id&idMask, cdr) {
 			if cdr.Info&spMask == 0 {
-				work.except["eTG:"+tg]++
+				work.except["eTG:"+etg]++
 			}
 			if hr > tsum.Current {
 				tsum.Current, tdetail.Current = hr, hr
