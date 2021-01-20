@@ -450,13 +450,13 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		return
 	}, func() { p, s = "", "" }
 
-	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc {
+	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc { // en.wikipedia.org/wiki/List_of_mobile_telephone_prefixes_by_country
 	case "1": // NANPA (Jan21) en.wikipedia.org/wiki/North_American_Numbering_Plan nationalnanpa.com/area_codes/
 		if len(nat) != 10 ||
 			nat[0] == '0' || nat[0] == '1' || nat[1] == '9' || nat[3] == '0' || nat[3] == '1' ||
 			nat[:2] == "37" || nat[:2] == "96" ||
 			nat[:3] == "555" || nat[:3] == "950" || nat[:3] == "988" ||
-			nat[1:3] == "11" || nat[4:6] == "11" || nat[3:8] == "55501" {
+			nat[1:3] == "11" || nat[3:8] == "55501" { // excluded Jan21: nat[4:6]=="11"
 			err()
 		}
 
@@ -593,7 +593,12 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		case '2', '3':
 			set(1, 8)
 		case '4':
-			if set(3, 9) || set(1, 8) {
+			switch len(nat) {
+			case 8:
+				set(1, 8)
+			default:
+				// 32[493388184 7] no documentation supporting 10-digit mobile NSNs
+				set(3, 9)
 			}
 		case '8':
 			if nat[1:3] == "00" {
