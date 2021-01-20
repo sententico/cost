@@ -690,17 +690,18 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		case '0':
 			switch nat[1] {
 			case '2', '6':
-				set(2, 6, 10)
+				set(2, 6, 11)
 			default:
-				set(3, 6, 10)
+				set(3, 6, 11)
 			}
 		case '3':
 			set(3, 9, 10)
 		case '5':
-			set(2, 10)
+			set(2, 10, 11)
 		case '8':
 			set(3, 6, 10)
 		default:
+			// '4', '7' implement?
 			err()
 		}
 
@@ -791,6 +792,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		case '2', '5':
 			set(2, 10)
 		case '3', '8', '9':
+			// 44[3452661037 2] answers with superfluous digit
 			if set(3, 10) || nat[:3] == "800" && set(3, 9) {
 			}
 		case '7':

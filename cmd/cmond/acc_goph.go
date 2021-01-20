@@ -564,9 +564,11 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 			} else if len(tg) > 4 { // BYOC/PBXC
 				cdr.Info = work.sp.Code(tg[:4])
 			}
-			e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), work.sp.Name(cdr.Info), err)
-			if work.dexcept[e]++; work.dexcept[e] == 1 {
-				logE.Printf("%016X%v", id, e)
+			if e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), work.sp.Name(cdr.Info),
+				err); !strings.Contains(e, "customer] prefix [0") {
+				if work.dexcept[e]++; work.dexcept[e] == 1 {
+					logE.Printf("%016X%v", id, e)
+				}
 			}
 			// TODO: ...debug section end
 			break
