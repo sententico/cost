@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -557,9 +558,17 @@ func cdraspInsert(m *model, item map[string]string, now int) {
 		if len(item["dip"]) >= 20 && decoder.Full(item["dip"][:10], &work.to) != nil {
 			break
 		} else if err := decoder.Full(item["to"], &work.to); err != nil {
-			//if !strings.HasPrefix(err.Error(), "invalid E.164 filtered") {
-			//	logE.Print(err)
-			//}
+			// TODO: remove E.164 decoder debug section when validated...
+			if tg = item["eTG"]; len(tg) > 6 && tg[:6] == "ASPTOB" {
+				cdr.Info = work.sp.Code(tg[6:])
+			} else if len(tg) > 4 { // BYOC/PBXC
+				cdr.Info = work.sp.Code(tg[:4])
+			}
+			e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), work.sp.Name(cdr.Info), err)
+			if work.dexcept[e]++; work.dexcept[e] == 1 {
+				logE.Printf("%016X%v", id, e)
+			}
+			// TODO: ...debug section end
 			break
 		}
 		cdr.To, cdr.From = work.to.Digest(0), decoder.Digest(item["from"])

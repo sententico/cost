@@ -234,7 +234,7 @@ type (
 		sp                     tel.SPmap      // CDR insertion service provider map
 		sl                     tel.SLmap      // CDR insertion service location map
 		to, fr                 tel.E164full   // CDR insertion decoder variable
-		except                 map[string]int // CDR insertion exceptions map
+		except, dexcept        map[string]int // CDR insertion exceptions map
 	}
 )
 
@@ -901,7 +901,8 @@ func cdraspBoot(m *model) {
 	}, &origDetail{
 		CDR: make(hiD, 60),
 	}, &cdrWork{
-		except: make(map[string]int),
+		except:  make(map[string]int),
+		dexcept: make(map[string]int, 4096),
 	}
 	m.data = append(m.data, tsum)
 	m.data = append(m.data, osum)

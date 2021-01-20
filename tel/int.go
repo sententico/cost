@@ -269,7 +269,7 @@ const (
 		"357":	{"Geo":"eur",	"ISO3166":"CY",	"Pl":3,	"CCn":"Cyprus"},
 		"358":	{"Geo":"eur",	"ISO3166":"FI",	"Pl":3,	"CCn":"Finland"},
 		"359":	{"Geo":"eur",	"ISO3166":"BG",	"Pl":3,	"CCn":"Bulgaria"},
-		"36":	{"Geo":"eur",	"ISO3166":"HU",	"Pl":3,	"CCn":"Hungary"},
+		"36":	{"Geo":"eur",	"ISO3166":"HU",	"Pl":2,	"CCn":"Hungary"},
 		"370":	{"Geo":"eur",	"ISO3166":"LT",	"Pl":3,	"CCn":"Lithuania"},
 		"371":	{"Geo":"eur",	"ISO3166":"LV",	"Pl":3,	"CCn":"Latvia"},
 		"372":	{"Geo":"eur",	"ISO3166":"EE",	"Pl":3,	"CCn":"Estonia"},
@@ -317,8 +317,8 @@ const (
 		"52":	{"Geo":"lam",	"ISO3166":"MX",	"Pl":3,	"CCn":"Mexico"},
 		"53":	{"Geo":"lam",	"ISO3166":"CU",	"Pl":1,	"CCn":"Cuba"},
 		"54":	{"Geo":"lam",	"ISO3166":"AR",	"Pl":3,	"CCn":"Argentina"},
-		"55":	{"Geo":"lam",	"ISO3166":"BR",	"Pl":3,	"CCn":"Brazil"},
-		"56":	{"Geo":"lam",	"ISO3166":"CL",	"Pl":3,	"CCn":"Chile"},
+		"55":	{"Geo":"lam",	"ISO3166":"BR",	"Pl":2,	"CCn":"Brazil"},
+		"56":	{"Geo":"lam",	"ISO3166":"CL",	"Pl":0,	"CCn":"Chile"},
 		"57":	{"Geo":"lam",	"ISO3166":"CO",	"Pl":1,	"CCn":"Colombia"},
 		"58":	{"Geo":"lam",	"ISO3166":"VE",	"Pl":3,	"CCn":"Venezuela"},
 		"590":	{"Geo":"lam",	"ISO3166":"GP",	"Pl":3,	"CCn":"Guadeloupe"},
@@ -332,13 +332,13 @@ const (
 		"598":	{"Geo":"lam",	"ISO3166":"UY",	"Pl":3,	"CCn":"Uruguay"},
 		"599":	{"Geo":"lam",	"ISO3166":"CW",	"Pl":3,	"CCn":"Caribbean Netherlands"},
 
-		"60":	{"Geo":"apac",	"ISO3166":"MY",	"Pl":3,	"CCn":"Malaysia"},
+		"60":	{"Geo":"apac",	"ISO3166":"MY",	"Pl":2,	"CCn":"Malaysia"},
 		"61":	{"Geo":"apac",	"ISO3166":"AU",	"Pl":3,	"CCn":"Australia"},
 		"62":	{"Geo":"apac",	"ISO3166":"ID",	"Pl":3,	"CCn":"Indonesia"},
 		"63":	{"Geo":"apac",	"ISO3166":"PH",	"Pl":2,	"CCn":"Philippines"},
 		"64":	{"Geo":"apac",	"ISO3166":"NZ",	"Pl":3,	"CCn":"New Zealand"},
 		"65":	{"Geo":"apac",	"ISO3166":"SG",	"Pl":1,	"CCn":"Singapore"},
-		"66":	{"Geo":"apac",	"ISO3166":"TH",	"Pl":4,	"CCn":"Thailand"},
+		"66":	{"Geo":"apac",	"ISO3166":"TH",	"Pl":2,	"CCn":"Thailand"},
 		"670":	{"Geo":"apac",	"ISO3166":"TL",	"Pl":3,	"CCn":"Timor-Leste"},
 		"672":	{"Geo":"apac",	"ISO3166":"NF",	"Pl":3,	"CCn":"Australian External Territories"},
 		"673":	{"Geo":"apac",	"ISO3166":"BN",	"Pl":3,	"CCn":"Brunei Darussalam"},
@@ -369,9 +369,9 @@ const (
 
 		"800":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global freephone"},
 		"808":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global shared cost"},
-		"81":	{"Geo":"apac",	"ISO3166":"JP",	"Pl":3,	"CCn":"Japan"},
-		"82":	{"Geo":"apac",	"ISO3166":"KR",	"Pl":3,	"CCn":"Korea"},
-		"84":	{"Geo":"apac",	"ISO3166":"VN",	"Pl":3,	"CCn":"Vietnam"},
+		"81":	{"Geo":"apac",	"ISO3166":"JP",	"Pl":2,	"CCn":"Japan"},
+		"82":	{"Geo":"apac",	"ISO3166":"KR",	"Pl":2,	"CCn":"Korea"},
+		"84":	{"Geo":"apac",	"ISO3166":"VN",	"Pl":2,	"CCn":"Vietnam"},
 		"850":	{"Geo":"apac",	"ISO3166":"KP",	"Pl":3,	"CCn":"Korea DPR"},
 		"852":	{"Geo":"apac",	"ISO3166":"HK",	"Pl":1,	"CCn":"Hong Kong"},
 		"853":	{"Geo":"apac",	"ISO3166":"MO",	"Pl":3,	"CCn":"Macao"},
@@ -379,20 +379,20 @@ const (
 		"856":	{"Geo":"apac",	"ISO3166":"LA",	"Pl":3,	"CCn":"Laos"},
 		"86":	{"Geo":"apac",	"ISO3166":"CN",	"Pl":3,	"CCn":"China"},
 		"870":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global Inmarsat"},
-		"878":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global personal numbers"},
+		"878":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":2,	"CCn":"global personal numbers"},
 		"880":	{"Geo":"apac",	"ISO3166":"BD",	"Pl":3,	"CCn":"Bangladesh"},
-		"881":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global satphone"},
+		"881":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":1,	"CCn":"global satphone"},
 		"882":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":2,	"CCn":"global 882"},
-		"883":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global 883"},
+		"883":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":3,	"CCn":"global 883"},
 		"886":	{"Geo":"apac",	"ISO3166":"TW",	"Pl":3,	"CCn":"Taiwan"},
-		"888":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global disaster relief"},
+		"888":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global humanitarian affairs"},
 
 		"90":	{"Geo":"mea",	"ISO3166":"TR",	"Pl":3,	"CCn":"Turkey"},
 		"91":	{"Geo":"mea",	"ISO3166":"IN",	"Pl":4,	"CCn":"India"},
-		"92":	{"Geo":"mea",	"ISO3166":"PK",	"Pl":3,	"CCn":"Pakistan"},
-		"93":	{"Geo":"mea",	"ISO3166":"AF",	"Pl":3,	"CCn":"Afghanistan"},
+		"92":	{"Geo":"mea",	"ISO3166":"PK",	"Pl":2,	"CCn":"Pakistan"},
+		"93":	{"Geo":"mea",	"ISO3166":"AF",	"Pl":2,	"CCn":"Afghanistan"},
 		"94":	{"Geo":"mea",	"ISO3166":"LK",	"Pl":3,	"CCn":"Sri Lanka"},
-		"95":	{"Geo":"mea",	"ISO3166":"MM",	"Pl":3,	"CCn":"Myanmar"},
+		"95":	{"Geo":"mea",	"ISO3166":"MM",	"Pl":4,	"CCn":"Myanmar"},
 		"960":	{"Geo":"mea",	"ISO3166":"MV",	"Pl":3,	"CCn":"Maldives"},
 		"961":	{"Geo":"mea",	"ISO3166":"LB",	"Pl":3,	"CCn":"Lebanon"},
 		"962":	{"Geo":"mea",	"ISO3166":"JO",	"Pl":3,	"CCn":"Jordan"},
@@ -410,9 +410,9 @@ const (
 		"975":	{"Geo":"mea",	"ISO3166":"BT",	"Pl":3,	"CCn":"Bhutan"},
 		"976":	{"Geo":"mea",	"ISO3166":"MN",	"Pl":3,	"CCn":"Mongolia"},
 		"977":	{"Geo":"mea",	"ISO3166":"NP",	"Pl":3,	"CCn":"Nepal"},
-		"979":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global premium rate"},
+		"979":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":1,	"CCn":"global premium rate"},
 		"98":	{"Geo":"mea",	"ISO3166":"IR",	"Pl":3,	"CCn":"Iran"},
-		"991":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global ITPCS trial"},
+		"991":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":3,	"CCn":"global ITPCS trial"},
 		"992":	{"Geo":"mea",	"ISO3166":"TJ",	"Pl":3,	"CCn":"Tajikistan"},
 		"993":	{"Geo":"mea",	"ISO3166":"TM",	"Pl":3,	"CCn":"Turkmenistan"},
 		"994":	{"Geo":"mea",	"ISO3166":"AZ",	"Pl":3,	"CCn":"Azerbaijan"},
@@ -652,7 +652,15 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "357": // Cyprus (3)
 	//case "358": // Finland (3)
 	//case "359": // Bulgaria (3)
-	//case "36": // Hungary (3)
+	case "36": // Hungary (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Hungary
+		switch nat[0] {
+		case '0':
+			err()
+		case '1':
+			set(1, 8)
+		default:
+			set(2, 8)
+		}
 	//case "370": // Lithuania (3)
 	//case "371": // Latvia (3)
 	//case "372": // Estonia (3)
@@ -906,9 +914,43 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "54": // Argentina (3)
-	//case "55": // Brazil (3)
-	//case "56": // Chile (3)
+	case "54": // Argentina (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Argentina
+		switch nat[0] {
+		case '0':
+			err()
+		case '1':
+			set(2, 10)
+		case '9':
+			set(4, 11)
+		default:
+			set(3, 10)
+		}
+	case "55": // Brazil (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Brazil en.wikipedia.org/wiki/List_of_dialling_codes_in_Brazil
+		switch nat[0] {
+		case '0':
+			err()
+		default:
+			switch nat[1] {
+			case '0':
+				set(3, 8, 10)
+			default:
+				switch nat[2] {
+				case '2', '3', '4', '5':
+					set(2, 10)
+				case '6', '7', '8', '9':
+					set(3, 11)
+				default:
+					err()
+				}
+			}
+		}
+	case "56": // Chile (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Chile
+		switch nat[0] {
+		case '0':
+			err()
+		default:
+			set(0, 9)
+		}
 	case "57": // Colombia (Jan20) en.wikipedia.org/wiki/Telephone_numbers_in_Colombia
 		switch nat[0] {
 		case '1', '2', '4', '5', '6', '7', '8':
@@ -918,7 +960,13 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "58": // Venezuela (3)
+	case "58": // Venezuela (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Venezuela
+		switch nat[0] {
+		case '2', '4', '5', '8', '9':
+			set(3, 10)
+		default:
+			err()
+		}
 	//case "590": // Guadeloupe (3)
 	//case "591": // Bolivia (3)
 	//case "592": // Guyana (3)
@@ -930,7 +978,29 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "598": // Uruguay (3)
 	//case "599": // Caribbean Netherlands (3)
 
-	//case "60": // Malaysia (3)
+	case "60": // Malaysia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Malaysia
+		switch nat[0] {
+		case '1':
+			switch nat[:4] {
+			case "1300", "1500", "1508", "1600", "1700", "1800", "1900":
+				set(4, 10)
+			default:
+				switch nat[1] {
+				case '1', '5':
+					set(2, 10)
+				default:
+					set(2, 9)
+				}
+			}
+		case '3':
+			set(1, 9)
+		case '4', '5', '6', '7', '9':
+			set(1, 8)
+		case '8':
+			set(2, 8)
+		default:
+			err()
+		}
 	case "61": // Australia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Australia
 		switch nat[0] {
 		case '1', '2', '3', '7':
@@ -945,7 +1015,20 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "62": // Indonesia (3)
+	case "62": // Indonesia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Indonesia
+		switch nat[0] {
+		case '0', '1':
+			err()
+		case '8':
+			set(3, 10, 13)
+		default:
+			switch nat[:2] {
+			case "21", "31":
+				set(2, 7, 11)
+			default:
+				set(3, 7, 11)
+			}
+		}
 	case "63": // Philippines (Jan20) en.wikipedia.org/wiki/Telephone_numbers_in_the_Philippines
 		switch nat[0] {
 		case '2':
@@ -966,8 +1049,45 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "65": // Singapore (1)
-	//case "66": // Thailand (4)
+	case "65": // Singapore (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Singapore
+		switch nat[0] {
+		case '1':
+			switch nat[1:4] {
+			case "800", "900":
+				set(4, 11)
+			default:
+				err()
+			}
+		case '3', '6', '9':
+			set(1, 8)
+		case '8':
+			switch nat[1:3] {
+			case "00":
+				set(3, 10)
+			default:
+				set(1, 8)
+			}
+		default:
+			err()
+		}
+	case "66": // Thailand (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Thailand
+		switch nat[0] {
+		case '1':
+			switch nat[1:4] {
+			case "401", "800", "900":
+				set(4, 10)
+			default:
+				err()
+			}
+		case '2':
+			set(1, 7, 8)
+		case '3', '4', '5', '7':
+			set(2, 8)
+		case '6', '8', '9':
+			set(2, 9)
+		default:
+			err()
+		}
 	//case "670": // Timor-Leste (3)
 	//case "672": // Australian External Territories (3)
 	//case "673": // Brunei Darussalam (3)
@@ -998,13 +1118,59 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "691": // Micronesia (3)
 	//case "692": // Marshall Islands (3)
 
-	//case "7": // Russia & Kazakhstan" (1)
+	case "7": // Russia & Kazakhstan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Russia en.wikipedia.org/wiki/Telephone_numbers_in_Kazakhstan
+		switch nat[0] {
+		case '3', '4', '6', '7', '8', '9':
+			set(3, 10)
+		default:
+			err()
+		}
 
-	//case "800": // global freephone (0)
-	//case "808": // global shared cost (0)
-	//case "81": // Japan (3)
-	//case "82": // Korea (3)
-	//case "84": // Vietnam (3)
+	case "800": // global freephone (Jan21) en.wikipedia.org/wiki/Toll-free_telephone_number#International
+		set(0, 8)
+	case "808": // global shared cost (Jan21) en.wikipedia.org/wiki/Shared-cost_service itu.int/en/ITU-T/inr/unum/Pages/uiscn.aspx
+		set(0, 8)
+	case "81": // Japan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Japan
+		if nat[0] == '0' {
+			err()
+		} else if nat[1] == '0' {
+			set(2, 9, 10)
+		} else if nat[2] == '0' {
+			switch nat[:2] {
+			case "12", "13", "14", "16", "17", "18", "19", "57", "80", "91", "99":
+				set(3, 9)
+			default:
+				set(2, 9)
+			}
+		} else {
+			set(2, 9)
+		}
+	case "82": // Korea (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_South_Korea
+		switch nat[0] {
+		case '1':
+			set(2, 8, 10)
+		case '2':
+			set(1, 8, 9)
+		case '3', '4', '5', '6', '7', '8':
+			set(2, 9, 10)
+		default:
+			err()
+		}
+	case "84": // Vietnam (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Vietnam
+		switch nat[0] {
+		case '1':
+			if nat[1:4] == "900" {
+				set(4, 8, 10)
+			} else {
+				err()
+			}
+		case '2':
+			set(3, 10)
+		case '3', '5', '6', '7', '8', '9':
+			set(2, 9)
+		default:
+			err()
+		}
 	//case "850": // Korea DPR (3)
 	//case "852": // Hong Kong (1)
 	//case "853": // Macao (3)
@@ -1025,16 +1191,52 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			set(3, 10, 11)
 		}
-	//case "870": // global Inmarsat (0)
-	//case "878": // global personal numbers (0)
+	case "870": // global Inmarsat (Jan21) en.wikipedia.org/wiki/Inmarsat
+		set(0, 4, 12)
+	case "878": // global personal numbers (Jan21) en.wikipedia.org/wiki/Universal_Personal_Telecommunications
+		switch nat[:2] {
+		case "10":
+			set(2, 12)
+		default:
+			err()
+		}
 	//case "880": // Bangladesh (3)
-	//case "881": // global satphone (0)
-	//case "882": // global 882 (2)
-	//case "883": // global 883 (0)
+	case "881": // global satphone (Jan21) en.wikipedia.org/wiki/Global_Mobile_Satellite_System
+		set(1, 5, 12)
+	case "882": // global 882 (Jan21) en.wikipedia.org/wiki/International_Networks_(country_code)
+		switch nat[0] {
+		case '1', '2', '3', '4', '8', '9':
+			set(2, 6, 12)
+		default:
+			err()
+		}
+	case "883": // global 883 (Jan21) en.wikipedia.org/wiki/International_Networks_(country_code)
+		switch nat[0] {
+		case '0':
+			set(2, 6, 12)
+		case '1', '2':
+			set(3, 7, 12)
+		case '5':
+			set(4, 8, 12)
+		default:
+			err()
+		}
 	//case "886": // Taiwan (3)
-	//case "888": // global disaster relief (0)
+	case "888": // global humanitarian affairs (Jan21) en.wikipedia.org/wiki/United_Nations_Office_for_the_Coordination_of_Humanitarian_Affairs
+		set(0, 4, 12)
 
-	//case "90" : // Turkey (3)
+	case "90": // Turkey (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Turkey
+		switch nat[0] {
+		case '2', '3', '4', '5':
+			set(3, 10)
+		default:
+			switch nat[:3] {
+			case "800", "822", "850", "900":
+				set(3, 10)
+			default:
+				err()
+			}
+		}
 	case "91": // India (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_India
 		switch nat[:2] {
 		case "11", "20", "22", "33", "40", "44", "79", "80":
@@ -1049,10 +1251,46 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 				set(3, 10)
 			}
 		}
-	//case "92" : // Pakistan (3)
-	//case "93" : // Afghanistan (3)
-	//case "94" : // Sri Lanka (3)
-	//case "95" : // Myanmar (3)
+	case "92": // Pakistan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Pakistan
+		switch nat[0] {
+		case '2', '4', '5', '6', '7':
+			set(2, 9, 10)
+		case '3':
+			set(2, 10)
+		case '8', '9':
+			switch nat[1:3] {
+			case "00":
+				set(3, 8)
+			default:
+				set(2, 9, 10)
+			}
+		default:
+		}
+	case "93": // Afghanistan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Afghanistan
+		switch nat[0] {
+		case '2', '3', '4', '5', '6', '7':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "94": // Sri Lanka (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Sri_Lanka
+		switch nat[0] {
+		case '0':
+			err()
+		case '7':
+			set(2, 9)
+		default:
+			set(3, 9)
+		}
+	case "95": // Myanmar (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Myanmar
+		switch nat[0] {
+		case '0':
+			err()
+		case '9':
+			set(2, 7, 10)
+		default:
+			set(4, 7, 10)
+		}
 	//case "960": // Maldives (3)
 	//case "961": // Lebanon (3)
 	//case "962": // Jordan (3)
@@ -1070,18 +1308,42 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "975": // Bhutan (3)
 	//case "976": // Mongolia (3)
 	//case "977": // Nepal (3)
-	//case "979": // global premium rate (0)
-	//case "98" : // Iran (3)
-	//case "991": // global ITPCS trial (0)
-	//case "992": // Tajikistan (3)
-	//case "993": // Turkmenistan (3)
-	//case "994": // Azerbaijan (3)
-	//case "995": // Georgia (3)
-	//case "996": // Kyrgyzstan (3)
-	//case "998": // Uzbekistan (3)
-
-	default:
-		// TODO: insert rules per CC for more precise P/Sub (p/s) partitioning
+	case "979": // global premium rate (Jan21) en.wikipedia.org/wiki/International_Premium_Rate_Service
+		switch nat[0] {
+		case '1', '3', '5', '9':
+			set(1, 9)
+		default:
+			err()
+		}
+	case "98": // Iran (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Iran
+		switch nat[0] {
+		case '0':
+			err()
+		case '8':
+			switch nat[1:4] {
+			case "080", "081":
+				set(4, 8)
+			default:
+				set(2, 10)
+			}
+		case '9':
+			set(3, 10)
+		default:
+			set(2, 10)
+		}
+	case "991": // global ITPCS trial (Jan21; defunct?) en.wikipedia.org/wiki/ITPCS
+		switch nat[:3] {
+		case "001":
+			set(3, 7, 12)
+		default:
+			err()
+		}
+		//case "992": // Tajikistan (3)
+		//case "993": // Turkmenistan (3)
+		//case "994": // Azerbaijan (3)
+		//case "995": // Georgia (3)
+		//case "996": // Kyrgyzstan (3)
+		//case "998": // Uzbekistan (3)
 	}
 	return
 }
