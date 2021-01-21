@@ -438,6 +438,15 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 			ok = l[0] == len(nat)
 		case 2:
 			ok = l[0] <= len(nat) && len(nat) <= l[1]
+		case 3:
+			if ok = l[0] <= len(nat) && len(nat) <= l[1]; ok {
+				if len(nat) > l[2] {
+					p, s = nat[:pl], nat[pl:l[2]]
+				} else if len(p) != pl || s == "" {
+					p, s = nat[:pl], nat[pl:]
+				}
+				return
+			}
 		}
 		if !ok {
 			if s = ""; len(p) != pl && len(nat) > pl {
@@ -459,7 +468,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 			nat[:2] == "37" || nat[:2] == "96" ||
 			nat[:3] == "555" || nat[:3] == "950" || nat[:3] == "988" ||
 			nat[1:3] == "11" || nat[3:8] == "55501" {
-			// TODO: evaluate nat[4:6]=="11" (must exclude 8YY)
+			// TODO: evaluate nat[4:6]=="11" (excluding at least 8YY)
 			// TODO: evaluate nat[:3]==nat[3:6]
 			err()
 		}
@@ -895,25 +904,24 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 			err()
 		}
 	case "44": // United Kingdom (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_United_Kingdom
-		switch nat[0] {
+		switch nat[0] { // extra digit allowed but truncated
 		case '1':
 			if nat[1] == '1' || nat[2] == '1' {
-				set(3, 10)
+				set(3, 10, 11, 10)
 			} else {
-				set(4, 9, 10)
+				set(4, 9, 11, 10)
 			}
 		case '2', '5':
-			set(2, 10)
+			set(2, 10, 11, 10)
 		case '3', '8', '9':
-			// 44[3452661037 2] answers with superfluous digit
-			if set(3, 10) || nat[:3] == "800" && set(3, 9) {
+			if set(3, 10, 11, 10) || nat[:3] == "800" && set(3, 9, 10, 9) {
 			}
 		case '7':
 			switch nat[1] {
 			case '0', '6':
-				set(2, 10)
+				set(2, 10, 11, 10)
 			default:
-				set(4, 10)
+				set(4, 10, 11, 10)
 			}
 		default:
 			err()
@@ -1014,18 +1022,27 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		}
 	case "52": // Mexico (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Mexico
 		switch nat[0] {
-		case '2', '3', '4', '5', '6', '7', '8', '9':
+		case '0':
+			err()
+		case '1': // legacy "caller-pays" prefix
+			switch nat[1] {
+			case '0', '1':
+				err()
+			default:
+				switch nat[1:3] {
+				case "33", "55", "56", "81":
+					set(3, 11)
+				default:
+					set(4, 11)
+				}
+			}
+		default:
 			switch nat[:2] {
 			case "33", "55", "56", "81":
 				set(2, 10)
 			default:
-				// 52[1 9999099978] (answers) leading '1' stripped by Global Crossing?
-				// 52[1 6141558734] (answers) leading '1' stripped by Verizon?
-				// 52[1 7713961515] (answers) leading '1' stripped by Tata?
 				set(3, 10)
 			}
-		default:
-			err()
 		}
 	case "53": // Cuba (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Cuba
 		switch nat[0] {

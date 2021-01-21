@@ -326,8 +326,7 @@ func (sl *SLmap) Name(co uint16) string {
 // Digest method on E164full ...
 func (tn *E164full) Digest(pre int) E164digest {
 	var np uint64
-	if tn == nil || len(tn.CC) == 0 || len(tn.CC) > 3 || len(tn.Num) < len(tn.CC) ||
-		len(tn.Num) > 15 || len(tn.CC)+len(tn.P)+len(tn.Sub) != len(tn.Num) {
+	if tn == nil || len(tn.CC) == 0 || len(tn.CC) > 3 || len(tn.Num) > 15 || len(tn.CC)+len(tn.P)+len(tn.Sub) > len(tn.Num) {
 		return 0
 	} else if pre < len(tn.CC) || pre >= len(tn.Num) {
 		if np, _ = strconv.ParseUint(tn.Num, 10, 64); np == 0 {
@@ -346,15 +345,15 @@ func (tnd E164digest) Full(d *Decoder, tn *E164full) error {
 	if tn == nil {
 		return fmt.Errorf("missing E.164 target")
 	} else if n, ccl, pl, subl := strconv.FormatUint(uint64(tnd>>numShift), 10), int(tnd>>ccShift&ccMask), int(tnd>>pShift&pMask),
-		int(tnd>>subShift&subMask); ccl == 0 || len(n) > 15 || ccl+pl+subl != len(n) {
+		int(tnd>>subShift&subMask); ccl == 0 || len(n) > 15 || ccl+pl+subl > len(n) {
 		return fmt.Errorf("invalid E.164 digest")
-	} else if d == nil {
-		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], tnd.Geo(), "", "", n[ccl:ccl+pl], n[ccl+pl:]
+	} else if sub := ccl + pl; d == nil {
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], tnd.Geo(), "", "", n[ccl:sub], n[sub:sub+subl]
 	} else if i, _, _ := d.ccInfo(n, n[:ccl]); i == nil {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 		return fmt.Errorf("cannot decode %q as E.164 CC", n[:ccl])
 	} else {
-		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], i.Geo, i.CCn, i.ISO3166, n[ccl:ccl+pl], n[ccl+pl:]
+		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], i.Geo, i.CCn, i.ISO3166, n[ccl:sub], n[sub:sub+subl]
 	}
 	return nil
 }
