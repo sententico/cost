@@ -251,16 +251,16 @@ const (
 		"290":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":3,	"CCn":"Saint Helena & Tristan da Cunha"},
 		"291":	{"Geo":"afr",	"ISO3166":"ER",	"Pl":3,	"CCn":"Eritrea"},
 		"297":	{"Geo":"lam",	"ISO3166":"AW",	"Pl":3,	"CCn":"Aruba"},
-		"298":	{"Geo":"eur",	"ISO3166":"FO",	"Pl":3,	"CCn":"Faroe Islands"},
-		"299":	{"Geo":"eur",	"ISO3166":"GL",	"Pl":3,	"CCn":"Greenland"},
+		"298":	{"Geo":"eur",	"ISO3166":"FO",	"Pl":2,	"CCn":"Faroe Islands"},
+		"299":	{"Geo":"eur",	"ISO3166":"GL",	"Pl":2,	"CCn":"Greenland"},
 
 		"30":	{"Geo":"eur",	"ISO3166":"GR",	"Pl":3,	"CCn":"Greece"},
 		"31":	{"Geo":"eur",	"ISO3166":"NL",	"Pl":2,	"CCn":"Netherlands"},
 		"32":	{"Geo":"eur",	"ISO3166":"BE",	"Pl":2,	"CCn":"Belgium"},
 		"33":	{"Geo":"eur",	"ISO3166":"FR",	"Pl":1,	"CCn":"France"},
 		"34":	{"Geo":"eur",	"ISO3166":"ES",	"Pl":3,	"CCn":"Spain"},
-		"350":	{"Geo":"eur",	"ISO3166":"GI",	"Pl":3,	"CCn":"Gibraltar"},
-		"351":	{"Geo":"eur",	"ISO3166":"PT",	"Pl":3,	"CCn":"Portugal"},
+		"350":	{"Geo":"eur",	"ISO3166":"GI",	"Pl":2,	"CCn":"Gibraltar"},
+		"351":	{"Geo":"eur",	"ISO3166":"PT",	"Pl":2,	"CCn":"Portugal"},
 		"352":	{"Geo":"eur",	"ISO3166":"LU",	"Pl":3,	"CCn":"Luxembourg"},
 		"353":	{"Geo":"eur",	"ISO3166":"IE",	"Pl":2,	"CCn":"Ireland"},
 		"354":	{"Geo":"eur",	"ISO3166":"IS",	"Pl":3,	"CCn":"Iceland"},
@@ -277,8 +277,8 @@ const (
 		"374":	{"Geo":"eur",	"ISO3166":"AM",	"Pl":3,	"CCn":"Armenia"},
 		"375":	{"Geo":"eur",	"ISO3166":"BY",	"Pl":3,	"CCn":"Belarus"},
 		"376":	{"Geo":"eur",	"ISO3166":"AD",	"Pl":3,	"CCn":"Andorra"},
-		"377":	{"Geo":"eur",	"ISO3166":"MC",	"Pl":3,	"CCn":"Monaco"},
-		"378":	{"Geo":"eur",	"ISO3166":"SM",	"Pl":3,	"CCn":"San Marino"},
+		"377":	{"Geo":"eur",	"ISO3166":"MC",	"Pl":2,	"CCn":"Monaco"},
+		"378":	{"Geo":"eur",	"ISO3166":"SM",	"Pl":2,	"CCn":"San Marino"},
 		"379":	{"Geo":"eur",	"ISO3166":"VA",	"Pl":0,	"CCn":"Holy See"},
 		"380":	{"Geo":"eur",	"ISO3166":"UA",	"Pl":3,	"CCn":"Ukraine"},
 		"381":	{"Geo":"eur",	"ISO3166":"RS",	"Pl":3,	"CCn":"Serbia"},
@@ -286,14 +286,13 @@ const (
 		"385":	{"Geo":"eur",	"ISO3166":"HR",	"Pl":3,	"CCn":"Croatia"},
 		"386":	{"Geo":"eur",	"ISO3166":"SI",	"Pl":2,	"CCn":"Slovenia"},
 		"387":	{"Geo":"eur",	"ISO3166":"BA",	"Pl":3,	"CCn":"Bosnia & Herzegovina"},
-		"388":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"EU shared"},
 		"389":	{"Geo":"eur",	"ISO3166":"MK",	"Pl":3,	"CCn":"Macedonia"},
 		"39":	{"Geo":"eur",	"ISO3166":"IT",	"Pl":3,	"CCn":"Italy"},
 
 		"40":	{"Geo":"eur",	"ISO3166":"RO",	"Pl":3,	"CCn":"Romania"},
 		"41":	{"Geo":"eur",	"ISO3166":"CH",	"Pl":2,	"CCn":"Switzerland"},
 		"420":	{"Geo":"eur",	"ISO3166":"CZ",	"Pl":3,	"CCn":"Czech Republic"},
-		"421":	{"Geo":"eur",	"ISO3166":"SK",	"Pl":3,	"CCn":"Slovakia"},
+		"421":	{"Geo":"eur",	"ISO3166":"SK",	"Pl":2,	"CCn":"Slovakia"},
 		"423":	{"Geo":"eur",	"ISO3166":"LI",	"Pl":1,	"CCn":"Liechtenstein"},
 		"43":	{"Geo":"eur",	"ISO3166":"AT",	"Pl":3,	"CCn":"Austria"},
 		"44":	{"Geo":"eur",	"ISO3166":"GB",	"Pl":3,	"CCn":"United Kingdom"},
@@ -450,13 +449,18 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		return
 	}, func() { p, s = "", "" }
 
-	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc { // en.wikipedia.org/wiki/List_of_mobile_telephone_prefixes_by_country
+	// itu.int/en/ITU-T/inr/Pages/default.aspx
+	// en.wikipedia.org/wiki/List_of_mobile_telephone_prefixes_by_country
+	switch p, s = nat[:i.Pl], nat[i.Pl:]; cc {
+
 	case "1": // NANPA (Jan21) en.wikipedia.org/wiki/North_American_Numbering_Plan nationalnanpa.com/area_codes/
 		if len(nat) != 10 ||
 			nat[0] == '0' || nat[0] == '1' || nat[1] == '9' || nat[3] == '0' || nat[3] == '1' ||
 			nat[:2] == "37" || nat[:2] == "96" ||
 			nat[:3] == "555" || nat[:3] == "950" || nat[:3] == "988" ||
-			nat[1:3] == "11" || nat[3:8] == "55501" { // excluded Jan21: nat[4:6]=="11"
+			nat[1:3] == "11" || nat[3:8] == "55501" {
+			// TODO: evaluate nat[4:6]=="11" (must exclude 8YY)
+			// TODO: evaluate nat[:3]==nat[3:6]
 			err()
 		}
 
@@ -551,8 +555,22 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "290": // Saint Helena & Tristan da Cunha (3)
 	//case "291": // Eritrea (3)
 	//case "297": // Aruba (3)
-	//case "298": // Faroe Islands (3)
-	//case "299": // Greenland (3)
+	case "298": // Faroe Islands (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Faroe_Islands
+		switch nat[0] {
+		case '0', '1':
+			err()
+		default:
+			set(2, 6)
+		}
+	case "299": // Greenland (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Greenland
+		switch nat[0] {
+		case '1', '2', '3', '4', '5':
+			set(2, 6)
+		case '6', '8', '9':
+			set(1, 6)
+		default:
+			err()
+		}
 
 	case "30": // Greece (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Greece
 		switch nat[0] {
@@ -637,9 +655,49 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "350": // Gibraltar (3)
-	//case "351": // Portugal (3)
-	//case "352": // Luxembourg (3)
+	case "350": // Gibraltar (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Gibraltar
+		switch nat[0] {
+		case '2':
+			set(3, 8)
+		case '5':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "351": // Portugal (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Portugal
+		switch nat[0] {
+		case '2':
+			switch nat[1] {
+			case '1', '2':
+				set(2, 9)
+			default:
+				set(3, 9)
+			}
+		case '6', '8':
+			set(3, 9)
+		case '3', '9':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "352": // Luxembourg (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Luxembourg assets.ilr.lu/telecom/Documents/ILRLU-1461723625-633.pdf
+		switch nat[0] {
+		case '0', '1':
+			err()
+		case '2':
+			switch nat[1] {
+			case '4', '6', '7': // TODO: add '0', '3', '8'?
+				set(4, 8)
+			default:
+				set(2, 6)
+			}
+		case '4':
+			set(1, 6)
+		case '6':
+			set(3, 9)
+		default:
+			set(2, 6)
+		}
 	case "353": // Ireland (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Republic_of_Ireland
 		switch nat[0] {
 		case '1':
@@ -651,7 +709,15 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "354": // Iceland (3)
+	case "354": // Iceland (3) en.wikipedia.org/wiki/Telephone_numbers_in_Iceland
+		switch nat[0] {
+		case '0', '1':
+			err()
+		case '3':
+			set(3, 9)
+		default:
+			set(3, 7)
+		}
 	//case "355": // Albania (3)
 	//case "356": // Malta (3)
 	//case "357": // Cyprus (3)
@@ -673,8 +739,26 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "374": // Armenia (3)
 	//case "375": // Belarus (3)
 	//case "376": // Andorra (3)
-	//case "377": // Monaco (3)
-	//case "378": // San Marino (3)
+	case "377": // Monaco (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Monaco
+		switch nat[0] {
+		case '3', '4', '8', '9':
+			set(2, 8)
+		case '6':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "378": // San Marino (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_San_Marino
+		if nat[:4] == "0549" {
+			set(4, 6, 10)
+		} else {
+			switch nat[0] {
+			case '0', '5', '6', '7', '8', '9':
+				set(2, 6, 10)
+			default:
+				err()
+			}
+		}
 	case "379": // Holy See (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Vatican_City
 		err()
 	//case "380": // Ukraine (3)
@@ -683,8 +767,17 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "385": // Croatia (3)
 	//case "386": // Slovenia (2)
 	//case "387": // Bosnia & Herzegovina (3)
-	//case "388": // EU shared (0)
-	//case "389": // Macedonia (3)
+	case "389": // Macedonia (Jan21 3) en.wikipedia.org/wiki/Telephone_numbers_in_North_Macedonia
+		switch nat[0] {
+		case '2':
+			set(1, 8)
+		case '3', '4', '7':
+			set(2, 8)
+		case '5', '8':
+			set(3, 8)
+		default:
+			err()
+		}
 	case "39": // Italy (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Italy
 		switch nat[0] {
 		case '0':
@@ -737,10 +830,30 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "420": // Czech Republic (3)
-	//case "421": // Slovakia (3)
+	case "420": // Czech Republic (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Czech_Republic
+		switch nat[0] {
+		case '2':
+			set(1, 9)
+		case '3', '4', '5':
+			set(2, 9)
+		case '6', '7', '8', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "421": // Slovakia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Slovakia
+		switch nat[0] {
+		case '2':
+			set(1, 9)
+		case '3', '4', '5':
+			set(2, 9)
+		case '9': // no documentation for potential 800/900 prefixes
+			set(3, 9)
+		default:
+			err()
+		}
 	case "423": // Liechtenstein (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Liechtenstein
-		switch nat[1] {
+		switch nat[0] {
 		case '2', '3', '7':
 			set(1, 7)
 		case '6':
@@ -871,7 +984,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 				case '0', '1':
 					err()
 				default:
-					// 49[228978915397] 1 digit too long (network answer?)
+					// 49[22897891539 7] 1 digit too long (network answer?)
 					set(4, 7, 11)
 				}
 			}
@@ -906,9 +1019,9 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 			case "33", "55", "56", "81":
 				set(2, 10)
 			default:
-				// 52[19999099978] (answers) leading '1' stripped by Global Crossing?
-				// 52[16141558734] (answers) leading '1' stripped by Verizon?
-				// 52[17713961515] (answers) leading '1' stripped by Tata?
+				// 52[1 9999099978] (answers) leading '1' stripped by Global Crossing?
+				// 52[1 6141558734] (answers) leading '1' stripped by Verizon?
+				// 52[1 7713961515] (answers) leading '1' stripped by Tata?
 				set(3, 10)
 			}
 		default:
