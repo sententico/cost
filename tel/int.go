@@ -1092,7 +1092,8 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 				case '0', '1':
 					err()
 				default:
-					// 49[22897891539 7] 1 digit too long (network answer)
+					// 49[2289 7891539 7] 1 digit too long (network answer)
+					// 49[2225 9881612 8]
 					set(4, 7, 11)
 				}
 			}

@@ -264,7 +264,16 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		}
 		fallthrough
 	case "available":
-		vol.Rate, c = (r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
+		switch vol.Typ {
+		case "gp3":
+			if vol.IOPS > 3000 {
+				vol.Rate, c = (r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS-3000))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
+			} else {
+				vol.Rate, c = r.SZrate*float32(vol.Size)*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
+			}
+		default:
+			vol.Rate, c = (r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
+		}
 	default:
 		vol.Rate = 0
 	}
