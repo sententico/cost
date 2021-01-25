@@ -248,8 +248,8 @@ const (
 		"268":	{"Geo":"afr",	"ISO3166":"SZ",	"Pl":3,	"CCn":"Swaziland"},
 		"269":	{"Geo":"afr",	"ISO3166":"KM",	"Pl":3,	"CCn":"Comoros"},
 		"27":	{"Geo":"afr",	"ISO3166":"ZA",	"Pl":2,	"CCn":"South Africa"},
-		"290":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":3,	"CCn":"Saint Helena & Tristan da Cunha"},
-		"291":	{"Geo":"afr",	"ISO3166":"ER",	"Pl":3,	"CCn":"Eritrea"},
+		"290":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":1,	"CCn":"Saint Helena & Tristan da Cunha"},
+		"291":	{"Geo":"afr",	"ISO3166":"ER",	"Pl":1,	"CCn":"Eritrea"},
 		"297":	{"Geo":"lam",	"ISO3166":"AW",	"Pl":3,	"CCn":"Aruba"},
 		"298":	{"Geo":"eur",	"ISO3166":"FO",	"Pl":2,	"CCn":"Faroe Islands"},
 		"299":	{"Geo":"eur",	"ISO3166":"GL",	"Pl":2,	"CCn":"Greenland"},
@@ -322,7 +322,7 @@ const (
 		"57":	{"Geo":"lam",	"ISO3166":"CO",	"Pl":1,	"CCn":"Colombia"},
 		"58":	{"Geo":"lam",	"ISO3166":"VE",	"Pl":3,	"CCn":"Venezuela"},
 		"590":	{"Geo":"lam",	"ISO3166":"GP",	"Pl":3,	"CCn":"Guadeloupe"},
-		"591":	{"Geo":"lam",	"ISO3166":"BO",	"Pl":3,	"CCn":"Bolivia"},
+		"591":	{"Geo":"lam",	"ISO3166":"BO",	"Pl":1,	"CCn":"Bolivia"},
 		"592":	{"Geo":"lam",	"ISO3166":"GY",	"Pl":3,	"CCn":"Guyana"},
 		"593":	{"Geo":"lam",	"ISO3166":"EC",	"Pl":2,	"CCn":"Ecuador"},
 		"594":	{"Geo":"lam",	"ISO3166":"GF",	"Pl":3,	"CCn":"French Guiana"},
@@ -339,24 +339,24 @@ const (
 		"64":	{"Geo":"apac",	"ISO3166":"NZ",	"Pl":3,	"CCn":"New Zealand"},
 		"65":	{"Geo":"apac",	"ISO3166":"SG",	"Pl":1,	"CCn":"Singapore"},
 		"66":	{"Geo":"apac",	"ISO3166":"TH",	"Pl":2,	"CCn":"Thailand"},
-		"670":	{"Geo":"apac",	"ISO3166":"TL",	"Pl":3,	"CCn":"Timor-Leste"},
-		"672":	{"Geo":"apac",	"ISO3166":"NF",	"Pl":3,	"CCn":"Australian External Territories"},
+		"670":	{"Geo":"apac",	"ISO3166":"TL",	"Pl":2,	"CCn":"Timor-Leste"},
+		"672":	{"Geo":"apac",	"ISO3166":"NF",	"Pl":2,	"CCn":"Norfolk Island"},
 		"673":	{"Geo":"apac",	"ISO3166":"BN",	"Pl":3,	"CCn":"Brunei Darussalam"},
 		"674":	{"Geo":"apac",	"ISO3166":"NR",	"Pl":3,	"CCn":"Nauru"},
-		"675":	{"Geo":"apac",	"ISO3166":"PG",	"Pl":3,	"CCn":"Papua New Guinea"},
+		"675":	{"Geo":"apac",	"ISO3166":"PG",	"Pl":2,	"CCn":"Papua New Guinea"},
 		"676":	{"Geo":"apac",	"ISO3166":"TO",	"Pl":3,	"CCn":"Tonga"},
-		"677":	{"Geo":"apac",	"ISO3166":"SB",	"Pl":3,	"CCn":"Solomon Islands"},
-		"678":	{"Geo":"apac",	"ISO3166":"VU",	"Pl":3,	"CCn":"Vanuatu"},
-		"679":	{"Geo":"apac",	"ISO3166":"FJ",	"Pl":3,	"CCn":"Fiji"},
+		"677":	{"Geo":"apac",	"ISO3166":"SB",	"Pl":2,	"CCn":"Solomon Islands"},
+		"678":	{"Geo":"apac",	"ISO3166":"VU",	"Pl":2,	"CCn":"Vanuatu"},
+		"679":	{"Geo":"apac",	"ISO3166":"FJ",	"Pl":2,	"CCn":"Fiji"},
 		"680":	{"Geo":"apac",	"ISO3166":"PW",	"Pl":3,	"CCn":"Palau"},
-		"681":	{"Geo":"apac",	"ISO3166":"WF",	"Pl":3,	"CCn":"Wallis & Futuna"},
-		"682":	{"Geo":"apac",	"ISO3166":"CK",	"Pl":3,	"CCn":"Cook Islands"},
+		"681":	{"Geo":"apac",	"ISO3166":"WF",	"Pl":2,	"CCn":"Wallis & Futuna"},
+		"682":	{"Geo":"apac",	"ISO3166":"CK",	"Pl":2,	"CCn":"Cook Islands"},
 		"683":	{"Geo":"apac",	"ISO3166":"NU",	"Pl":3,	"CCn":"Niue"},
-		"685":	{"Geo":"apac",	"ISO3166":"WS",	"Pl":3,	"CCn":"Samoa"},
+		"685":	{"Geo":"apac",	"ISO3166":"WS",	"Pl":2,	"CCn":"Samoa"},
 		"686":	{"Geo":"apac",	"ISO3166":"KI",	"Pl":3,	"CCn":"Kiribati"},
-		"687":	{"Geo":"apac",	"ISO3166":"NC",	"Pl":3,	"CCn":"New Caledonia"},
-		"688":	{"Geo":"apac",	"ISO3166":"TV",	"Pl":3,	"CCn":"Tuvalu"},
-		"689":	{"Geo":"apac",	"ISO3166":"PF",	"Pl":3,	"CCn":"French Polynesia"},
+		"687":	{"Geo":"apac",	"ISO3166":"NC",	"Pl":2,	"CCn":"New Caledonia"},
+		"688":	{"Geo":"apac",	"ISO3166":"TV",	"Pl":2,	"CCn":"Tuvalu"},
+		"689":	{"Geo":"apac",	"ISO3166":"PF",	"Pl":2,	"CCn":"French Polynesia"},
 		"690":	{"Geo":"apac",	"ISO3166":"TK",	"Pl":1,	"CCn":"Tokelau"},
 		"691":	{"Geo":"apac",	"ISO3166":"FM",	"Pl":3,	"CCn":"Micronesia"},
 		"692":	{"Geo":"apac",	"ISO3166":"MH",	"Pl":3,	"CCn":"Marshall Islands"},
@@ -374,9 +374,9 @@ const (
 		"84":	{"Geo":"apac",	"ISO3166":"VN",	"Pl":2,	"CCn":"Vietnam"},
 		"850":	{"Geo":"apac",	"ISO3166":"KP",	"Pl":3,	"CCn":"Korea DPR"},
 		"852":	{"Geo":"apac",	"ISO3166":"HK",	"Pl":1,	"CCn":"Hong Kong"},
-		"853":	{"Geo":"apac",	"ISO3166":"MO",	"Pl":3,	"CCn":"Macao"},
-		"855":	{"Geo":"apac",	"ISO3166":"KH",	"Pl":3,	"CCn":"Cambodia"},
-		"856":	{"Geo":"apac",	"ISO3166":"LA",	"Pl":3,	"CCn":"Laos"},
+		"853":	{"Geo":"apac",	"ISO3166":"MO",	"Pl":2,	"CCn":"Macao"},
+		"855":	{"Geo":"apac",	"ISO3166":"KH",	"Pl":2,	"CCn":"Cambodia"},
+		"856":	{"Geo":"apac",	"ISO3166":"LA",	"Pl":2,	"CCn":"Laos"},
 		"86":	{"Geo":"apac",	"ISO3166":"CN",	"Pl":3,	"CCn":"China"},
 		"870":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":0,	"CCn":"global Inmarsat"},
 		"878":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":2,	"CCn":"global personal numbers"},
@@ -532,7 +532,17 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "244": // Angola (3)
 	//case "245": // Guinea-Bissau (3)
 	//case "246": // Diego Garcia (3)
-	//case "247": // Ascension (3)
+	case "247": // Ascension (3) itu.int/dms_pub/itu-t/oth/02/02/T02020000AF0003PDFE.pdf
+		switch nat[0] {
+		case '0', '1', '5', '8', '9':
+			set(1, 6)
+		case '4':
+			set(1, 5)
+		case '6':
+			set(2, 5)
+		default:
+			err()
+		}
 	//case "248": // Seychelles (3)
 	//case "249": // Sudan (3)
 	//case "250": // Rwanda (3)
@@ -563,8 +573,24 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "290": // Saint Helena & Tristan da Cunha (3)
-	//case "291": // Eritrea (3)
+	case "290": // Saint Helena & Tristan da Cunha (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Saint_Helena_and_Tristan_da_Cunha
+		switch nat[0] {
+		case '2':
+			set(2, 5)
+		case '5', '6':
+			set(1, 5)
+		default:
+			err()
+		}
+	case "291": // Eritrea (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Eritrea
+		switch nat[0] {
+		case '1':
+			set(3, 7)
+		case '7', '8':
+			set(1, 7)
+		default:
+			err()
+		}
 	case "297": // Aruba (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Aruba
 		switch nat[:2] {
 		case "28", "52", "58":
@@ -1356,9 +1382,29 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "590": // Guadeloupe (3)
-	//case "591": // Bolivia (3)
-	//case "592": // Guyana (3)
+	case "590": // Guadeloupe (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T02020000580002PDFE.pdf
+		switch nat[0] {
+		case '5', '6', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "591": // Bolivia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Bolivia
+		switch nat[0] {
+		case '2', '3', '4':
+			set(1, 8)
+		case '7':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "592": // Guyana (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Guyana
+		switch nat[0] {
+		case '0', '1':
+			err()
+		default:
+			set(3, 7)
+		}
 	case "593": // Ecuador (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Ecuador
 		switch nat[:3] {
 		case "700", "800", "900":
@@ -1488,35 +1534,181 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "670": // Timor-Leste (3)
-	//case "672": // Australian External Territories (3)
-	//case "673": // Brunei Darussalam (3)
-	//case "674": // Nauru (3)
-	//case "675": // Papua New Guinea (3)
-	//case "676": // Tonga (3)
-	//case "677": // Solomon Islands (3)
-	//case "678": // Vanuatu (3)
-	//case "679": // Fiji (3)
-	//case "680": // Palau (3)
-	//case "681": // Wallis & Futuna (3)
-	//case "682": // Cook Islands (3)
-	//case "683": // Niue (3)
-	//case "685": // Samoa (3)
-	//case "686": // Kiribati (3)
-	//case "687": // New Caledonia (3)
-	//case "688": // Tuvalu (3)
-	//case "689": // French Polynesia (3)
-	case "690": // Tokelau (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tokelau
+	case "670": // Timor-Leste (Jan21) https://en.wikipedia.org/wiki/Telephone_numbers_in_East_Timor
 		switch nat[0] {
-		case '0':
+		case '2', '3', '4', '8', '9':
+			set(2, 7)
+		case '7':
+			set(2, 7, 8)
+		default:
 			err()
+		}
+	case "672": // Norfolk Island (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Norfolk_Island
+		switch nat[0] {
+		case '1':
+			set(3, 6)
+		case '2':
+			set(2, 6)
+		default:
+			err()
+		}
+	case "673": // Brunei Darussalam (3) en.wikipedia.org/wiki/Telephone_numbers_in_Brunei
+		switch nat[0] {
+		case '2', '3', '4', '5', '7', '8':
+			set(3, 7)
+		default:
+			err()
+		}
+	case "674": // Nauru (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Nauru
+		switch nat[0] {
+		case '4', '5', '8':
+			set(3, 7)
+		default:
+			err()
+		}
+	case "675": // Papua New Guinea (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Papua_New_Guinea
+		switch nat[0] {
+		case '2', '3', '4', '5', '6', '9':
+			set(3, 7)
+		case '7', '8':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "676": // Tonga (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tonga
+		switch nat[0] {
+		case '2', '3', '4':
+			set(2, 5)
+		case '5', '6', '7', '8':
+			if set(3, 7) || set(2, 5) {
+			}
+		default:
+			err()
+		}
+	case "677": // Solomon Islands (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Solomon_Islands
+		switch nat[0] {
+		case '1', '2', '3', '4', '5', '6':
+			set(2, 5)
+		case '7':
+			set(2, 7)
+		default:
+			err()
+		}
+	case "678": // Vanuatu (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Vanuatu
+		switch nat[0] {
+		case '2', '3', '4', '8':
+			set(2, 5)
+		case '5', '7', '9':
+			set(2, 7)
+		default:
+			err()
+		}
+	case "679": // Fiji (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Fiji
+		switch nat[0] {
+		case '0', '1':
+			err()
+		default:
+			set(2, 7)
+		}
+	case "680": // Palau (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Palau
+		switch nat[0] {
+		case '0', '1':
+			err()
+		default:
+			set(3, 7)
+		}
+	case "681": // Wallis & Futuna (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Wallis_and_Futuna
+		switch nat[0] {
+		case '4', '7', '8':
+			set(2, 6)
+		default:
+			err()
+		}
+	case "682": // Cook Islands (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Cook_Islands
+		switch nat[0] {
 		case '2':
 			set(1, 5)
+		case '3', '4', '5', '7', '8':
+			set(2, 5)
 		default:
-			set(0, 5)
+			err()
 		}
-	//case "691": // Micronesia (3)
-	//case "692": // Marshall Islands (3)
+	case "683": // Niue (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Niue
+		switch nat[0] {
+		case '4', '7':
+			set(0, 4)
+		case '8':
+			set(3, 7)
+		default:
+			err()
+		}
+	case "685": // Samoa (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Samoa
+		switch nat[0] {
+		case '2', '3', '4', '5', '6', '7', '8':
+			set(2, 5, 7)
+		default:
+			err()
+		}
+	case "686": // Kiribati (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Kiribati
+		switch nat[0] {
+		case '3', '6', '7':
+			set(3, 8)
+		default:
+			err()
+		}
+	case "687": // New Caledonia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_New_Caledonia
+		switch nat[:2] {
+		case "55", "56", "57", "58":
+			err()
+		default:
+			switch nat[0] {
+			case '0', '1':
+				err()
+			default:
+				set(2, 6)
+			}
+		}
+	case "688": // Tuvalu (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tuvalu
+		switch nat[0] {
+		case '2':
+			set(2, 5)
+		case '7':
+			set(2, 7)
+		case '9':
+			set(2, 6)
+		default:
+			err()
+		}
+	case "689": // French Polynesia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_French_Polynesia
+		switch nat[0] {
+		case '4', '8':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "690": // Tokelau (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tokelau
+		switch nat[0] {
+		case '2', '7':
+			set(2, 4, 6)
+		case '3', '4', '5', '6', '8', '9':
+			set(1, 4, 6)
+		default:
+			err()
+		}
+	case "691": // Micronesia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Federated_States_of_Micronesia
+		switch nat[0] {
+		case '3', '9':
+			set(3, 7)
+		default:
+			err()
+		}
+	case "692": // Marshall Islands (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Marshall_Islands
+		switch nat[0] {
+		case '2', '3', '4', '5', '6':
+			set(3, 7)
+		default:
+			err()
+		}
 
 	case "7": // Russia & Kazakhstan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Russia en.wikipedia.org/wiki/Telephone_numbers_in_Kazakhstan
 		switch nat[0] {
@@ -1572,11 +1764,63 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "850": // Korea DPR (3)
-	//case "852": // Hong Kong (1)
-	//case "853": // Macao (3)
-	//case "855": // Cambodia (3)
-	//case "856": // Laos (3)
+	case "850": // Korea DPR (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_North_Korea
+		switch nat[0] {
+		case '1':
+			set(3, 10)
+		case '2', '8':
+			if set(4, 8) || set(3, 6) {
+			}
+		case '3', '4', '5', '6', '7':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "852": // Hong Kong (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Hong_Kong
+		switch nat[0] {
+		case '2', '3', '5', '6', '7':
+			set(1, 8)
+		case '8':
+			set(3, 8, 9)
+		case '9':
+			set(3, 8, 11)
+		default:
+			err()
+		}
+	case "853": // Macao (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Macau
+		switch nat[0] {
+		case '2':
+			set(3, 8)
+		case '6', '8':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "855": // Cambodia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Cambodia
+		switch nat[:4] {
+		case "1800", "1900":
+			set(4, 10)
+		default:
+			switch nat[0] {
+			case '0':
+				err()
+			default:
+				set(2, 8, 9)
+			}
+		}
+	case "856": // Laos (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Laos
+		switch nat[:2] {
+		case "20", "30":
+			if set(4, 10) || set(3, 9) {
+			}
+		default:
+			switch nat[0] {
+			case '2', '3', '4', '5', '6', '7':
+				set(2, 8)
+			default:
+				err()
+			}
+		}
 	case "86": // China (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_China
 		switch nat[0] {
 		case '0':
@@ -1601,7 +1845,22 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "880": // Bangladesh (3)
+	case "880": // Bangladesh (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Bangladesh
+		switch nat[0] {
+		case '0':
+			err()
+		case '1':
+			set(2, 10)
+		case '9':
+			switch nat[1] {
+			case '6':
+				set(4, 10)
+			default:
+				set(3, 10)
+			}
+		default:
+			set(3, 10)
+		}
 	case "881": // global satphone (Jan21) en.wikipedia.org/wiki/Global_Mobile_Satellite_System
 		set(1, 5, 12)
 	case "882": // global 882 (Jan21) en.wikipedia.org/wiki/International_Networks_(country_code)
