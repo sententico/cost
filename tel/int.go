@@ -225,8 +225,8 @@ const (
 		"244":	{"Geo":"afr",	"ISO3166":"AO",	"Pl":3,	"CCn":"Angola"},
 		"245":	{"Geo":"afr",	"ISO3166":"GW",	"Pl":3,	"CCn":"Guinea-Bissau"},
 		"246":	{"Geo":"afr",	"ISO3166":"IO",	"Pl":3,	"CCn":"Diego Garcia"},
-		"247":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":3,	"CCn":"Ascension"},
-		"248":	{"Geo":"afr",	"ISO3166":"SC",	"Pl":3,	"CCn":"Seychelles"},
+		"247":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":1,	"CCn":"Ascension"},
+		"248":	{"Geo":"afr",	"ISO3166":"SC",	"Pl":2,	"CCn":"Seychelles"},
 		"249":	{"Geo":"afr",	"ISO3166":"SD",	"Pl":3,	"CCn":"Sudan"},
 		"250":	{"Geo":"afr",	"ISO3166":"RW",	"Pl":3,	"CCn":"Rwanda"},
 		"251":	{"Geo":"afr",	"ISO3166":"ET",	"Pl":3,	"CCn":"Ethiopia"},
@@ -304,15 +304,15 @@ const (
 		"49":	{"Geo":"eur",	"ISO3166":"DE",	"Pl":3,	"CCn":"Germany"},
 
 		"500":	{"Geo":"lam",	"ISO3166":"FK",	"Pl":1,	"CCn":"Falkland Islands"},
-		"501":	{"Geo":"lam",	"ISO3166":"BZ",	"Pl":3,	"CCn":"Belize"},
-		"502":	{"Geo":"lam",	"ISO3166":"GT",	"Pl":3,	"CCn":"Guatemala"},
-		"503":	{"Geo":"lam",	"ISO3166":"SV",	"Pl":3,	"CCn":"El Salvador"},
-		"504":	{"Geo":"lam",	"ISO3166":"HN",	"Pl":3,	"CCn":"Honduras"},
-		"505":	{"Geo":"lam",	"ISO3166":"NI",	"Pl":3,	"CCn":"Nicaragua"},
-		"506":	{"Geo":"lam",	"ISO3166":"CR",	"Pl":3,	"CCn":"Costa Rica"},
-		"507":	{"Geo":"lam",	"ISO3166":"PA",	"Pl":3,	"CCn":"Panama"},
-		"508":	{"Geo":"lam",	"ISO3166":"PM",	"Pl":3,	"CCn":"Saint Pierre & Miquelon"},
-		"509":	{"Geo":"lam",	"ISO3166":"HT",	"Pl":3,	"CCn":"Haiti"},
+		"501":	{"Geo":"lam",	"ISO3166":"BZ",	"Pl":2,	"CCn":"Belize"},
+		"502":	{"Geo":"lam",	"ISO3166":"GT",	"Pl":1,	"CCn":"Guatemala"},
+		"503":	{"Geo":"lam",	"ISO3166":"SV",	"Pl":2,	"CCn":"El Salvador"},
+		"504":	{"Geo":"lam",	"ISO3166":"HN",	"Pl":2,	"CCn":"Honduras"},
+		"505":	{"Geo":"lam",	"ISO3166":"NI",	"Pl":2,	"CCn":"Nicaragua"},
+		"506":	{"Geo":"lam",	"ISO3166":"CR",	"Pl":2,	"CCn":"Costa Rica"},
+		"507":	{"Geo":"lam",	"ISO3166":"PA",	"Pl":2,	"CCn":"Panama"},
+		"508":	{"Geo":"lam",	"ISO3166":"PM",	"Pl":0,	"CCn":"Saint Pierre & Miquelon"},
+		"509":	{"Geo":"lam",	"ISO3166":"HT",	"Pl":2,	"CCn":"Haiti"},
 		"51":	{"Geo":"lam",	"ISO3166":"PE",	"Pl":3,	"CCn":"Peru"},
 		"52":	{"Geo":"lam",	"ISO3166":"MX",	"Pl":3,	"CCn":"Mexico"},
 		"53":	{"Geo":"lam",	"ISO3166":"CU",	"Pl":1,	"CCn":"Cuba"},
@@ -328,8 +328,8 @@ const (
 		"594":	{"Geo":"lam",	"ISO3166":"GF",	"Pl":3,	"CCn":"French Guiana"},
 		"595":	{"Geo":"lam",	"ISO3166":"PY",	"Pl":3,	"CCn":"Paraguay"},
 		"596":	{"Geo":"lam",	"ISO3166":"MQ",	"Pl":3,	"CCn":"Martinique"},
-		"597":	{"Geo":"lam",	"ISO3166":"SR",	"Pl":3,	"CCn":"Suriname"},
-		"598":	{"Geo":"lam",	"ISO3166":"UY",	"Pl":3,	"CCn":"Uruguay"},
+		"597":	{"Geo":"lam",	"ISO3166":"SR",	"Pl":2,	"CCn":"Suriname"},
+		"598":	{"Geo":"lam",	"ISO3166":"UY",	"Pl":2,	"CCn":"Uruguay"},
 		"599":	{"Geo":"lam",	"ISO3166":"CW",	"Pl":3,	"CCn":"Caribbean Netherlands"},
 
 		"60":	{"Geo":"apac",	"ISO3166":"MY",	"Pl":2,	"CCn":"Malaysia"},
@@ -413,7 +413,7 @@ const (
 		"979":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":1,	"CCn":"global premium rate"},
 		"98":	{"Geo":"mea",	"ISO3166":"IR",	"Pl":3,	"CCn":"Iran"},
 		"991":	{"Geo":"glob",	"ISO3166":"XC",	"Pl":3,	"CCn":"global ITPCS trial"},
-		"992":	{"Geo":"mea",	"ISO3166":"TJ",	"Pl":3,	"CCn":"Tajikistan"},
+		"992":	{"Geo":"mea",	"ISO3166":"TJ",	"Pl":2,	"CCn":"Tajikistan"},
 		"993":	{"Geo":"mea",	"ISO3166":"TM",	"Pl":3,	"CCn":"Turkmenistan"},
 		"994":	{"Geo":"mea",	"ISO3166":"AZ",	"Pl":3,	"CCn":"Azerbaijan"},
 		"995":	{"Geo":"mea",	"ISO3166":"GE",	"Pl":3,	"CCn":"Georgia"},
@@ -531,8 +531,14 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "243": // Congo DR (3)
 	//case "244": // Angola (3)
 	//case "245": // Guinea-Bissau (3)
-	//case "246": // Diego Garcia (3)
-	case "247": // Ascension (3) itu.int/dms_pub/itu-t/oth/02/02/T02020000AF0003PDFE.pdf
+	case "246": // Diego Garcia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_British_Indian_Ocean_Territory
+		switch nat[:2] {
+		case "37", "38":
+			set(3, 7)
+		default:
+			err()
+		}
+	case "247": // Ascension (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T02020000AF0003PDFE.pdf
 		switch nat[0] {
 		case '0', '1', '5', '8', '9':
 			set(1, 6)
@@ -543,7 +549,15 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "248": // Seychelles (3)
+	case "248": // Seychelles (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Seychelles
+		switch nat[0] {
+		case '2', '4', '6':
+			set(2, 7)
+		case '8', '9':
+			set(3, 7)
+		default:
+			err()
+		}
 	//case "249": // Sudan (3)
 	//case "250": // Rwanda (3)
 	//case "251": // Ethiopia (3)
@@ -1053,7 +1067,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		case '8':
 			set(3, 6, 10)
 		default:
-			// '4', '7' implement?
+			// TODO: '4', '7' implement?
 			err()
 		}
 
@@ -1166,6 +1180,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		case '2', '5':
 			// 49[22 89789153 97] 2 extra digits (only 1 extra allowed)
 			// 44[23 2393676_] GX
+			// 44[28 9597281_] GX
 			set(2, 10, 11, 10)
 		case '3', '8', '9':
 			if set(3, 10, 11, 10) || nat[:3] == "800" && set(3, 9, 10, 9) {
@@ -1269,15 +1284,91 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "501": // Belize (3)
-	//case "502": // Guatemala (3)
-	//case "503": // El Salvador (3)
-	//case "504": // Honduras (3)
-	//case "505": // Nicaragua (3)
-	//case "506": // Costa Rica (3)
-	//case "507": // Panama (3)
-	//case "508": // Saint Pierre & Miquelon (3)
-	//case "509": // Haiti (3)
+	case "501": // Belize (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Belize
+		switch nat[0] {
+		case '2', '3', '4', '5', '6', '7', '8':
+			set(2, 7)
+		default:
+			err()
+		}
+	case "502": // Guatemala (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Guatemala
+		switch nat[0] {
+		case '1':
+			switch nat[1] {
+			case '8', '9':
+				set(4, 11)
+			default:
+				err()
+			}
+		case '2', '3', '4', '5', '6', '7':
+			set(1, 8)
+		default:
+			err()
+		}
+	case "503": // El Salvador (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_El_Salvador
+		switch nat[:3] {
+		case "800", "900":
+			if set(3, 7) || set(3, 11) {
+			}
+		default:
+			switch nat[0] {
+			case '2', '6', '7':
+				set(2, 8)
+			default:
+				err()
+			}
+		}
+	case "504": // Honduras (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Honduras
+		switch nat[0] {
+		case '2', '3', '7', '8', '9':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "505": // Nicaragua (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Nicaragua
+		switch nat[0] {
+		case '2', '5', '7', '8':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "506": // Costa Rica (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Costa_Rica
+		switch nat[:3] {
+		case "800", "900":
+			set(3, 10)
+		default:
+			switch nat[0] {
+			case '2', '3', '4', '5', '6', '7', '8':
+				set(2, 8)
+			default:
+				err()
+			}
+		}
+	case "507": // Panama (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Panama
+		switch nat[0] {
+		case '1', '2', '3', '4', '5', '7', '8', '9':
+			set(1, 7)
+		case '6':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "508": // Saint Pierre & Miquelon (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T02020000B20002PDFE.pdf
+		switch nat[0] {
+		case '0':
+			err()
+		default:
+			set(0, 6)
+		}
+	case "509": // Haiti (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Haiti
+		switch nat[0] {
+		case '2', '3', '4', '9':
+			set(2, 8)
+		case '8':
+			set(3, 8)
+		default:
+			err()
+		}
 	case "51": // Peru (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Peru
 		switch nat[0] {
 		case '1':
@@ -1417,12 +1508,64 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 				err()
 			}
 		}
-	//case "594": // French Guiana (3)
-	//case "595": // Paraguay (3)
-	//case "596": // Martinique (3)
-	//case "597": // Suriname (3)
-	//case "598": // Uruguay (3)
-	//case "599": // Caribbean Netherlands (3)
+	case "594": // French Guiana (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T020200004C0002PDFE.pdf
+		switch nat[0] {
+		case '5', '6', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "595": // Paraguay (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Paraguay
+		switch nat[0] {
+		case '2':
+			if nat[1] == '1' {
+				set(2, 9)
+			} else {
+				set(3, 9)
+			}
+		case '3', '4', '5', '6', '7', '8', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "596": // Martinique (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T02020000860002PDFE.pdf
+		switch nat[0] {
+		case '5', '6', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "597": // Suriname (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Suriname
+		switch nat[0] {
+		case '2', '3', '4', '5':
+			set(2, 6)
+		case '6', '7', '8':
+			set(2, 7)
+		default:
+			err()
+		}
+	case "598": // Uruguay (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Uruguay
+		switch nat[0] {
+		case '2':
+			set(1, 8)
+		case '4':
+			set(3, 8)
+		case '8', '9':
+			if nat[1] == '0' {
+				set(3, 7)
+			} else {
+				set(2, 8)
+			}
+		default:
+			err()
+		}
+	case "599": // Caribbean Netherlands (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T02020000F80003PDFE.pdf
+		switch nat[0] {
+		case '3', '4', '7':
+			set(3, 7)
+		default:
+			err()
+		}
 
 	case "60": // Malaysia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Malaysia
 		switch nat[0] {
@@ -2023,12 +2166,19 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-		//case "992": // Tajikistan (3)
-		//case "993": // Turkmenistan (3)
-		//case "994": // Azerbaijan (3)
-		//case "995": // Georgia (3)
-		//case "996": // Kyrgyzstan (3)
-		//case "998": // Uzbekistan (3)
+	case "992": // Tajikistan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tajikistan
+		switch nat[0] {
+		case '3', '4', '9':
+			set(2, 9)
+		default:
+			err()
+		}
+	//case "993": // Turkmenistan (3)
+	//case "994": // Azerbaijan (3)
+	//case "995": // Georgia (3)
+	//case "996": // Kyrgyzstan (3)
+	//case "998": // Uzbekistan (3)
+	default:
 	}
 	return
 }
