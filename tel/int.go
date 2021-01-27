@@ -357,7 +357,7 @@ const (
 		"687":	{"Geo":"apac",	"ISO3166":"NC",	"Pl":2,	"CCn":"New Caledonia"},
 		"688":	{"Geo":"apac",	"ISO3166":"TV",	"Pl":2,	"CCn":"Tuvalu"},
 		"689":	{"Geo":"apac",	"ISO3166":"PF",	"Pl":2,	"CCn":"French Polynesia"},
-		"690":	{"Geo":"apac",	"ISO3166":"TK",	"Pl":1,	"CCn":"Tokelau"},
+		"690":	{"Geo":"apac",	"ISO3166":"TK",	"Pl":0,	"CCn":"Tokelau"},
 		"691":	{"Geo":"apac",	"ISO3166":"FM",	"Pl":3,	"CCn":"Micronesia"},
 		"692":	{"Geo":"apac",	"ISO3166":"MH",	"Pl":3,	"CCn":"Marshall Islands"},
 
@@ -396,17 +396,17 @@ const (
 		"960":	{"Geo":"mea",	"ISO3166":"MV",	"Pl":2,	"CCn":"Maldives"},
 		"961":	{"Geo":"mea",	"ISO3166":"LB",	"Pl":2,	"CCn":"Lebanon"},
 		"962":	{"Geo":"mea",	"ISO3166":"JO",	"Pl":2,	"CCn":"Jordan"},
-		"963":	{"Geo":"mea",	"ISO3166":"SY",	"Pl":3,	"CCn":"Syria"},
-		"964":	{"Geo":"mea",	"ISO3166":"IQ",	"Pl":3,	"CCn":"Iraq"},
-		"965":	{"Geo":"mea",	"ISO3166":"KW",	"Pl":4,	"CCn":"Kuwait"},
-		"966":	{"Geo":"mea",	"ISO3166":"SA",	"Pl":3,	"CCn":"Saudi Arabia"},
-		"967":	{"Geo":"mea",	"ISO3166":"YE",	"Pl":3,	"CCn":"Yemen"},
-		"968":	{"Geo":"mea",	"ISO3166":"OM",	"Pl":3,	"CCn":"Oman"},
-		"970":	{"Geo":"mea",	"ISO3166":"PS",	"Pl":3,	"CCn":"Palestine"},
-		"971":	{"Geo":"mea",	"ISO3166":"AE",	"Pl":3,	"CCn":"United Arab Emirates"},
-		"972":	{"Geo":"mea",	"ISO3166":"IL",	"Pl":1,	"CCn":"Israel"},
-		"973":	{"Geo":"mea",	"ISO3166":"BH",	"Pl":3,	"CCn":"Bahrain"},
-		"974":	{"Geo":"mea",	"ISO3166":"QA",	"Pl":3,	"CCn":"Qatar"},
+		"963":	{"Geo":"mea",	"ISO3166":"SY",	"Pl":2,	"CCn":"Syria"},
+		"964":	{"Geo":"mea",	"ISO3166":"IQ",	"Pl":2,	"CCn":"Iraq"},
+		"965":	{"Geo":"mea",	"ISO3166":"KW",	"Pl":2,	"CCn":"Kuwait"},
+		"966":	{"Geo":"mea",	"ISO3166":"SA",	"Pl":2,	"CCn":"Saudi Arabia"},
+		"967":	{"Geo":"mea",	"ISO3166":"YE",	"Pl":2,	"CCn":"Yemen"},
+		"968":	{"Geo":"mea",	"ISO3166":"OM",	"Pl":2,	"CCn":"Oman"},
+		"970":	{"Geo":"mea",	"ISO3166":"PS",	"Pl":2,	"CCn":"Palestine"},
+		"971":	{"Geo":"mea",	"ISO3166":"AE",	"Pl":2,	"CCn":"United Arab Emirates"},
+		"972":	{"Geo":"mea",	"ISO3166":"IL",	"Pl":2,	"CCn":"Israel"},
+		"973":	{"Geo":"mea",	"ISO3166":"BH",	"Pl":2,	"CCn":"Bahrain"},
+		"974":	{"Geo":"mea",	"ISO3166":"QA",	"Pl":2,	"CCn":"Qatar"},
 		"975":	{"Geo":"mea",	"ISO3166":"BT",	"Pl":2,	"CCn":"Bhutan"},
 		"976":	{"Geo":"mea",	"ISO3166":"MN",	"Pl":2,	"CCn":"Mongolia"},
 		"977":	{"Geo":"mea",	"ISO3166":"NP",	"Pl":2,	"CCn":"Nepal"},
@@ -1831,10 +1831,8 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		}
 	case "690": // Tokelau (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tokelau
 		switch nat[0] {
-		case '2', '7':
-			set(2, 4, 6)
-		case '3', '4', '5', '6', '8', '9':
-			set(1, 4, 6)
+		case '2', '3', '4', '5', '6', '7', '8', '9':
+			set(0, 4, 5)
 		default:
 			err()
 		}
@@ -2139,17 +2137,129 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "963": // Syria (3)
-	//case "964": // Iraq (3)
-	//case "965": // Kuwait (4)
-	//case "966": // Saudi Arabia (3)
-	//case "967": // Yemen (3)
-	//case "968": // Oman (3)
-	//case "970": // Palestine (3)
-	//case "971": // United Arab Emirates (3)
-	//case "972": // Israel (1)
-	//case "973": // Bahrain (3)
-	//case "974": // Qatar (3)
+	case "963": // Syria (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Syria
+		switch nat[0] {
+		case '0':
+			err()
+		default:
+			set(2, 8, 9) // eventually set(2, 9)
+		}
+	case "964": // Iraq (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Iraq
+		switch nat[0] {
+		case '1':
+			set(1, 8)
+		case '2', '3', '4', '5', '6': // weak documentation
+			set(2, 8)
+		case '7':
+			set(2, 10)
+		default:
+			err()
+		}
+	case "965": // Kuwait (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Kuwait
+		switch nat[0] {
+		case '1':
+			set(2, 7)
+		case '2', '5', '6', '9':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "966": // Saudi Arabia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Saudi_Arabia
+		switch nat[:3] {
+		case "700":
+			set(3, 8)
+		case "800":
+			set(3, 10)
+		default:
+			switch nat[0] {
+			case '1', '5', '9':
+				set(2, 9)
+			case '8':
+				set(3, 11)
+			default:
+				err()
+			}
+		}
+	case "967": // Yemen (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Yemen
+		switch nat[0] {
+		case '1':
+			set(1, 7, 8)
+		case '2', '3', '4', '5', '6':
+			set(1, 7)
+		case '7':
+			if set(2, 9) || set(1, 7) {
+			}
+		default:
+			err()
+		}
+	case "968": // Oman (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Oman
+		switch nat[0] {
+		case '2', '7', '9':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "970": // Palestine (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_State_of_Palestine
+		switch nat[0] {
+		case '2', '4', '8', '9':
+			set(1, 8)
+		case '5':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "971": // United Arab Emirates (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_United_Arab_Emirates
+		switch nat[:3] {
+		case "200":
+			set(3, 7)
+		case "600":
+			set(3, 9)
+		case "800":
+			set(3, 6, 7)
+		default:
+			switch nat[0] {
+			case '2', '3', '4', '6', '7', '9':
+				set(1, 8)
+			case '5':
+				set(2, 9)
+			default:
+				err()
+			}
+		}
+	case "972": // Israel (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Israel
+		switch nat[:3] {
+		case "159", "170", "180", "190":
+			set(4, 10)
+		default:
+			switch nat[0] {
+			case '2', '3', '4', '8', '9':
+				set(2, 8)
+			case '5', '7':
+				set(2, 9)
+			default:
+				err()
+			}
+		}
+	case "973": // Bahrain (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Bahrain
+		switch nat[0] {
+		case '1', '3', '6', '7':
+			set(2, 8)
+		case '8', '9':
+			set(3, 8)
+		default:
+			err()
+		}
+	case "974": // Qatar (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Qatar
+		switch nat[0] {
+		case '2':
+			set(2, 7, 8)
+		case '3', '4', '5', '6', '7':
+			set(2, 8)
+		case '8', '9':
+			set(3, 7)
+		default:
+			err()
+		}
 	case "975": // Bhutan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Bhutan
 		switch nat[0] {
 		case '0':

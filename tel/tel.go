@@ -175,7 +175,7 @@ func (d *Decoder) Full(n string, tn *E164full) error {
 			return r
 		}
 		return -1
-	}, n); (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
+	}, n); (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "690") {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = "", "", "", "", "", "", ""
 		return fmt.Errorf("invalid E.164 filtered length: %v", len(n))
 	} else if d.NANPbias && !intl && len(n) == 10 &&
@@ -221,7 +221,7 @@ func (d *Decoder) Digest(n string) E164digest {
 	}
 
 	var cc string
-	if d == nil || (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "290") {
+	if d == nil || (len(n) < 8 || len(n) > 15) && (len(n) != 7 || n[:3] != "690") {
 		return 0
 	} else if d.NANPbias && !intl && len(n) == 10 &&
 		n[0] != '0' && n[0] != '1' && n[1] != '9' && n[3] != '0' && n[3] != '1' &&
