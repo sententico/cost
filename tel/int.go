@@ -228,25 +228,25 @@ const (
 		"247":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":1,	"CCn":"Ascension"},
 		"248":	{"Geo":"afr",	"ISO3166":"SC",	"Pl":2,	"CCn":"Seychelles"},
 		"249":	{"Geo":"afr",	"ISO3166":"SD",	"Pl":3,	"CCn":"Sudan"},
-		"250":	{"Geo":"afr",	"ISO3166":"RW",	"Pl":3,	"CCn":"Rwanda"},
-		"251":	{"Geo":"afr",	"ISO3166":"ET",	"Pl":3,	"CCn":"Ethiopia"},
-		"252":	{"Geo":"afr",	"ISO3166":"SO",	"Pl":3,	"CCn":"Somalia"},
-		"253":	{"Geo":"afr",	"ISO3166":"DJ",	"Pl":3,	"CCn":"Djibouti"},
-		"254":	{"Geo":"afr",	"ISO3166":"KE",	"Pl":3,	"CCn":"Kenya"},
-		"255":	{"Geo":"afr",	"ISO3166":"TZ",	"Pl":3,	"CCn":"Tanzania"},
-		"256":	{"Geo":"afr",	"ISO3166":"UG",	"Pl":3,	"CCn":"Uganda"},
-		"257":	{"Geo":"afr",	"ISO3166":"BI",	"Pl":3,	"CCn":"Burundi"},
-		"258":	{"Geo":"afr",	"ISO3166":"MZ",	"Pl":3,	"CCn":"Mozambique"},
-		"260":	{"Geo":"afr",	"ISO3166":"ZM",	"Pl":3,	"CCn":"Zambia"},
-		"261":	{"Geo":"afr",	"ISO3166":"MG",	"Pl":3,	"CCn":"Madagascar"},
+		"250":	{"Geo":"afr",	"ISO3166":"RW",	"Pl":2,	"CCn":"Rwanda"},
+		"251":	{"Geo":"afr",	"ISO3166":"ET",	"Pl":2,	"CCn":"Ethiopia"},
+		"252":	{"Geo":"afr",	"ISO3166":"SO",	"Pl":2,	"CCn":"Somalia"},
+		"253":	{"Geo":"afr",	"ISO3166":"DJ",	"Pl":2,	"CCn":"Djibouti"},
+		"254":	{"Geo":"afr",	"ISO3166":"KE",	"Pl":2,	"CCn":"Kenya"},
+		"255":	{"Geo":"afr",	"ISO3166":"TZ",	"Pl":2,	"CCn":"Tanzania"},
+		"256":	{"Geo":"afr",	"ISO3166":"UG",	"Pl":2,	"CCn":"Uganda"},
+		"257":	{"Geo":"afr",	"ISO3166":"BI",	"Pl":2,	"CCn":"Burundi"},
+		"258":	{"Geo":"afr",	"ISO3166":"MZ",	"Pl":2,	"CCn":"Mozambique"},
+		"260":	{"Geo":"afr",	"ISO3166":"ZM",	"Pl":2,	"CCn":"Zambia"},
+		"261":	{"Geo":"afr",	"ISO3166":"MG",	"Pl":2,	"CCn":"Madagascar"},
 		"262":	{"Geo":"afr",	"ISO3166":"RE",	"Pl":3,	"CCn":"Reunion"},
-		"263":	{"Geo":"afr",	"ISO3166":"ZW",	"Pl":3,	"CCn":"Zimbabwe"},
-		"264":	{"Geo":"afr",	"ISO3166":"NA",	"Pl":3,	"CCn":"Namibia"},
-		"265":	{"Geo":"afr",	"ISO3166":"MW",	"Pl":3,	"CCn":"Malawi"},
-		"266":	{"Geo":"afr",	"ISO3166":"LS",	"Pl":3,	"CCn":"Lesotho"},
-		"267":	{"Geo":"afr",	"ISO3166":"BW",	"Pl":3,	"CCn":"Botswana"},
-		"268":	{"Geo":"afr",	"ISO3166":"SZ",	"Pl":3,	"CCn":"Swaziland"},
-		"269":	{"Geo":"afr",	"ISO3166":"KM",	"Pl":3,	"CCn":"Comoros"},
+		"263":	{"Geo":"afr",	"ISO3166":"ZW",	"Pl":2,	"CCn":"Zimbabwe"},
+		"264":	{"Geo":"afr",	"ISO3166":"NA",	"Pl":2,	"CCn":"Namibia"},
+		"265":	{"Geo":"afr",	"ISO3166":"MW",	"Pl":2,	"CCn":"Malawi"},
+		"266":	{"Geo":"afr",	"ISO3166":"LS",	"Pl":2,	"CCn":"Lesotho"},
+		"267":	{"Geo":"afr",	"ISO3166":"BW",	"Pl":2,	"CCn":"Botswana"},
+		"268":	{"Geo":"afr",	"ISO3166":"SZ",	"Pl":2,	"CCn":"Eswatini"},
+		"269":	{"Geo":"afr",	"ISO3166":"KM",	"Pl":2,	"CCn":"Comoros"},
 		"27":	{"Geo":"afr",	"ISO3166":"ZA",	"Pl":2,	"CCn":"South Africa"},
 		"290":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":1,	"CCn":"Saint Helena & Tristan da Cunha"},
 		"291":	{"Geo":"afr",	"ISO3166":"ER",	"Pl":1,	"CCn":"Eritrea"},
@@ -558,26 +558,202 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "249": // Sudan (3)
-	//case "250": // Rwanda (3)
-	//case "251": // Ethiopia (3)
-	//case "252": // Somalia (3)
-	//case "253": // Djibouti (3)
-	//case "254": // Kenya (3)
-	//case "255": // Tanzania (3)
-	//case "256": // Uganda (3)
-	//case "257": // Burundi (3)
-	//case "258": // Mozambique (3)
-	//case "260": // Zambia (3)
-	//case "261": // Madagascar (3)
-	//case "262": // Reunion (3)
-	//case "263": // Zimbabwe (3)
-	//case "264": // Namibia (3)
-	//case "265": // Malawi (3)
-	//case "266": // Lesotho (3)
-	//case "267": // Botswana (3)
-	//case "268": // Swaziland (3)
-	//case "269": // Comoros (3)
+	case "249": // Sudan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Sudan
+		switch nat[0] {
+		case '1', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "250": // Rwanda (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Rwanda
+		switch nat[0] {
+		case '2', '7', '8': // weak documentation for '8'
+			set(2, 9)
+		case '0': // satellite (Nov09 ITU documentation)
+			set(2, 8)
+		default:
+			err()
+		}
+	case "251": // Ethiopia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Ethiopia
+		switch nat[0] {
+		case '1', '2', '3', '4', '5':
+			set(2, 9)
+		case '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "252": // Somalia (Jan21) https://en.wikipedia.org/wiki/Telephone_numbers_in_Somalia
+		switch nat[0] {
+		case '0':
+			err()
+		default:
+			if set(2, 8, 9) || set(1, 6, 7) {
+			}
+		}
+	case "253": // Djibouti (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Djibouti
+		switch nat[0] {
+		case '2', '7':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "254": // Kenya (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Kenya
+		switch nat[0] {
+		case '1', '7':
+			set(2, 9)
+		case '2', '4', '5', '6':
+			set(2, 7, 9)
+		default:
+			err()
+		}
+	case "255": // Tanzania (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tanzania
+		switch nat[0] {
+		case '2', '4', '6', '7':
+			set(2, 9)
+		case '8', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "256": // Uganda (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Uganda
+		switch nat[0] {
+		case '2':
+			set(3, 9)
+		case '3', '4', '7':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "257": // Burundi (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Burundi
+		switch nat[0] {
+		case '1', '2':
+			set(3, 8)
+		case '3', '6', '7':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "258": // Mozambique (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Mozambique
+		switch nat[0] {
+		case '2':
+			set(2, 8)
+		case '7', '8', '9':
+			if nat[1] == '0' {
+				set(3, 8, 9)
+			} else {
+				set(2, 9)
+			}
+		default:
+			err()
+		}
+	case "260": // Zambia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Zambia
+		switch nat[0] {
+		case '2', '8':
+			set(3, 9)
+		case '7', '9':
+			if nat[1] == '0' {
+				set(3, 9)
+			} else {
+				set(2, 9)
+			}
+		default:
+			err()
+		}
+	case "261": // Madagascar (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Madagascar
+		switch nat[0] {
+		case '2':
+			switch nat[1] {
+			case '2': // satellite service
+				set(2, 9)
+			default:
+				set(3, 9)
+			}
+		case '3':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "262": // Reunion (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T020200004B0002PDFE.pdf
+		switch nat[0] {
+		case '2', '6', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "263": // Zimbabwe (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Zimbabwe
+		switch nat[0] {
+		case '2', '3', '5', '6', '7':
+			set(2, 9)
+		case '8':
+			if set(2, 9) || set(4, 10) {
+			}
+		default:
+			err()
+		}
+	case "264": // Namibia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Namibia
+		switch nat[0] {
+		case '6':
+			set(2, 8, 9)
+		case '8':
+			if nat[0] == '0' {
+				set(3, 9)
+			} else {
+				set(2, 9)
+			}
+		default:
+			err()
+		}
+	case "265": // Malawi (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Malawi
+		switch nat[0] {
+		case '1':
+			if set(2, 9) || set(2, 7) {
+			}
+		case '2', '7', '8', '9':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "266": // Lesotho (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Lesotho
+		switch nat[0] {
+		case '2', '5', '6':
+			set(2, 8)
+		case '8', '9':
+			set(3, 8)
+		default:
+			err()
+		}
+	case "267": // Botswana (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Botswana
+		switch nat[0] {
+		case '2', '3', '4', '5', '6':
+			set(1, 7)
+		case '7':
+			set(2, 8)
+		case '8', '9':
+			set(3, 8)
+		default:
+			err()
+		}
+	case "268": // Eswatini (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Eswatini
+		switch nat[0] {
+		case '2', '3', '7':
+			set(2, 8)
+		case '8':
+			set(3, 8)
+		case '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "269": // Comoros (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Comoros
+		switch nat[0] {
+		case '3', '4':
+			set(2, 7)
+		case '7', '8':
+			set(3, 7)
+		default:
+			err()
+		}
 	case "27": // South Africa (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_South_Africa
 		switch nat[0] {
 		case '1', '2', '3', '4', '5', '7', '8', '9':
