@@ -193,11 +193,11 @@ const (
 								"P":["658","876"]} ]},
 
 		"20":	{"Geo":"afr",	"ISO3166":"EG",	"Pl":2,	"CCn":"Egypt"},
-		"211":	{"Geo":"afr",	"ISO3166":"SS",	"Pl":3,	"CCn":"South Sudan"},
+		"211":	{"Geo":"afr",	"ISO3166":"SS",	"Pl":2,	"CCn":"South Sudan"},
 		"212":	{"Geo":"afr",	"ISO3166":"MA",	"Pl":3,	"CCn":"Morocco"},
-		"213":	{"Geo":"afr",	"ISO3166":"DZ",	"Pl":3,	"CCn":"Algeria"},
-		"216":	{"Geo":"afr",	"ISO3166":"TN",	"Pl":3,	"CCn":"Tunisia"},
-		"218":	{"Geo":"afr",	"ISO3166":"LY",	"Pl":3,	"CCn":"Libya"},
+		"213":	{"Geo":"afr",	"ISO3166":"DZ",	"Pl":2,	"CCn":"Algeria"},
+		"216":	{"Geo":"afr",	"ISO3166":"TN",	"Pl":2,	"CCn":"Tunisia"},
+		"218":	{"Geo":"afr",	"ISO3166":"LY",	"Pl":2,	"CCn":"Libya"},
 		"220":	{"Geo":"afr",	"ISO3166":"GM",	"Pl":3,	"CCn":"Gambia"},
 		"221":	{"Geo":"afr",	"ISO3166":"SN",	"Pl":3,	"CCn":"Senegal"},
 		"222":	{"Geo":"afr",	"ISO3166":"MR",	"Pl":3,	"CCn":"Mauritania"},
@@ -211,7 +211,7 @@ const (
 		"230":	{"Geo":"afr",	"ISO3166":"MU",	"Pl":3,	"CCn":"Mauritius"},
 		"231":	{"Geo":"afr",	"ISO3166":"LR",	"Pl":3,	"CCn":"Liberia"},
 		"232":	{"Geo":"afr",	"ISO3166":"SL",	"Pl":3,	"CCn":"Sierra Leone"},
-		"233":	{"Geo":"afr",	"ISO3166":"GH",	"Pl":3,	"CCn":"Ghana"},
+		"233":	{"Geo":"afr",	"ISO3166":"GH",	"Pl":2,	"CCn":"Ghana"},
 		"234":	{"Geo":"afr",	"ISO3166":"NG",	"Pl":3,	"CCn":"Nigeria"},
 		"235":	{"Geo":"afr",	"ISO3166":"TD",	"Pl":3,	"CCn":"Chad"},
 		"236":	{"Geo":"afr",	"ISO3166":"CF",	"Pl":3,	"CCn":"Central African Republic"},
@@ -490,6 +490,13 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			set(2, 9)
 		}
+	case "211": // South Sudan (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_South_Sudan
+		switch nat[0] {
+		case '1', '9':
+			set(2, 9)
+		default:
+			err()
+		}
 	case "212": // Morocco (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Morocco
 		switch nat[0] {
 		case '5':
@@ -501,10 +508,31 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "211": // South Sudan (3)
-	//case "213": // Algeria (3)
-	//case "216": // Tunisia (3)
-	//case "218": // Libya (3)
+	case "213": // Algeria (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Algeria
+		switch nat[0] {
+		case '1', '2', '3', '4':
+			set(2, 8, 9)
+		case '5', '6', '7', '9':
+			set(2, 9)
+		case '8':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "216": // Tunisia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Tunisia
+		switch nat[0] {
+		case '2', '3', '4', '5', '7', '8', '9':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "218": // Libya (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Libya
+		switch nat[0] {
+		case '0', '1':
+			err()
+		default:
+			set(2, 8, 9)
+		}
 	//case "220": // Gambia (3)
 	//case "221": // Senegal (3)
 	//case "222": // Mauritania (3)
@@ -518,8 +546,25 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 	//case "230": // Mauritius (3)
 	//case "231": // Liberia (3)
 	//case "232": // Sierra Leone (3)
-	//case "233": // Ghana (3)
-	//case "234": // Nigeria (3)
+	case "233": // Ghana (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Ghana
+		switch nat[0] {
+		case '2', '5':
+			set(2, 9)
+		case '3':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "234": // Nigeria (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Nigeria
+		switch nat[0] {
+		case '1', '2', '3', '4', '5', '6':
+			set(2, 7, 8)
+		case '7', '8', '9':
+			if set(3, 10) || set(2, 7, 8) {
+			}
+		default:
+			err()
+		}
 	//case "235": // Chad (3)
 	//case "236": // Central African Republic (3)
 	//case "237": // Cameroon (3)
