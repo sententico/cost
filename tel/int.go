@@ -198,11 +198,11 @@ const (
 		"213":	{"Geo":"afr",	"ISO3166":"DZ",	"Pl":2,	"CCn":"Algeria"},
 		"216":	{"Geo":"afr",	"ISO3166":"TN",	"Pl":2,	"CCn":"Tunisia"},
 		"218":	{"Geo":"afr",	"ISO3166":"LY",	"Pl":2,	"CCn":"Libya"},
-		"220":	{"Geo":"afr",	"ISO3166":"GM",	"Pl":3,	"CCn":"Gambia"},
-		"221":	{"Geo":"afr",	"ISO3166":"SN",	"Pl":3,	"CCn":"Senegal"},
-		"222":	{"Geo":"afr",	"ISO3166":"MR",	"Pl":3,	"CCn":"Mauritania"},
-		"223":	{"Geo":"afr",	"ISO3166":"ML",	"Pl":3,	"CCn":"Mali"},
-		"224":	{"Geo":"afr",	"ISO3166":"GN",	"Pl":3,	"CCn":"Guinea"},
+		"220":	{"Geo":"afr",	"ISO3166":"GM",	"Pl":1,	"CCn":"Gambia"},
+		"221":	{"Geo":"afr",	"ISO3166":"SN",	"Pl":2,	"CCn":"Senegal"},
+		"222":	{"Geo":"afr",	"ISO3166":"MR",	"Pl":1,	"CCn":"Mauritania"},
+		"223":	{"Geo":"afr",	"ISO3166":"ML",	"Pl":2,	"CCn":"Mali"},
+		"224":	{"Geo":"afr",	"ISO3166":"GN",	"Pl":2,	"CCn":"Guinea"},
 		"225":	{"Geo":"afr",	"ISO3166":"CI",	"Pl":3,	"CCn":"Ivory Coast"},
 		"226":	{"Geo":"afr",	"ISO3166":"BF",	"Pl":3,	"CCn":"Burkina Faso"},
 		"227":	{"Geo":"afr",	"ISO3166":"NE",	"Pl":3,	"CCn":"Niger"},
@@ -213,17 +213,17 @@ const (
 		"232":	{"Geo":"afr",	"ISO3166":"SL",	"Pl":3,	"CCn":"Sierra Leone"},
 		"233":	{"Geo":"afr",	"ISO3166":"GH",	"Pl":2,	"CCn":"Ghana"},
 		"234":	{"Geo":"afr",	"ISO3166":"NG",	"Pl":3,	"CCn":"Nigeria"},
-		"235":	{"Geo":"afr",	"ISO3166":"TD",	"Pl":3,	"CCn":"Chad"},
-		"236":	{"Geo":"afr",	"ISO3166":"CF",	"Pl":3,	"CCn":"Central African Republic"},
-		"237":	{"Geo":"afr",	"ISO3166":"CM",	"Pl":3,	"CCn":"Cameroon"},
-		"238":	{"Geo":"afr",	"ISO3166":"CV",	"Pl":3,	"CCn":"Cape Verde"},
-		"239":	{"Geo":"afr",	"ISO3166":"ST",	"Pl":3,	"CCn":"Sao Tome & Principe"},
-		"240":	{"Geo":"afr",	"ISO3166":"GQ",	"Pl":3,	"CCn":"Equatorial Guinea"},
-		"241":	{"Geo":"afr",	"ISO3166":"GA",	"Pl":3,	"CCn":"Gabon"},
-		"242":	{"Geo":"afr",	"ISO3166":"CG",	"Pl":3,	"CCn":"Congo"},
-		"243":	{"Geo":"afr",	"ISO3166":"CD",	"Pl":3,	"CCn":"Congo DR"},
-		"244":	{"Geo":"afr",	"ISO3166":"AO",	"Pl":3,	"CCn":"Angola"},
-		"245":	{"Geo":"afr",	"ISO3166":"GW",	"Pl":3,	"CCn":"Guinea-Bissau"},
+		"235":	{"Geo":"afr",	"ISO3166":"TD",	"Pl":2,	"CCn":"Chad"},
+		"236":	{"Geo":"afr",	"ISO3166":"CF",	"Pl":2,	"CCn":"Central African Republic"},
+		"237":	{"Geo":"afr",	"ISO3166":"CM",	"Pl":2,	"CCn":"Cameroon"},
+		"238":	{"Geo":"afr",	"ISO3166":"CV",	"Pl":2,	"CCn":"Cape Verde"},
+		"239":	{"Geo":"afr",	"ISO3166":"ST",	"Pl":2,	"CCn":"Sao Tome & Principe"},
+		"240":	{"Geo":"afr",	"ISO3166":"GQ",	"Pl":2,	"CCn":"Equatorial Guinea"},
+		"241":	{"Geo":"afr",	"ISO3166":"GA",	"Pl":2,	"CCn":"Gabon"},
+		"242":	{"Geo":"afr",	"ISO3166":"CG",	"Pl":2,	"CCn":"Congo"},
+		"243":	{"Geo":"afr",	"ISO3166":"CD",	"Pl":2,	"CCn":"Congo DR"},
+		"244":	{"Geo":"afr",	"ISO3166":"AO",	"Pl":2,	"CCn":"Angola"},
+		"245":	{"Geo":"afr",	"ISO3166":"GW",	"Pl":2,	"CCn":"Guinea-Bissau"},
 		"246":	{"Geo":"afr",	"ISO3166":"IO",	"Pl":3,	"CCn":"Diego Garcia"},
 		"247":	{"Geo":"afr",	"ISO3166":"SH",	"Pl":1,	"CCn":"Ascension"},
 		"248":	{"Geo":"afr",	"ISO3166":"SC",	"Pl":2,	"CCn":"Seychelles"},
@@ -533,11 +533,53 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			set(2, 8, 9)
 		}
-	//case "220": // Gambia (3)
-	//case "221": // Senegal (3)
-	//case "222": // Mauritania (3)
-	//case "223": // Mali (3)
-	//case "224": // Guinea (3)
+	case "220": // Gambia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Gambia
+		switch nat[0] {
+		case '2', '3', '6', '7', '8', '9':
+			set(1, 7)
+		case '4', '5':
+			set(2, 7)
+		default:
+			err()
+		}
+	case "221": // Senegal (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Senegal
+		switch nat[0] {
+		case '3', '7':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "222": // Mauritania (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Mauritania
+		switch nat[0] {
+		case '2', '3', '4':
+			if nat[1] == '5' {
+				set(3, 8)
+			} else {
+				set(1, 8)
+			}
+		case '8':
+			set(1, 8)
+		default:
+			err()
+		}
+	case "223": // Mali (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Mali
+		switch nat[0] {
+		case '2', '4':
+			set(3, 8)
+		case '5', '6', '7', '8', '9':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "224": // Guinea (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Guinea
+		switch nat[0] {
+		case '2', '5', '6', '7':
+			set(2, 9)
+		case '3':
+			set(3, 9)
+		default:
+			err()
+		}
 	//case "225": // Ivory Coast (3)
 	//case "226": // Burkina Faso (3)
 	//case "227": // Niger (3)
@@ -565,17 +607,98 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	//case "235": // Chad (3)
-	//case "236": // Central African Republic (3)
-	//case "237": // Cameroon (3)
-	//case "238": // Cape Verde (3)
-	//case "239": // Sao Tome & Principe (3)
-	//case "240": // Equatorial Guinea (3)
-	//case "241": // Gabon (3)
-	//case "242": // Congo (3)
-	//case "243": // Congo DR (3)
-	//case "244": // Angola (3)
-	//case "245": // Guinea-Bissau (3)
+	case "235": // Chad (Jan21) https://en.wikipedia.org/wiki/Telephone_numbers_in_Chad
+		switch nat[0] {
+		case '2':
+			set(3, 8)
+		case '6', '7', '9':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "236": // Central African Republic (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Central_African_Republic
+		switch nat[0] {
+		case '2':
+			set(3, 8)
+		case '7', '8':
+			set(2, 8)
+		default:
+			err()
+		}
+	case "237": // Cameroon (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Cameroon
+		switch nat[0] {
+		case '2', '6':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "238": // Cape Verde (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Cape_Verde
+		switch nat[0] {
+		case '2', '5', '9':
+			set(2, 7)
+		case '3', '8':
+			set(3, 7)
+		default:
+			err()
+		}
+	case "239": // Sao Tome & Principe (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_S%C3%A3o_Tom%C3%A9_and_Pr%C3%ADncipe
+		switch nat[0] {
+		case '2', '6', '7', '8', '9':
+			set(2, 7)
+		default:
+			err()
+		}
+	case "240": // Equatorial Guinea (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Equatorial_Guinea
+		switch nat[0] {
+		case '2', '3', '5', '7':
+			set(2, 9)
+		case '8', '9':
+			set(3, 9)
+		default:
+		}
+	case "241": // Gabon (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Gabon
+		switch nat[0] {
+		case '1', '6', '7':
+			set(2, 8)
+		case '8':
+			set(3, 8)
+		default:
+			err()
+		}
+	case "242": // Congo (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Republic_of_the_Congo
+		switch nat[0] {
+		case '0':
+			set(2, 9)
+		case '2':
+			set(4, 9)
+		case '8':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "243": // Congo DR (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_Democratic_Republic_of_the_Congo
+		switch nat[0] {
+		case '1', '2', '3', '4', '5', '6', '7': // poor documentation
+			set(2, 7, 10)
+		case '8', '9':
+			set(3, 9)
+		default:
+			err()
+		}
+	case "244": // Angola (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Angola
+		switch nat[0] {
+		case '2', '9':
+			set(2, 9)
+		default:
+			err()
+		}
+	case "245": // Guinea-Bissau (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Guinea-Bissau
+		switch nat[0] {
+		case '4', '9':
+			set(2, 9)
+		default:
+			err()
+		}
 	case "246": // Diego Garcia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_the_British_Indian_Ocean_Territory
 		switch nat[:2] {
 		case "37", "38":
