@@ -261,25 +261,25 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 	}
 
 	switch metric {
-	case "ec2.aws/acct", "ec2.aws/acct/s":
+	case "ec2.aws/acct", "ec2.aws/acct/n":
 		sum, cur = acc.m.data[0].(*ec2Sum).ByAcct, acc.m.data[0].(*ec2Sum).Current
-	case "ec2.aws/region", "ec2.aws/region/s":
+	case "ec2.aws/region", "ec2.aws/region/n":
 		sum, cur = acc.m.data[0].(*ec2Sum).ByRegion, acc.m.data[0].(*ec2Sum).Current
-	case "ec2.aws/sku", "ec2.aws/sku/s":
+	case "ec2.aws/sku", "ec2.aws/sku/n":
 		sum, cur = acc.m.data[0].(*ec2Sum).BySKU, acc.m.data[0].(*ec2Sum).Current
 
-	case "ebs.aws/acct", "ebs.aws/acct/s":
+	case "ebs.aws/acct", "ebs.aws/acct/n":
 		sum, cur = acc.m.data[0].(*ebsSum).ByAcct, acc.m.data[0].(*ebsSum).Current
-	case "ebs.aws/region", "ebs.aws/region/s":
+	case "ebs.aws/region", "ebs.aws/region/n":
 		sum, cur = acc.m.data[0].(*ebsSum).ByRegion, acc.m.data[0].(*ebsSum).Current
-	case "ebs.aws/sku", "ebs.aws/sku/s":
+	case "ebs.aws/sku", "ebs.aws/sku/n":
 		sum, cur = acc.m.data[0].(*ebsSum).BySKU, acc.m.data[0].(*ebsSum).Current
 
-	case "rds.aws/acct", "rds.aws/acct/s":
+	case "rds.aws/acct", "rds.aws/acct/n":
 		sum, cur = acc.m.data[0].(*rdsSum).ByAcct, acc.m.data[0].(*rdsSum).Current
-	case "rds.aws/region", "rds.aws/region/s":
+	case "rds.aws/region", "rds.aws/region/n":
 		sum, cur = acc.m.data[0].(*rdsSum).ByRegion, acc.m.data[0].(*rdsSum).Current
-	case "rds.aws/sku", "rds.aws/sku/s":
+	case "rds.aws/sku", "rds.aws/sku/n":
 		sum, cur = acc.m.data[0].(*rdsSum).BySKU, acc.m.data[0].(*rdsSum).Current
 
 	case "cur.aws/acct":
