@@ -142,6 +142,7 @@ func getRes(scache *csv.Settings, fn string) {
 				"Re-rated Amount",
 			})
 		case "Aspect CDR":
+			rater.Default = tel.T2intlTermRates
 			currency, write = "EUR", csvWriter(&res, []string{
 				"gatewayAccountingId",
 				"startTime",
