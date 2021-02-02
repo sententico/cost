@@ -397,6 +397,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				logE.Printf("unrecognized AWS CUR input: %q", meta[8:])
 			}
 		} else if strings.HasPrefix(meta, "end ") && len(work.idet.Line) > 0 {
+			// TODO: rework to reject CUR updates much smaller than an existing month
 			psum, pdet, mos, max, min := m.data[0].(*curSum), m.data[1].(*curDetail), 0, "", ""
 			psum.ByAcct.update(work.isum.ByAcct)
 			psum.ByRegion.update(work.isum.ByRegion)

@@ -10,7 +10,6 @@
 cd aws/cache || exit 1
 
 # TODO: parameterize CUR location & naming pattern
-# TODO: handle subset/singleton file updates to CUR set
 CUR="*hourly-[0-9]*"
 find . -maxdepth 1 -name "$CUR.csv.gz*" -mmin +86400 -delete
 prior="$(ls -l $CUR.csv.gz~link)"

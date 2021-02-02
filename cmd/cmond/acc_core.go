@@ -728,7 +728,7 @@ func curawsClean(m *model, deep bool) {
 	sum.ByRegion.clean(exp)
 	sum.ByTyp.clean(exp)
 	sum.BySvc.clean(exp)
-	for min := "9"; len(detail.Month) > 0; delete(detail.Month, min) {
+	for min := "9"; len(detail.Month) > 0; min = "9" {
 		for mo := range detail.Month {
 			if mo < min {
 				min = mo
@@ -740,6 +740,7 @@ func curawsClean(m *model, deep bool) {
 		if hrs[0] <= hrs[1] {
 			break
 		}
+		delete(detail.Month, min)
 	}
 
 	acc.rel()
