@@ -371,13 +371,13 @@ func nTags(name string) (t cmon.TagMap) {
 	return
 }
 
-func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
+func (d *ec2Detail) extract(acc *modAcc, res chan []string, rows int) {
 	pg := pgSize
 	acc.reqR()
 	for id, inst := range d.Inst {
 		if inst.Last < d.Current {
 			continue
-		} else if items--; items == 0 {
+		} else if rows--; rows == 0 {
 			break
 		}
 
@@ -423,7 +423,7 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, items int) {
 	acc.rel()
 }
 
-func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
+func (d *ebsDetail) extract(acc *modAcc, res chan []string, rows int) {
 	itags := make(map[string]cmon.TagMap, 4096)
 	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
 		acc.reqR()
@@ -449,7 +449,7 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 	for id, vol := range d.Vol {
 		if vol.Last < d.Current {
 			continue
-		} else if items--; items == 0 {
+		} else if rows--; rows == 0 {
 			break
 		}
 
@@ -493,14 +493,14 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, items int) {
 	acc.rel()
 }
 
-func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
+func (d *rdsDetail) extract(acc *modAcc, res chan []string, rows int) {
 	var name string
 	pg := pgSize
 	acc.reqR()
 	for id, db := range d.DB {
 		if db.Last < d.Current {
 			continue
-		} else if items--; items == 0 {
+		} else if rows--; rows == 0 {
 			break
 		}
 
@@ -551,7 +551,7 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, items int) {
 	acc.rel()
 }
 
-func (d *hiD) extract(acc *modAcc, res chan []string, items int) {
+func (d *hiD) extract(acc *modAcc, res chan []string, rows int) {
 	var to, from tel.E164full
 	var sp tel.SPmap
 	var sl tel.SLmap
@@ -563,7 +563,7 @@ nextHour:
 	for h, hm := range *d {
 		t := int64(h) * 3600
 		for id, cdr := range hm {
-			if items--; items == 0 {
+			if rows--; rows == 0 {
 				break nextHour
 			}
 
@@ -598,9 +598,9 @@ nextHour:
 	acc.rel()
 }
 
-func streamExtract(n string, items int) (res chan []string, err error) {
+func tableExtract(n string, rows int, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
-	if items++; items < 0 || items == 1 {
+	if rows++; rows < 0 || rows == 1 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(n, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil || len(acc.m.data) < 2 {
 		return nil, fmt.Errorf("model not found")
@@ -619,17 +619,17 @@ func streamExtract(n string, items int) (res chan []string, err error) {
 
 		switch det := acc.m.data[1].(type) {
 		case *ec2Detail:
-			det.extract(acc, res, items)
+			det.extract(acc, res, rows)
 		case *ebsDetail:
-			det.extract(acc, res, items)
+			det.extract(acc, res, rows)
 		case *rdsDetail:
-			det.extract(acc, res, items)
+			det.extract(acc, res, rows)
 		case *origSum:
 			switch n {
 			case "cdr.asp/term":
-				acc.m.data[2].(*termDetail).CDR.extract(acc, res, items)
+				acc.m.data[2].(*termDetail).CDR.extract(acc, res, rows)
 			case "cdr.asp/orig":
-				acc.m.data[3].(*origDetail).CDR.extract(acc, res, items)
+				acc.m.data[3].(*origDetail).CDR.extract(acc, res, rows)
 			}
 		}
 		close(res)
@@ -732,7 +732,7 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 	}
 }
 
-func curawsExtract(from, to int32, units int16, items int, truncate float64) (res chan []string, err error) {
+func curtabExtract(from, to int32, units int16, items int, truncate float64, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
 	if items++; from > to || units < 1 || items < 0 || items == 1 || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")

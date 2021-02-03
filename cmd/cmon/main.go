@@ -23,20 +23,22 @@ type (
 
 var (
 	args struct {
-		settings  string   // settings location
-		address   string   // cmon server address:port
-		debug     bool     // debug output enabled
-		more      []string // unparsed arguments
-		metric    string   // series metric
-		model     string   // stream model
-		items     int      // maximum stream items
-		seTrunc   float64  // series amount truncation filter
-		stTrunc   float64  // stream amount truncation filter
-		interval  intHours // from/to/units hours
-		span      int      // series total hours
-		recent    int      // series recent/active hours
+		settings string   // settings location
+		address  string   // cmon server address:port
+		debug    bool     // debug output enabled
+		more     []string // unparsed arguments
+
 		seriesSet *flag.FlagSet
-		streamSet *flag.FlagSet
+		metric    string  // series metric
+		span      int     // series total hours
+		recent    int     // series recent/active hours
+		seTrunc   float64 // series amount truncation filter
+
+		tableSet *flag.FlagSet
+		model    string   // table model
+		interval intHours // from/to/units hours
+		rows     int      // maximum table rows
+		taTrunc  float64  // table amount truncation filter
 	}
 	address  string           // cmon server address (args override settings file)
 	settings cmon.MonSettings // settings
@@ -50,12 +52,12 @@ func init() {
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nCommand usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]"+
-				"\n\nThis is the Cloud Monitor command-line interface to the server (cmond). Subcommands generally"+
-				"\nmap to API interfaces and access model content within the server.\n\n")
+			"\nThis is the Cloud Monitor command-line interface to the server (cmond). Subcommands generally"+
+				"\nmap to API interfaces and access model content within the server."+
+				"\n  Usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]\n\n")
 		flag.PrintDefaults()
 		args.seriesSet.Usage()
-		args.streamSet.Usage()
+		args.tableSet.Usage()
 		fmt.Fprintln(flag.CommandLine.Output())
 	}
 
@@ -66,22 +68,25 @@ func init() {
 	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "recent `amount` metric truncation threshold")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"series\" subcommand returns an hourly series for a metric type.\n")
+			"\nThe \"series\" subcommand returns an hourly series for a metric type."+
+				"\n  Usage: cmon series [<series arg> ...]\n\n")
 		args.seriesSet.PrintDefaults()
 	}
 
-	args.streamSet = flag.NewFlagSet("stream", flag.ExitOnError)
-	args.streamSet.StringVar(&args.model, "model", "cur.aws", "stream model `type`")
+	args.tableSet = flag.NewFlagSet("table", flag.ExitOnError)
+	args.tableSet.StringVar(&args.model, "model", "cur.aws", "table model `type`")
 	y, m, _ := time.Now().Date() // set default to prior month
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
-	args.streamSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to stream, if applicable")
-	args.streamSet.IntVar(&args.items, "items", 2e5, "`maximum` items to stream")
-	args.streamSet.Float64Var(&args.stTrunc, "truncate", 0.002, "`cost` item truncation threshold, if applicable")
-	args.streamSet.Usage = func() {
+	args.tableSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to return, if applicable")
+	args.tableSet.IntVar(&args.rows, "rows", 2e5, "`maximum` table rows to return")
+	args.tableSet.Float64Var(&args.taTrunc, "truncate", 0.002, "row `cost` truncation threshold, if applicable")
+	args.tableSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"stream\" subcommand returns an item detail stream.\n")
-		args.streamSet.PrintDefaults()
+			"\nThe \"table\" subcommand returns filtered model detail in table/CSV form.  Column criteria are"+
+				"\nspecified as column/operator/operand tuples (e.g., 'Acct=100237', 'Type~[24]?xl', 'Tries>1')"+
+				"\n  Usage: cmon table [<table arg> ...] [<column criteria> ...]\n\n")
+		args.tableSet.PrintDefaults()
 	}
 }
 
@@ -191,16 +196,17 @@ func seriesCmd() {
 	}
 }
 
-func streamCmd() {
+func tableCmd() {
 	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
 	var r [][]string
-	if err = client.Call("API.Stream", &cmon.StreamArgs{
-		Token: "placeholder_access_token",
-		Model: args.model,
-		Items: args.items,
+	if err = client.Call("API.Table", &cmon.TableArgs{
+		Token:    "placeholder_access_token",
+		Model:    args.model,
+		Rows:     args.rows,
+		Criteria: args.more,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
@@ -222,23 +228,24 @@ func streamCmd() {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
 		}
 	} else {
-		fatal(1, "no items returned")
+		fatal(1, "no rows returned")
 	}
 }
 
-func streamCURCmd() {
+func curtabCmd() {
 	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
 	if err != nil {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
 	var r [][]string
-	if err = client.Call("API.StreamCUR", &cmon.StreamCURArgs{
+	if err = client.Call("API.CURtab", &cmon.CURtabArgs{
 		Token:    "placeholder_access_token",
 		From:     args.interval.from,
 		To:       args.interval.to,
 		Units:    args.interval.units,
-		Items:    args.items,
-		Truncate: args.stTrunc,
+		Rows:     args.rows,
+		Truncate: args.taTrunc,
+		Criteria: args.more,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
@@ -250,8 +257,8 @@ func streamCURCmd() {
 		case 24:
 			unit = "Day"
 		}
-		if len(r) == args.items {
-			warn = " [item limit reached]"
+		if len(r) == args.rows {
+			warn = " [row max]"
 		}
 		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
 			",Item Description,Name,env,dc,product,app,cust,team,version,Recs,Usage,Billed\n", warn, unit)
@@ -268,9 +275,9 @@ func main() {
 	case "series":
 		args.seriesSet.Parse(flag.Args()[1:])
 		command, args.more = "series", args.seriesSet.Args()
-	case "stream":
-		args.streamSet.Parse(flag.Args()[1:])
-		command, args.more = "stream "+args.model, args.streamSet.Args()
+	case "table":
+		args.tableSet.Parse(flag.Args()[1:])
+		command, args.more = "table "+args.model, args.tableSet.Args()
 	case "":
 		args.more = flag.Args()
 	default:
@@ -284,14 +291,14 @@ func main() {
 	address = cmon.Getarg([]string{args.address, settings.Address, "CMON_ADDRESS", ":4404"})
 
 	if cfn := map[string]func(){
-		"series":              seriesCmd,
-		"stream cur.aws":      streamCURCmd,
-		"stream ec2.aws":      streamCmd,
-		"stream ebs.aws":      streamCmd,
-		"stream rds.aws":      streamCmd,
-		"stream cdr.asp/term": streamCmd,
-		"stream cdr.asp/orig": streamCmd,
-		"":                    defaultCmd,
+		"series":             seriesCmd,
+		"table cur.aws":      curtabCmd,
+		"table ec2.aws":      tableCmd,
+		"table ebs.aws":      tableCmd,
+		"table rds.aws":      tableCmd,
+		"table cdr.asp/term": tableCmd,
+		"table cdr.asp/orig": tableCmd,
+		"":                   defaultCmd,
 	}[command]; cfn == nil {
 		fatal(1, "can't %s", command)
 	} else {

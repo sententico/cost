@@ -110,8 +110,8 @@ func (s *API) Series(args *cmon.SeriesArgs, r *cmon.SeriesRet) (err error) {
 	return
 }
 
-// Stream method of API service ...
-func (s *API) Stream(args *cmon.StreamArgs, r *[][]string) (err error) {
+// Table method of API service ...
+func (s *API) Table(args *cmon.TableArgs, r *[][]string) (err error) {
 	defer func() {
 		if re := recover(); re != nil {
 			err = re.(error)
@@ -121,10 +121,10 @@ func (s *API) Stream(args *cmon.StreamArgs, r *[][]string) (err error) {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
 		var c chan []string
-		if c, err = streamExtract(args.Model, args.Items); err != nil {
+		if c, err = tableExtract(args.Model, args.Rows, args.Criteria); err != nil {
 			return
 		}
-		*r = make([][]string, 0, args.Items)
+		*r = make([][]string, 0, args.Rows)
 		for s := range c {
 			*r = append(*r, s)
 		}
@@ -136,8 +136,8 @@ func (s *API) Stream(args *cmon.StreamArgs, r *[][]string) (err error) {
 	return
 }
 
-// StreamCUR method of API service ...
-func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) (err error) {
+// CURtab method of API service ...
+func (s *API) CURtab(args *cmon.CURtabArgs, r *[][]string) (err error) {
 	defer func() {
 		if re := recover(); re != nil {
 			err = re.(error)
@@ -147,10 +147,10 @@ func (s *API) StreamCUR(args *cmon.StreamCURArgs, r *[][]string) (err error) {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
 		var c chan []string
-		if c, err = curawsExtract(args.From, args.To, args.Units, args.Items, args.Truncate); err != nil {
+		if c, err = curtabExtract(args.From, args.To, args.Units, args.Rows, args.Truncate, args.Criteria); err != nil {
 			return
 		}
-		*r = make([][]string, 0, args.Items)
+		*r = make([][]string, 0, args.Rows)
 		for s := range c {
 			*r = append(*r, s)
 		}

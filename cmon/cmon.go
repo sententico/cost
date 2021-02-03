@@ -75,21 +75,23 @@ type (
 		Series map[string][]float64 // map of metric values to hourly amounts
 	}
 
-	// StreamArgs ...
-	StreamArgs struct {
-		Token string // Admin.Auth access token (renew hourly to avoid expiration)
-		Model string // model name
-		Items int    // maximum items
+	// TableArgs ...
+	TableArgs struct {
+		Token    string   // Admin.Auth access token (renew hourly to avoid expiration)
+		Model    string   // model name
+		Rows     int      // maximum rows
+		Criteria []string // filter criteria (column/operator/operand tuples)
 	}
 
-	// StreamCURArgs ...
-	StreamCURArgs struct {
-		Token    string  // Admin.Auth access token (renew hourly to avoid expiration)
-		From     int32   // from hour
-		To       int32   // to hour
-		Units    int16   // item reporting units (hour=1, day=24, month=720)
-		Items    int     // maximum items
-		Truncate float64 // filter items with costs below this in absolute value
+	// CURtabArgs ...
+	CURtabArgs struct {
+		Token    string   // Admin.Auth access token (renew hourly to avoid expiration)
+		From     int32    // from hour
+		To       int32    // to hour
+		Units    int16    // item reporting units (hour=1, day=24, month=720)
+		Rows     int      // maximum line items
+		Truncate float64  // filter items with costs below this in absolute value
+		Criteria []string // filter criteria (column/operator/operand tuples)
 	}
 )
 
