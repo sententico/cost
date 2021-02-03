@@ -52,8 +52,9 @@ func init() {
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThis is the Cloud Monitor command-line interface to the server (cmond). Subcommands generally"+
-				"\nmap to API interfaces and access model content within the server."+
+			"\nThis is the Cloud Monitor command-line interface to (cmond) servers.  Cloud Monitors gather cost,"+
+				"\nusage and other data from configured cloud objects, using this data to maintain models representing"+
+				"\nthese objects.  Subcommands map to API interfaces exposing this server model content."+
 				"\n  Usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]\n\n")
 		flag.PrintDefaults()
 		args.seriesSet.Usage()
@@ -85,7 +86,7 @@ func init() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"table\" subcommand returns filtered model detail in table/CSV form.  Column criteria are"+
 				"\nspecified as column/operator/operand tuples (e.g., 'Acct=100237', 'Type~[24]?xl', 'Tries>1')"+
-				"\n  Usage: cmon table [<table arg> ...] [<column criteria> ...]\n\n")
+				"\n  Usage: cmon table [<table arg> ...] ['<column criteria>' ...]\n\n")
 		args.tableSet.PrintDefaults()
 	}
 }
