@@ -301,7 +301,7 @@ func main() {
 		"table cdr.asp/orig": tableCmd,
 		"":                   defaultCmd,
 	}[command]; cfn == nil {
-		fatal(1, "can't %s", command)
+		fatal(1, "can't get %s", command)
 	} else {
 		cfn()
 	}

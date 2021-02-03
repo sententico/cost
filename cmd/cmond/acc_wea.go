@@ -22,6 +22,7 @@ var (
 		"~":     "weasel",      // command type
 	}
 	aspN = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
+	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w]*?)\s*(?P<op>[=!<>~^])(?P<opd>.*)$`)
 )
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
@@ -72,7 +73,7 @@ func rdsawsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	res <- s
 }
 
-func (sum hsU) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
+func (sum hsU) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -111,7 +112,7 @@ func (sum hsU) extract(typ byte, cur int32, span, recent int, truncate float64) 
 	return
 }
 
-func (sum hsA) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
+func (sum hsA) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -140,7 +141,7 @@ func (sum hsA) extract(typ byte, cur int32, span, recent int, truncate float64) 
 	return
 }
 
-func (sum hsC) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
+func (sum hsC) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, ser := make(map[string]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -191,7 +192,7 @@ func (sum hsC) extract(typ byte, cur int32, span, recent int, truncate float64) 
 	return
 }
 
-func (sum hnC) extract(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
+func (sum hnC) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
 	rct, nser, ser := make(map[tel.E164digest]float64), make(map[tel.E164digest][]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
@@ -335,13 +336,13 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 		acc.reqR() // TODO: may relocate prior to acc.m.data reference
 		switch sum := sum.(type) {
 		case hsU:
-			ser = sum.extract(typ, cur, span, recent, truncate)
+			ser = sum.series(typ, cur, span, recent, truncate)
 		case hsA:
-			ser = sum.extract(typ, cur, span, recent, truncate)
+			ser = sum.series(typ, cur, span, recent, truncate)
 		case hsC:
-			ser = sum.extract(typ, cur, span, recent, truncate)
+			ser = sum.series(typ, cur, span, recent, truncate)
 		case hnC:
-			ser = sum.extract(typ, cur, span, recent, truncate)
+			ser = sum.series(typ, cur, span, recent, truncate)
 		}
 		acc.rel()
 		res <- &cmon.SeriesRet{From: cur, Series: ser}
@@ -371,11 +372,77 @@ func nTags(name string) (t cmon.TagMap) {
 	return
 }
 
-func (d *ec2Detail) extract(acc *modAcc, res chan []string, rows int) {
+func skip(i interface{}, flt []func(interface{}) bool) bool {
+	for _, f := range flt {
+		if !f(i) {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+	var v []string
+	flt := make([]func(interface{}) bool, 0, 32)
+	for _, c := range criteria {
+		if v = fltC.FindStringSubmatch(c); len(v) <= 3 {
+			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
+		}
+		switch col, op, opd := v[1], v[2], v[3]; col {
+		case "Acct", "acct":
+			switch op {
+			case "=":
+				flt = append(flt, func(i interface{}) bool {
+					return i.(*ec2Item).Acct == opd
+				})
+			case "!":
+				flt = append(flt, func(i interface{}) bool {
+					return i.(*ec2Item).Acct != opd
+				})
+			default:
+				return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+			}
+		case "Type", "type":
+			switch op {
+			case "=":
+				flt = append(flt, func(i interface{}) bool {
+					return i.(*ec2Item).Typ == opd
+				})
+			case "!":
+				flt = append(flt, func(i interface{}) bool {
+					return i.(*ec2Item).Typ != opd
+				})
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(i interface{}) bool {
+						return re.FindString(i.(*ec2Item).Typ) != ""
+					})
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(i interface{}) bool {
+						return re.FindString(i.(*ec2Item).Typ) == ""
+					})
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q invalid", c, opd)
+				}
+			default:
+				return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+			}
+		default:
+			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
+		}
+	}
+	return flt, nil
+}
+
+func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
 	pg := pgSize
 	acc.reqR()
 	for id, inst := range d.Inst {
-		if inst.Last < d.Current {
+		if inst.Last < d.Current || skip(inst, flt) {
 			continue
 		} else if rows--; rows == 0 {
 			break
@@ -385,7 +452,7 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, rows int) {
 		if tag.Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
 			tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
 		}
-		ls := []string{
+		row := []string{
 			id,
 			inst.Acct,
 			inst.Typ,
@@ -410,20 +477,24 @@ func (d *ec2Detail) extract(acc *modAcc, res chan []string, rows int) {
 		}
 		if pg--; pg >= 0 {
 			select {
-			case res <- ls:
+			case res <- row:
 				continue
 			default:
 			}
 		}
 		acc.rel()
-		res <- ls
+		res <- row
 		pg = pgSize
 		acc.reqR()
 	}
 	acc.rel()
 }
 
-func (d *ebsDetail) extract(acc *modAcc, res chan []string, rows int) {
+func (d *ebsDetail) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+	return nil, nil
+}
+
+func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
 	itags := make(map[string]cmon.TagMap, 4096)
 	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
 		acc.reqR()
@@ -447,7 +518,7 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, rows int) {
 	pg := pgSize
 	acc.reqR()
 	for id, vol := range d.Vol {
-		if vol.Last < d.Current {
+		if vol.Last < d.Current || skip(vol, flt) {
 			continue
 		} else if rows--; rows == 0 {
 			break
@@ -457,7 +528,7 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, rows int) {
 		if tag.Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
 			tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
 		}
-		ls := []string{
+		row := []string{
 			id,
 			vol.Acct,
 			vol.Typ,
@@ -480,25 +551,29 @@ func (d *ebsDetail) extract(acc *modAcc, res chan []string, rows int) {
 		}
 		if pg--; pg >= 0 {
 			select {
-			case res <- ls:
+			case res <- row:
 				continue
 			default:
 			}
 		}
 		acc.rel()
-		res <- ls
+		res <- row
 		pg = pgSize
 		acc.reqR()
 	}
 	acc.rel()
 }
 
-func (d *rdsDetail) extract(acc *modAcc, res chan []string, rows int) {
+func (d *rdsDetail) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+	return nil, nil
+}
+
+func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
 	var name string
 	pg := pgSize
 	acc.reqR()
 	for id, db := range d.DB {
-		if db.Last < d.Current {
+		if db.Last < d.Current || skip(db, flt) {
 			continue
 		} else if rows--; rows == 0 {
 			break
@@ -512,7 +587,7 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, rows int) {
 		if tag.Update(settings.AWS.Accounts[db.Acct]); db.AZ != "" {
 			db.Tag.Update(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]])
 		}
-		ls := []string{
+		row := []string{
 			id,
 			db.Acct,
 			db.Typ,
@@ -538,20 +613,24 @@ func (d *rdsDetail) extract(acc *modAcc, res chan []string, rows int) {
 		}
 		if pg--; pg >= 0 {
 			select {
-			case res <- ls:
+			case res <- row:
 				continue
 			default:
 			}
 		}
 		acc.rel()
-		res <- ls
+		res <- row
 		pg = pgSize
 		acc.reqR()
 	}
 	acc.rel()
 }
 
-func (d *hiD) extract(acc *modAcc, res chan []string, rows int) {
+func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+	return nil, nil
+}
+
+func (d *hiD) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
 	var to, from tel.E164full
 	var sp tel.SPmap
 	var sl tel.SLmap
@@ -563,13 +642,15 @@ nextHour:
 	for h, hm := range *d {
 		t := int64(h) * 3600
 		for id, cdr := range hm {
-			if rows--; rows == 0 {
+			if skip(cdr, flt) { // TODO: may need different implementation
+				continue
+			} else if rows--; rows == 0 {
 				break nextHour
 			}
 
 			cdr.To.Full(nil, &to)
 			cdr.From.Full(nil, &from)
-			ls := []string{
+			row := []string{
 				fmt.Sprintf("0x%016X", id&idMask),
 				sl.Name(cdr.Info >> locShift),
 				fmt.Sprintf("+%s %s %s %s", to.CC, to.P, to.Sub, to.Geo),
@@ -584,13 +665,13 @@ nextHour:
 			}
 			if pg--; pg >= 0 {
 				select {
-				case res <- ls:
+				case res <- row:
 					continue
 				default:
 				}
 			}
 			acc.rel()
-			res <- ls
+			res <- row
 			pg = pgSize
 			acc.reqR()
 		}
@@ -600,10 +681,30 @@ nextHour:
 
 func tableExtract(n string, rows int, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
+	var flt []func(d interface{}) bool
 	if rows++; rows < 0 || rows == 1 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(n, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil || len(acc.m.data) < 2 {
 		return nil, fmt.Errorf("model not found")
+	} else {
+		switch err = fmt.Errorf("unsupported model"); det := acc.m.data[1].(type) {
+		case *ec2Detail:
+			flt, err = det.criteria(acc, criteria)
+		case *ebsDetail:
+			flt, err = det.criteria(acc, criteria)
+		case *rdsDetail:
+			flt, err = det.criteria(acc, criteria)
+		case *origSum:
+			switch n {
+			case "cdr.asp/term":
+				flt, err = acc.m.data[2].(*termDetail).CDR.criteria(acc, criteria)
+			case "cdr.asp/orig":
+				flt, err = acc.m.data[3].(*origDetail).CDR.criteria(acc, criteria)
+			}
+		}
+		if err != nil {
+			return
+		}
 	}
 
 	res = make(chan []string, 32)
@@ -619,17 +720,17 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 
 		switch det := acc.m.data[1].(type) {
 		case *ec2Detail:
-			det.extract(acc, res, rows)
+			det.table(acc, res, rows, flt)
 		case *ebsDetail:
-			det.extract(acc, res, rows)
+			det.table(acc, res, rows, flt)
 		case *rdsDetail:
-			det.extract(acc, res, rows)
+			det.table(acc, res, rows, flt)
 		case *origSum:
 			switch n {
 			case "cdr.asp/term":
-				acc.m.data[2].(*termDetail).CDR.extract(acc, res, rows)
+				acc.m.data[2].(*termDetail).CDR.table(acc, res, rows, flt)
 			case "cdr.asp/orig":
-				acc.m.data[3].(*origDetail).CDR.extract(acc, res, rows)
+				acc.m.data[3].(*origDetail).CDR.table(acc, res, rows, flt)
 			}
 		}
 		close(res)
@@ -637,7 +738,7 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 	return
 }
 
-func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, itag cmon.TagMap, dts string) func() []string {
+func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, itag cmon.TagMap, dts string) func() []string {
 	var husg [744]float32
 	var rate float32
 	if from -= hrs[0]; from < 0 {
@@ -671,7 +772,7 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 		var rec int16
 		var usg, cost float32
 		switch un {
-		case 1:
+		case 1: // hourly
 			for prev := from; ; prev = from {
 				if from > to {
 					return nil
@@ -683,7 +784,7 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 					}
 				}
 			}
-		case 24:
+		case 24: // daily
 			for ; ; rec, usg = 0, 0 {
 				if from > to {
 					return nil
@@ -699,7 +800,7 @@ func getSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, l
 					break
 				}
 			}
-		default:
+		default: // monthly
 			if from > to {
 				return nil
 			}
@@ -738,6 +839,8 @@ func curtabExtract(from, to int32, units int16, items int, truncate float64, cri
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
+	} else {
+		// TODO: build criteria func slice(s); or call fmt.Errorf("invalid criteria")
 	}
 
 	res = make(chan []string, 32)
@@ -796,20 +899,20 @@ func curtabExtract(from, to int32, units int16, items int, truncate float64, cri
 				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
 				for id, li := range acc.m.data[1].(*curDetail).Line[mo] {
 					if li.Cost >= trunc || -trunc >= li.Cost {
-						slicer := getSlicer(from, to, units, trunc, hrs, id, li, itags[vinst[li.RID]], dts)
-						for ls := slicer(); ls != nil; ls = slicer() {
+						slice := curtabSlicer(from, to, units, trunc, hrs, id, li, itags[vinst[li.RID]], dts)
+						for item := slice(); item != nil; item = slice() {
 							if items--; items == 0 {
 								break nextMonth
 							}
 							if pg--; pg >= 0 {
 								select {
-								case res <- ls:
+								case res <- item:
 									continue
 								default:
 								}
 							}
 							acc.rel()
-							res <- ls
+							res <- item
 							pg = pgSize
 							acc.reqR()
 						}
