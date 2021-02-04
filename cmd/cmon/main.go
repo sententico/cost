@@ -23,22 +23,22 @@ type (
 
 var (
 	args struct {
-		settings string   // settings location
 		address  string   // cmon server address:port
 		debug    bool     // debug output enabled
+		settings string   // settings location
 		more     []string // unparsed arguments
 
 		seriesSet *flag.FlagSet
 		metric    string  // series metric
-		span      int     // series total hours
 		recent    int     // series recent/active hours
-		seTrunc   float64 // series amount truncation filter
+		span      int     // series total hours
+		seTrunc   float64 // series recent sum truncation filter
 
 		tableSet *flag.FlagSet
-		model    string   // table model
 		interval intHours // from/to/units hours
+		model    string   // table object model
 		rows     int      // maximum table rows
-		taTrunc  float64  // table amount truncation filter
+		taTrunc  float64  // row cost truncation filter
 	}
 	address  string           // cmon server address (args override settings file)
 	settings cmon.MonSettings // settings
@@ -47,15 +47,15 @@ var (
 )
 
 func init() {
-	flag.StringVar(&args.settings, "s", "", "settings `file`")
 	flag.StringVar(&args.address, "a", "", "cmond server location `address:port`")
 	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
+	flag.StringVar(&args.settings, "s", "", "settings `file`")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThis is the Cloud Monitor command-line interface to (cmond) servers.  Cloud Monitors gather cost,"+
-				"\nusage and other data from configured cloud objects, using this data to maintain models representing"+
-				"\nthese objects.  Subcommands map to API interfaces exposing this server model content."+
-				"\n  Usage: cmon [-s] [-a] [-d] <subcommand> [<subcommand arg> ...]\n\n")
+			"\nThis is the Cloud Monitor client command-line interface to (cmond) servers.  Cloud Monitors gather cost,"+
+				"\nusage and other data from configured cloud objects, using this data to maintain models representing these"+
+				"\nobjects.  Subcommands map to API interfaces exposing this server model content."+
+				"\n  Usage: cmon [-a] [-d] [-s] <subcommand> [<subcommand arg> ...]\n\n")
 		flag.PrintDefaults()
 		args.seriesSet.Usage()
 		args.tableSet.Usage()
@@ -64,27 +64,28 @@ func init() {
 
 	args.seriesSet = flag.NewFlagSet("series", flag.ExitOnError)
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `type`")
-	args.seriesSet.IntVar(&args.span, "span", 12, "series total `hours`")
 	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of span")
-	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "recent `amount` metric truncation threshold")
+	args.seriesSet.IntVar(&args.span, "span", 12, "series total `hours`")
+	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "recent metric `amount` sum truncation threshold")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"series\" subcommand returns an hourly series for a metric type."+
+			"\nThe \"series\" subcommand returns an hourly series for each metric of a -metric type.  Metrics are filtered"+
+				"\nby the -truncate threshold applied to the sum of the -recent range leading each metric -span."+
 				"\n  Usage: cmon series [<series arg> ...]\n\n")
 		args.seriesSet.PrintDefaults()
 	}
 
 	args.tableSet = flag.NewFlagSet("table", flag.ExitOnError)
-	args.tableSet.StringVar(&args.model, "model", "cur.aws", "table model `type`")
 	y, m, _ := time.Now().Date() // set default to prior month
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
 	args.tableSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to return, if applicable")
+	args.tableSet.StringVar(&args.model, "model", "cur.aws", "table object model `name`")
 	args.tableSet.IntVar(&args.rows, "rows", 2e5, "`maximum` table rows to return")
-	args.tableSet.Float64Var(&args.taTrunc, "truncate", 0.002, "row `cost` truncation threshold, if applicable")
+	args.tableSet.Float64Var(&args.taTrunc, "truncate", 0.002, "row `cost` filter threshold, if applicable")
 	args.tableSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"table\" subcommand returns filtered model detail in table/CSV form.  Column criteria are"+
+			"\nThe \"table\" subcommand returns filtered -model detail in table/CSV form.  Column criteria are"+
 				"\nspecified as column/operator/operand tuples (e.g., 'Acct=100237', 'Type~[24]?xl', 'Tries>1')"+
 				"\n  Usage: cmon table [<table arg> ...] ['<column criteria>' ...]\n\n")
 		args.tableSet.PrintDefaults()

@@ -85,7 +85,7 @@ func trigcmonScan(m *model, event string) {
 			sig    float64
 		}{
 			{"cdr.asp/term/geo", 400, 5},
-			{"cdr.asp/term/cust", 300, 5},
+			{"cdr.asp/term/cust", 300, 5.5},
 			{"cdr.asp/term/sp", 1200, 5},
 			{"cdr.asp/term/to", 200, 5},
 		} {

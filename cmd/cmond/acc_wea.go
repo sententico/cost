@@ -372,77 +372,118 @@ func nTags(name string) (t cmon.TagMap) {
 	return
 }
 
-func skip(i interface{}, flt []func(interface{}) bool) bool {
+func atos(ts string) (s int64) {
+	if s, _ = strconv.ParseInt(ts, 0, 0); s > 1e4 {
+		if s < 3e6 { // hours/seconds in Unix epoch cutoff
+			s *= 3600
+		}
+		return
+	}
+	ts = fmt.Sprintf("%-4.19s", ts)
+	t, _ := time.Parse(time.RFC3339, ts+"-01-01T00:00:00Z"[len(ts)-4:])
+	return t.Unix()
+}
+
+func skip(flt []func(...interface{}) bool, v ...interface{}) bool {
 	for _, f := range flt {
-		if !f(i) {
+		if !f(v) {
 			return true
 		}
 	}
 	return false
 }
 
-func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
 	var v []string
-	flt := make([]func(interface{}) bool, 0, 32)
-	for _, c := range criteria {
+	flt := make([]func(...interface{}) bool, 0, 32)
+	for nc, c := range criteria {
 		if v = fltC.FindStringSubmatch(c); len(v) <= 3 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, op, opd := v[1], v[2], v[3]; col {
+		col, op, opd := v[1], v[2], v[3]
+		switch col {
 		case "Acct", "acct":
 			switch op {
 			case "=":
-				flt = append(flt, func(i interface{}) bool {
-					return i.(*ec2Item).Acct == opd
-				})
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Acct == opd })
 			case "!":
-				flt = append(flt, func(i interface{}) bool {
-					return i.(*ec2Item).Acct != opd
-				})
-			default:
-				return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Acct != opd })
 			}
 		case "Type", "type":
 			switch op {
 			case "=":
-				flt = append(flt, func(i interface{}) bool {
-					return i.(*ec2Item).Typ == opd
-				})
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Typ == opd })
 			case "!":
-				flt = append(flt, func(i interface{}) bool {
-					return i.(*ec2Item).Typ != opd
-				})
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Typ != opd })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(i interface{}) bool {
-						return re.FindString(i.(*ec2Item).Typ) != ""
-					})
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Typ) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q invalid", c, opd)
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(i interface{}) bool {
-						return re.FindString(i.(*ec2Item).Typ) == ""
-					})
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Typ) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q invalid", c, opd)
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
-			default:
-				return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+			}
+		case "Vol", "vol":
+			if n, err := strconv.Atoi(opd); err == nil {
+				switch op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Vol == n })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Vol != n })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Vol < n })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Vol > n })
+				}
+			} else {
+				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			}
+		case "Since", "since":
+			if s := atos(opd); s > 0 {
+				switch op {
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Since < int(s) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Since > int(s) })
+				}
+			} else {
+				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			}
+		case "Rate", "rate":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Rate == float32(f) })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Rate != float32(f) })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Rate < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Rate > float32(f) })
+				}
+			} else {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
 			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
+		}
+		if nc == len(flt) {
+			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 		}
 	}
 	return flt, nil
 }
 
-func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
+func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
 	pg := pgSize
 	acc.reqR()
 	for id, inst := range d.Inst {
-		if inst.Last < d.Current || skip(inst, flt) {
+		if inst.Last < d.Current || skip(flt, inst) {
 			continue
 		} else if rows--; rows == 0 {
 			break
@@ -490,11 +531,11 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(i
 	acc.rel()
 }
 
-func (d *ebsDetail) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+func (d *ebsDetail) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
 	return nil, nil
 }
 
-func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
+func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
 	itags := make(map[string]cmon.TagMap, 4096)
 	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
 		acc.reqR()
@@ -518,7 +559,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(i
 	pg := pgSize
 	acc.reqR()
 	for id, vol := range d.Vol {
-		if vol.Last < d.Current || skip(vol, flt) {
+		if vol.Last < d.Current || skip(flt, vol) {
 			continue
 		} else if rows--; rows == 0 {
 			break
@@ -564,16 +605,16 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(i
 	acc.rel()
 }
 
-func (d *rdsDetail) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+func (d *rdsDetail) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
 	return nil, nil
 }
 
-func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
+func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
 	var name string
 	pg := pgSize
 	acc.reqR()
 	for id, db := range d.DB {
-		if db.Last < d.Current || skip(db, flt) {
+		if db.Last < d.Current || skip(flt, db) {
 			continue
 		} else if rows--; rows == 0 {
 			break
@@ -626,11 +667,11 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(i
 	acc.rel()
 }
 
-func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(interface{}) bool, error) {
+func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
 	return nil, nil
 }
 
-func (d *hiD) table(acc *modAcc, res chan []string, rows int, flt []func(interface{}) bool) {
+func (d *hiD) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
 	var to, from tel.E164full
 	var sp tel.SPmap
 	var sl tel.SLmap
@@ -638,14 +679,14 @@ func (d *hiD) table(acc *modAcc, res chan []string, rows int, flt []func(interfa
 	sl.Load(nil)
 	pg := pgSize
 	acc.reqR()
-nextHour:
+outerLoop:
 	for h, hm := range *d {
 		t := int64(h) * 3600
 		for id, cdr := range hm {
-			if skip(cdr, flt) { // TODO: may need different implementation
+			if skip(flt, cdr, t) {
 				continue
 			} else if rows--; rows == 0 {
-				break nextHour
+				break outerLoop
 			}
 
 			cdr.To.Full(nil, &to)
@@ -681,7 +722,7 @@ nextHour:
 
 func tableExtract(n string, rows int, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
-	var flt []func(d interface{}) bool
+	var flt []func(...interface{}) bool
 	if rows++; rows < 0 || rows == 1 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(n, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil || len(acc.m.data) < 2 {
@@ -736,6 +777,11 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 		close(res)
 	}()
 	return
+}
+
+// TODO: should be criteria method on *curDetail?
+func curtabCriteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
+	return nil, nil
 }
 
 func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, itag cmon.TagMap, dts string) func() []string {
@@ -835,12 +881,13 @@ func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string
 
 func curtabExtract(from, to int32, units int16, items int, truncate float64, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
+	var _ []func(...interface{}) bool // flt
 	if items++; from > to || units < 1 || items < 0 || items == 1 || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
-	} else {
-		// TODO: build criteria func slice(s); or call fmt.Errorf("invalid criteria")
+	} else if _, err = curtabCriteria(acc, criteria); err != nil { // flt
+		return
 	}
 
 	res = make(chan []string, 32)
