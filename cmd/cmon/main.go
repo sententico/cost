@@ -52,9 +52,9 @@ func init() {
 	flag.StringVar(&args.settings, "s", "", "settings `file`")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThis is the Cloud Monitor client command-line interface to (cmond) servers. Cloud Monitors gather cost,"+
+			"\nThis is the client command-line interface to Cloud Monitor (cmond) servers. Cloud Monitors gather cost,"+
 				"\nusage and other data from configured cloud objects, using this data to maintain models representing these"+
-				"\nobjects.  Subcommands map to API interfaces exposing this server model content."+
+				"\nobjects.  Subcommands map to server API interfaces exposing this model content."+
 				"\n  Usage: cmon [-a] [-d] [-s] <subcommand> [<subcommand arg> ...]\n\n")
 		flag.PrintDefaults()
 		args.seriesSet.Usage()
@@ -66,7 +66,7 @@ func init() {
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `type`")
 	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of span")
 	args.seriesSet.IntVar(&args.span, "span", 12, "series total `hours`")
-	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "recent metric `amount` sum truncation threshold")
+	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "metric `sum` filter threshold applied to recent hours in the span")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"series\" subcommand returns an hourly series for each metric of a -metric type. Metrics are filtered"+
@@ -86,8 +86,8 @@ func init() {
 	args.tableSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"table\" subcommand returns filtered -model detail in table/CSV form. Column criteria are specified"+
-				"\nas column/operator/operand tuples (e.g., 'Acct=100237', 'Type~[24]?xl', 'Tries>1', 'Since<2021-02-13T15')"+
-				"\n  Usage: cmon table [<table arg> ...] ['<column criteria>' ...]\n\n")
+				"\nas column/operator/operand tuples (e.g.: 'Acct=100237' 'Type~[24]?xl' 'Tries>1' 'Since<2021-02-13T15')"+
+				"\n  Usage: cmon table [<table arg> ...] ['<column criterion>' ...]\n\n")
 		args.tableSet.PrintDefaults()
 	}
 }
@@ -216,13 +216,13 @@ func tableCmd() {
 		switch args.model {
 		case "ec2.aws":
 			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,AMI,Spot," +
-				"Name,Env,DC,Product,App,Cust,Team,Version,State,Since,Active,Rate")
+				"Name,env,dc,product,app,cust,team,version,State,Since,Active,Rate")
 		case "ebs.aws":
 			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount," +
-				"Name,Env,DC,Product,App,Cust,Team,Version,State,Since,Active,Rate")
+				"Name,env,dc,product,app,cust,team,version,State,Since,Active,Rate")
 		case "rds.aws":
 			fmt.Println("DB,Acct,Type,Sto,Size,Engine,EngVer,Lic,AZ," +
-				"Name,Env,DC,Product,App,Cust,Team,Version,State,Since,Active,Rate")
+				"Name,env,dc,product,app,cust,team,version,State,Since,Active,Rate")
 		case "cdr.asp/term", "cdr.asp/orig":
 			fmt.Println("CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin")
 		}

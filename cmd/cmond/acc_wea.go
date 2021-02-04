@@ -428,6 +428,25 @@ func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(...interfac
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
+		case "Plat", "plat":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Plat == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Plat != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Plat) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Plat) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
 		case "Vol", "vol":
 			if n, err := strconv.Atoi(opd); err == nil {
 				switch op {
@@ -443,6 +462,65 @@ func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(...interfac
 			} else {
 				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
+		case "AZ", "az":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AZ == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AZ != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).AZ) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).AZ) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "AMI", "ami":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AMI == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AMI != opd })
+			}
+		case "Spot", "spot":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Spot == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Spot != opd })
+			}
+		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "State", "state":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).State == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).State != opd })
+			}
 		case "Since", "since":
 			if s := atos(opd); s > 0 {
 				switch op {
@@ -453,6 +531,21 @@ func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(...interfac
 				}
 			} else {
 				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			}
+		case "Active", "active":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch op {
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool {
+						return active(v[0].(*ec2Item).Since, v[0].(*ec2Item).Last, v[0].(*ec2Item).Active) < float32(f)
+					})
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool {
+						return active(v[0].(*ec2Item).Since, v[0].(*ec2Item).Last, v[0].(*ec2Item).Active) > float32(f)
+					})
+				}
+			} else {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Rate", "rate":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
@@ -483,16 +576,19 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	pg := pgSize
 	acc.reqR()
 	for id, inst := range d.Inst {
-		if inst.Last < d.Current || skip(flt, inst) {
+		if inst.Last < d.Current {
+			continue
+		}
+		tag := cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
+		if tag.Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
+			tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
+		}
+		if skip(flt, inst, tag) {
 			continue
 		} else if rows--; rows == 0 {
 			break
 		}
 
-		tag := cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
-		if tag.Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
-			tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
-		}
 		row := []string{
 			id,
 			inst.Acct,
@@ -559,16 +655,19 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	pg := pgSize
 	acc.reqR()
 	for id, vol := range d.Vol {
-		if vol.Last < d.Current || skip(flt, vol) {
+		if vol.Last < d.Current {
+			continue
+		}
+		tag := cmon.TagMap{}.Update(vol.Tag).Update(nTags(vol.Tag["Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]]).UpdateT("team", vol.Tag["SCRM_Group"])
+		if tag.Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
+			tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
+		}
+		if skip(flt, vol, tag) {
 			continue
 		} else if rows--; rows == 0 {
 			break
 		}
 
-		tag := cmon.TagMap{}.Update(vol.Tag).Update(nTags(vol.Tag["Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]]).UpdateT("team", vol.Tag["SCRM_Group"])
-		if tag.Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
-			tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
-		}
 		row := []string{
 			id,
 			vol.Acct,
@@ -611,23 +710,27 @@ func (d *rdsDetail) criteria(acc *modAcc, criteria []string) ([]func(...interfac
 
 func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
 	var name string
+	var tag cmon.TagMap
 	pg := pgSize
 	acc.reqR()
 	for id, db := range d.DB {
-		if db.Last < d.Current || skip(flt, db) {
+		if db.Last < d.Current {
+			continue
+		} else if name = db.Tag["Name"]; name == "" {
+			s := strings.Split(id, ":")
+			name = s[len(s)-1]
+			tag.UpdateT("Name", name)
+		}
+		tag = tag.Update(db.Tag).Update(nTags(name)).UpdateT("team", db.Tag["SCRM_Group"])
+		if tag.Update(settings.AWS.Accounts[db.Acct]); db.AZ != "" {
+			tag.Update(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]])
+		}
+		if skip(flt, db, tag) {
 			continue
 		} else if rows--; rows == 0 {
 			break
 		}
 
-		if name = db.Tag["Name"]; name == "" {
-			s := strings.Split(id, ":")
-			name = s[len(s)-1]
-		}
-		tag := cmon.TagMap{}.Update(db.Tag).Update(nTags(name)).UpdateT("team", db.Tag["SCRM_Group"])
-		if tag.Update(settings.AWS.Accounts[db.Acct]); db.AZ != "" {
-			db.Tag.Update(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]])
-		}
 		row := []string{
 			id,
 			db.Acct,
