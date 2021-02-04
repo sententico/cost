@@ -386,7 +386,7 @@ func atos(ts string) (s int64) {
 
 func skip(flt []func(...interface{}) bool, v ...interface{}) bool {
 	for _, f := range flt {
-		if !f(v) {
+		if !f(v...) {
 			return true
 		}
 	}
@@ -394,13 +394,13 @@ func skip(flt []func(...interface{}) bool, v ...interface{}) bool {
 }
 
 func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
-	var v []string
+	var ct []string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
-		if v = fltC.FindStringSubmatch(c); len(v) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := v[1], v[2], v[3]
+		col, op, opd := ct[1], ct[2], ct[3]
 		switch col {
 		case "Acct", "acct":
 			switch op {

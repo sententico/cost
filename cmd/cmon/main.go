@@ -52,7 +52,7 @@ func init() {
 	flag.StringVar(&args.settings, "s", "", "settings `file`")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThis is the Cloud Monitor client command-line interface to (cmond) servers.  Cloud Monitors gather cost,"+
+			"\nThis is the Cloud Monitor client command-line interface to (cmond) servers. Cloud Monitors gather cost,"+
 				"\nusage and other data from configured cloud objects, using this data to maintain models representing these"+
 				"\nobjects.  Subcommands map to API interfaces exposing this server model content."+
 				"\n  Usage: cmon [-a] [-d] [-s] <subcommand> [<subcommand arg> ...]\n\n")
@@ -69,7 +69,7 @@ func init() {
 	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "recent metric `amount` sum truncation threshold")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"series\" subcommand returns an hourly series for each metric of a -metric type.  Metrics are filtered"+
+			"\nThe \"series\" subcommand returns an hourly series for each metric of a -metric type. Metrics are filtered"+
 				"\nby the -truncate threshold applied to the sum of the -recent range leading each metric -span."+
 				"\n  Usage: cmon series [<series arg> ...]\n\n")
 		args.seriesSet.PrintDefaults()
@@ -85,8 +85,8 @@ func init() {
 	args.tableSet.Float64Var(&args.taTrunc, "truncate", 0.002, "row `cost` filter threshold, if applicable")
 	args.tableSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"table\" subcommand returns filtered -model detail in table/CSV form.  Column criteria are"+
-				"\nspecified as column/operator/operand tuples (e.g., 'Acct=100237', 'Type~[24]?xl', 'Tries>1')"+
+			"\nThe \"table\" subcommand returns filtered -model detail in table/CSV form. Column criteria are specified"+
+				"\nas column/operator/operand tuples (e.g., 'Acct=100237', 'Type~[24]?xl', 'Tries>1', 'Since<2021-02-13T15')"+
 				"\n  Usage: cmon table [<table arg> ...] ['<column criteria>' ...]\n\n")
 		args.tableSet.PrintDefaults()
 	}
