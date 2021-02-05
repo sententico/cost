@@ -948,7 +948,7 @@ func cdraspClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	tdetail, odetail := m.data[2].(*termDetail), m.data[3].(*origDetail)
-	texp, oexp := tdetail.Current-27, odetail.Current-27
+	texp, oexp := tdetail.Current-40, odetail.Current-40
 	for hr := range tdetail.CDR {
 		if hr <= texp {
 			delete(tdetail.CDR, hr)
