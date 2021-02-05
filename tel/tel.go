@@ -360,6 +360,9 @@ func (tnd E164digest) Full(d *Decoder, tn *E164full) error {
 
 // String method on E164digest ...
 func (tnd E164digest) String() string {
+	if tnd == 0 {
+		return ""
+	}
 	switch n, ccl, pl, subl := strconv.FormatUint(uint64(tnd>>numShift), 10), int(tnd>>ccShift&ccMask), int(tnd>>pShift&pMask), int(tnd>>subShift&subMask); {
 	case ccl == 0 || 15 < len(n) || len(n) < ccl+pl || ccl+pl+subl > len(n):
 		return "0x" + strconv.FormatUint(uint64(tnd), 16)
