@@ -326,7 +326,7 @@ func (sl *SLmap) Name(co uint16) string {
 // Digest method on E164full ...
 func (tn *E164full) Digest(pre int) E164digest {
 	var np uint64
-	if tn == nil || len(tn.CC) == 0 || len(tn.CC) > 3 || len(tn.Num) > 15 || len(tn.CC)+len(tn.P)+len(tn.Sub) > len(tn.Num) {
+	if tn == nil || len(tn.CC) == 0 || len(tn.CC) > 3 || 15 < len(tn.Num) || len(tn.Num) < len(tn.CC)+len(tn.P) || len(tn.CC)+len(tn.P)+len(tn.Sub) > len(tn.Num) {
 		return 0
 	} else if pre < len(tn.CC) || pre >= len(tn.Num) {
 		if np, _ = strconv.ParseUint(tn.Num, 10, 64); np == 0 {
@@ -345,7 +345,7 @@ func (tnd E164digest) Full(d *Decoder, tn *E164full) error {
 	if tn == nil {
 		return fmt.Errorf("missing E.164 target")
 	} else if n, ccl, pl, subl := strconv.FormatUint(uint64(tnd>>numShift), 10), int(tnd>>ccShift&ccMask), int(tnd>>pShift&pMask),
-		int(tnd>>subShift&subMask); ccl == 0 || len(n) > 15 || ccl+pl+subl > len(n) {
+		int(tnd>>subShift&subMask); ccl == 0 || 15 < len(n) || len(n) < ccl+pl || ccl+pl+subl > len(n) {
 		return fmt.Errorf("invalid E.164 digest")
 	} else if sub := ccl + pl; d == nil {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], tnd.Geo(), "", "", n[ccl:sub], n[sub:sub+subl]
@@ -356,6 +356,24 @@ func (tnd E164digest) Full(d *Decoder, tn *E164full) error {
 		tn.Num, tn.CC, tn.Geo, tn.CCn, tn.ISO3166, tn.P, tn.Sub = n, n[:ccl], i.Geo, i.CCn, i.ISO3166, n[ccl:sub], n[sub:sub+subl]
 	}
 	return nil
+}
+
+// String method on E164digest ...
+func (tnd E164digest) String() string {
+	switch n, ccl, pl, subl := strconv.FormatUint(uint64(tnd>>numShift), 10), int(tnd>>ccShift&ccMask), int(tnd>>pShift&pMask), int(tnd>>subShift&subMask); {
+	case ccl == 0 || 15 < len(n) || len(n) < ccl+pl || ccl+pl+subl > len(n):
+		return "0x" + strconv.FormatUint(uint64(tnd), 16)
+	case subl == 0:
+		if pl == 0 {
+			return "+" + n + " " + tnd.Geo()
+		}
+		return "+" + n[:ccl] + " " + n[ccl:] + " " + tnd.Geo()
+	case pl == 0:
+		return "+" + n[:ccl] + " " + n[ccl:ccl+subl] + " " + tnd.Geo()
+	default:
+		sub := ccl + pl
+		return "+" + n[:ccl] + " " + n[ccl:sub] + " " + n[sub:sub+subl] + " " + tnd.Geo()
+	}
 }
 
 // Geo method on E164digest ...

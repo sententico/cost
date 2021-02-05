@@ -239,10 +239,8 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, truncate float64) (
 				break
 			}
 		}
-		var e164 tel.E164full
 		for n, s := range nser {
-			n.Full(nil, &e164)
-			ser[fmt.Sprintf("+%v %v[%v]", e164.CC, e164.P, e164.Geo)] = s
+			ser[n.String()] = s
 		}
 	}
 	return
@@ -1196,45 +1194,31 @@ func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) b
 				flt = append(flt, func(v ...interface{}) bool { return sl.Name(v[0].(*cdrItem).Info>>locShift) != opd })
 			}
 		case "To", "to":
-			var to tel.E164full
 			switch op {
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(v ...interface{}) bool {
-						v[0].(*cdrItem).To.Full(nil, &to)
-						return re.FindString(fmt.Sprintf("+%s %s %s %s", to.CC, to.P, to.Sub, to.Geo)) != ""
-					})
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).To.String()) != "" })
 				} else {
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(v ...interface{}) bool {
-						v[0].(*cdrItem).To.Full(nil, &to)
-						return re.FindString(fmt.Sprintf("+%s %s %s %s", to.CC, to.P, to.Sub, to.Geo)) == ""
-					})
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).To.String()) == "" })
 				} else {
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "From", "from", "fr":
-			var fr tel.E164full
 			switch op {
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(v ...interface{}) bool {
-						v[0].(*cdrItem).From.Full(nil, &fr)
-						return re.FindString(fmt.Sprintf("+%s %s %s %s", fr.CC, fr.P, fr.Sub, fr.Geo)) != ""
-					})
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).From.String()) != "" })
 				} else {
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(v ...interface{}) bool {
-						v[0].(*cdrItem).From.Full(nil, &fr)
-						return re.FindString(fmt.Sprintf("+%s %s %s %s", fr.CC, fr.P, fr.Sub, fr.Geo)) == ""
-					})
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).From.String()) == "" })
 				} else {
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
@@ -1336,7 +1320,6 @@ func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) b
 }
 
 func (d *hiD) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
-	var to, from tel.E164full
 	var sp tel.SPmap
 	var sl tel.SLmap
 	sp.Load(nil)
@@ -1353,13 +1336,11 @@ outerLoop:
 				break outerLoop
 			}
 
-			cdr.To.Full(nil, &to)
-			cdr.From.Full(nil, &from)
 			row := []string{
 				fmt.Sprintf("0x%016X", id&idMask),
 				sl.Name(cdr.Info >> locShift),
-				fmt.Sprintf("+%s %s %s %s", to.CC, to.P, to.Sub, to.Geo),
-				fmt.Sprintf("+%s %s %s %s", from.CC, from.P, from.Sub, from.Geo),
+				cdr.To.String(),
+				cdr.From.String(),
 				sp.Name(cdr.Info & spMask),
 				cdr.Cust,
 				time.Unix(t+int64(cdr.Time&offMask), 0).UTC().Format("2006-01-02 15:04:05"),
@@ -1604,7 +1585,7 @@ func curtabExtract(from, to int32, units int16, items int, truncate float64, cri
 		}
 
 		acc.reqR()
-	nextMonth:
+	outerLoop:
 		for mo, hrs := range acc.m.data[1].(*curDetail).Month {
 			if to >= hrs[0] && hrs[1] >= from {
 				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
@@ -1613,7 +1594,7 @@ func curtabExtract(from, to int32, units int16, items int, truncate float64, cri
 						slice := curtabSlicer(from, to, units, trunc, hrs, id, li, itags[vinst[li.RID]], dts)
 						for item := slice(); item != nil; item = slice() {
 							if items--; items == 0 {
-								break nextMonth
+								break outerLoop
 							}
 							if pg--; pg >= 0 {
 								select {
