@@ -1195,6 +1195,10 @@ func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) b
 			}
 		case "To", "to":
 			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).To.String() == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).To.String() != opd })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).To.String()) != "" })
@@ -1210,6 +1214,10 @@ func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) b
 			}
 		case "From", "from", "fr":
 			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).From.String() == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).From.String() != opd })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).From.String()) != "" })
