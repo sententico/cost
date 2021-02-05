@@ -66,7 +66,7 @@ func init() {
 	args.seriesSet.StringVar(&args.metric, "metric", "cdr.asp/term/geo/n", "series metric `type`")
 	args.seriesSet.IntVar(&args.recent, "recent", 3, "`hours` of recent/active part of span")
 	args.seriesSet.IntVar(&args.span, "span", 12, "series total `hours`")
-	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "metric `sum` filter threshold applied to recent hours in the span")
+	args.seriesSet.Float64Var(&args.seTrunc, "truncate", 0, "metric filter threshold applied to `sum` of recent hours in the span")
 	args.seriesSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"series\" subcommand returns an hourly series for each metric of a -metric type. Metrics are filtered"+

@@ -404,10 +404,24 @@ func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(...interfac
 		switch col {
 		case "Acct", "acct":
 			switch op {
-			case "=":
-				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Acct == opd })
-			case "!":
-				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Acct != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool {
+						a := v[0].(*ec2Item).Acct
+						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) != ""
+					})
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool {
+						a := v[0].(*ec2Item).Acct
+						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) == ""
+					})
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
 			}
 		case "Type", "type":
 			switch op {
@@ -591,7 +605,7 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 
 		row := []string{
 			id,
-			inst.Acct,
+			inst.Acct + " " + settings.AWS.Accounts[inst.Acct]["~name"],
 			inst.Typ,
 			inst.Plat,
 			strconv.FormatInt(int64(inst.Vol), 10),
