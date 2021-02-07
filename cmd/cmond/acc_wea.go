@@ -1462,7 +1462,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Type", "type":
+		case "Type", "type", "typ":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Typ == opd })
@@ -1481,7 +1481,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Service", "service", "svc":
+		case "Service", "service", "serv", "svc":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Svc == opd })
@@ -1500,7 +1500,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Usage Type", "utype", "ut":
+		case "Usage Type", "utype", "utyp", "ut":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UTyp == opd })
@@ -1519,7 +1519,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Operation", "operation", "op":
+		case "Operation", "operation", "oper", "op":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UOp == opd })
@@ -1576,7 +1576,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Item Description", "description", "desc":
+		case "Item Description", "description", "descr", "desc":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Desc == opd })
