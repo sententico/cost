@@ -1434,7 +1434,7 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 
 func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
-	flt := make([]func(...interface{}) bool, 0, 32)
+	flt, xc := make([]func(...interface{}) bool, 0, 32), 0
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
@@ -1633,12 +1633,12 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Recs", "recs":
-		case "Usage", "usage", "usg":
+		case "Recs", "recs", "Usage", "usage", "usg":
+			xc++
 		default:
 			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
 		}
-		if nc == len(flt) {
+		if nc == len(flt)+xc {
 			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 		}
 	}
@@ -1648,7 +1648,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
 	flt := make([]func(...interface{}) bool, 0, 32)
-	for nc, c := range criteria {
+	for _, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
@@ -1665,6 +1665,8 @@ func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, er
 					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(int16)) < n })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(int16)) > n })
+				default:
+					return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 				}
 			} else {
 				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
@@ -1676,13 +1678,12 @@ func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, er
 					flt = append(flt, func(v ...interface{}) bool { return v[1].(float32) < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[1].(float32) > float32(f) })
+				default:
+					return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 				}
 			} else {
 				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
-		}
-		if nc == len(flt) {
-			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 		}
 	}
 	return flt, nil
