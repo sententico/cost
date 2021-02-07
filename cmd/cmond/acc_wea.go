@@ -391,7 +391,7 @@ func skip(flt []func(...interface{}) bool, v ...interface{}) bool {
 	return false
 }
 
-func (d *ec2Detail) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
+func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
@@ -635,7 +635,7 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	acc.rel()
 }
 
-func (d *ebsDetail) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
+func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
@@ -894,7 +894,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	acc.rel()
 }
 
-func (d *rdsDetail) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
+func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
@@ -1176,7 +1176,7 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	acc.rel()
 }
 
-func (d *hiD) criteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
+func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
@@ -1383,17 +1383,17 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 	} else {
 		switch err = fmt.Errorf("unsupported model"); det := acc.m.data[1].(type) {
 		case *ec2Detail:
-			flt, err = det.criteria(acc, criteria)
+			flt, err = det.filters(criteria)
 		case *ebsDetail:
-			flt, err = det.criteria(acc, criteria)
+			flt, err = det.filters(criteria)
 		case *rdsDetail:
-			flt, err = det.criteria(acc, criteria)
+			flt, err = det.filters(criteria)
 		case *origSum:
 			switch n {
 			case "cdr.asp/term":
-				flt, err = acc.m.data[2].(*termDetail).CDR.criteria(acc, criteria)
+				flt, err = acc.m.data[2].(*termDetail).CDR.filters(criteria)
 			case "cdr.asp/orig":
-				flt, err = acc.m.data[3].(*origDetail).CDR.criteria(acc, criteria)
+				flt, err = acc.m.data[3].(*origDetail).CDR.filters(criteria)
 			}
 		}
 		if err != nil {
@@ -1432,24 +1432,269 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 	return
 }
 
-// TODO: should be criteria method on *curDetail?
-func curtabCriteria(acc *modAcc, criteria []string) ([]func(...interface{}) bool, error) {
-	return nil, nil
+func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
+	var ct []string
+	flt := make([]func(...interface{}) bool, 0, 32)
+	for nc, c := range criteria {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
+		}
+		col, op, opd := ct[1], ct[2], ct[3]
+		switch col {
+		case "AWS Account", "account", "acct":
+			switch op {
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool {
+						a := v[0].(*curItem).Acct
+						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) != ""
+					})
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool {
+						a := v[0].(*curItem).Acct
+						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) == ""
+					})
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Type", "type":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Typ == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Typ != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Typ) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Typ) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Service", "service", "svc":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Svc == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Svc != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Svc) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Svc) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Usage Type", "utype", "ut":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UTyp == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UTyp != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).UTyp) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).UTyp) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Operation", "operation", "op":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UOp == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UOp != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).UOp) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).UOp) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Region", "region", "reg":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Reg == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Reg != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Reg) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Reg) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Resource ID", "rid":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).RID == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).RID != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).RID) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).RID) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Item Description", "description", "desc":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Desc == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Desc != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Desc) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Desc) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Name", "name":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Name == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Name != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Name) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Name) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "env", "dc", "product", "app", "cust", "team", "version":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] != opd })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) == "" })
+				} else {
+					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Recs", "recs":
+		case "Usage", "usage", "usg":
+		default:
+			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
+		}
+		if nc == len(flt) {
+			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+		}
+	}
+	return flt, nil
 }
 
-func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string, li *curItem, itag cmon.TagMap, dts string) func() []string {
+func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, error) {
+	var ct []string
+	flt := make([]func(...interface{}) bool, 0, 32)
+	for nc, c := range criteria {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
+		}
+		col, op, opd := ct[1], ct[2], ct[3]
+		switch col {
+		case "Recs", "recs":
+			if n, err := strconv.Atoi(opd); err == nil {
+				switch op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(int16)) == n })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(int16)) != n })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(int16)) < n })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(int16)) > n })
+				}
+			} else {
+				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			}
+		case "Usage", "usage", "usg":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch op {
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[1].(float32) < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[1].(float32) > float32(f) })
+				}
+			} else {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			}
+		}
+		if nc == len(flt) {
+			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+		}
+	}
+	return flt, nil
+}
+
+func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id string, mb int32, tag cmon.TagMap, dts string, flt []func(...interface{}) bool) func() []string {
 	var husg [744]float32
 	var rate float32
-	if from -= hrs[0]; from < 0 {
-		from = 0
-	}
-	if to > hrs[1] {
-		to = hrs[1]
-	}
-	if to -= hrs[0]; un < 720 {
+	if un < 720 {
 		if rate = li.Cost / li.Usg; len(li.Hour) > 0 {
 			for i, h := range li.Hour {
-				for ho, r := int32(h&baseMask)-hrs[0], int32(h>>rangeShift&rangeMask); r >= 0; r-- {
+				for ho, r := int32(h&baseMask)-mb, int32(h>>rangeShift&rangeMask); r >= 0; r-- {
 					husg[ho+r] = li.HUsg[i]
 				}
 			}
@@ -1457,15 +1702,8 @@ func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string
 			husg[0] = li.Usg
 		}
 	}
-	acct, tag := li.Acct+" "+settings.AWS.Accounts[li.Acct]["~name"], cmon.TagMap{
-		"env":     li.Env,
-		"dc":      li.DC,
-		"product": li.Prod,
-		"app":     li.App,
-		"cust":    li.Cust,
-		"team":    li.Team, // TODO: make SCRM_Group tag available as default?
-		"version": li.Ver,
-	}.Update(nTags(li.Name)).Update(nTags(li.RID)).Update(itag).Update(settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg])
+	id = dts[:8] + id
+	acct := li.Acct + " " + settings.AWS.Accounts[li.Acct]["~name"]
 
 	return func() []string {
 		var rec int16
@@ -1476,9 +1714,9 @@ func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string
 				if from > to {
 					return nil
 				} else if from++; husg[prev] != 0 {
-					usg = husg[prev]
-					if cost = usg * rate; cost >= tr || -tr >= cost {
-						rec, dts = 1, dts[:8]+fmt.Sprintf("%02d %02d:00", prev/24+1, prev%24)
+					rec, usg = 1, husg[prev]
+					if cost = usg * rate; (cost >= tr || -tr >= cost) && !skip(flt, rec, usg) {
+						dts = dts[:8] + fmt.Sprintf("%02d %02d:00", prev/24+1, prev%24)
 						break
 					}
 				}
@@ -1494,20 +1732,19 @@ func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string
 						usg += husg[from]
 					}
 				}
-				if cost = usg * rate; cost >= tr || -tr >= cost {
+				if cost = usg * rate; (cost >= tr || -tr >= cost) && !skip(flt, rec, usg) {
 					dts = dts[:8] + fmt.Sprintf("%02d", from/24)
 					break
 				}
 			}
 		default: // monthly
-			if from > to {
+			if rec, usg = li.Mu+1, li.Usg; from > to || skip(flt, rec, usg) {
 				return nil
 			}
-			rec, usg, cost = li.Mu+1, li.Usg, li.Cost
-			from = to + 1
+			cost, from = li.Cost, to+1
 		}
 		return []string{
-			dts[:8] + id,
+			id,
 			dts,
 			acct,
 			li.Typ,
@@ -1532,14 +1769,18 @@ func curtabSlicer(from, to int32, un int16, tr float32, hrs *[2]int32, id string
 	}
 }
 
-func curtabExtract(from, to int32, units int16, items int, truncate float64, criteria []string) (res chan []string, err error) {
+func curtabExtract(from, to int32, units int16, rows int, truncate float64, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
-	var _ []func(...interface{}) bool // flt
-	if items++; from > to || units < 1 || items < 0 || items == 1 || truncate < 0 {
+	var cur *curDetail
+	var flt, rflt []func(...interface{}) bool
+	if rows++; from > to || units < 1 || rows < 0 || rows == 1 || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
-	} else if _, err = curtabCriteria(acc, criteria); err != nil { // flt
+	} else if cur = acc.m.data[1].(*curDetail); cur == nil {
+	} else if flt, err = cur.filters(criteria); err != nil {
+		return
+	} else if rflt, err = cur.rfilters(criteria); err != nil {
 		return
 	}
 
@@ -1558,9 +1799,9 @@ func curtabExtract(from, to int32, units int16, items int, truncate float64, cri
 		vinst, itags := make(map[string]string, 8192), make(map[string]cmon.TagMap, 4096)
 		if ebs, ec2 := mMod["ebs.aws"].newAcc(), mMod["ec2.aws"].newAcc(); ebs != nil && ec2 != nil && len(ebs.m.data) > 1 && len(ec2.m.data) > 1 {
 			acc.reqR()
-			for mo, hrs := range acc.m.data[1].(*curDetail).Month {
+			for mo, hrs := range cur.Month {
 				if to >= hrs[0] && hrs[1] >= from {
-					for _, li := range acc.m.data[1].(*curDetail).Line[mo] {
+					for _, li := range cur.Line[mo] {
 						if (li.Cost >= trunc || -trunc >= li.Cost) && strings.HasPrefix(li.RID, "vol-") {
 							vinst[li.RID] = ""
 						}
@@ -1590,29 +1831,49 @@ func curtabExtract(from, to int32, units int16, items int, truncate float64, cri
 					}
 				}
 			}()
-		}
+		} // use itags map to supplement CUR tags for EBS volumes mapped to instances/itags by vinst
 
 		acc.reqR()
 	outerLoop:
-		for mo, hrs := range acc.m.data[1].(*curDetail).Month {
+		for mo, hrs := range cur.Month {
 			if to >= hrs[0] && hrs[1] >= from {
-				dts := mo[:4] + "-" + mo[4:] + "-01" // +" "+hh+":00"
-				for id, li := range acc.m.data[1].(*curDetail).Line[mo] {
-					if li.Cost >= trunc || -trunc >= li.Cost {
-						slice := curtabSlicer(from, to, units, trunc, hrs, id, li, itags[vinst[li.RID]], dts)
-						for item := slice(); item != nil; item = slice() {
-							if items--; items == 0 {
+				mfr, mto, dts := from, to, mo[:4]+"-"+mo[4:]+"-01" // +" "+hh+":00"
+				if mfr -= hrs[0]; mfr < 0 {
+					mfr = 0
+				}
+				if mto > hrs[1] {
+					mto = hrs[1]
+				}
+				mto -= hrs[0]
+				for id, li := range cur.Line[mo] {
+					if li.Cost < trunc && -trunc < li.Cost {
+						continue
+					}
+					if tag := (cmon.TagMap{
+						"env":     li.Env,
+						"dc":      li.DC,
+						"product": li.Prod,
+						"app":     li.App,
+						"cust":    li.Cust,
+						"team":    li.Team, // TODO: make SCRM_Group tag available as default?
+						"version": li.Ver,
+					}).Update(nTags(li.Name)).Update(nTags(li.RID)).Update(itags[vinst[li.RID]]).Update(
+						settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg]); skip(flt, li, tag) {
+						continue
+					} else if item := cur.table(li, mfr, mto, units, trunc, id, hrs[0], tag, dts, rflt); item != nil {
+						for row := item(); row != nil; row = item() {
+							if rows--; rows == 0 {
 								break outerLoop
 							}
 							if pg--; pg >= 0 {
 								select {
-								case res <- item:
+								case res <- row:
 									continue
 								default:
 								}
 							}
 							acc.rel()
-							res <- item
+							res <- row
 							pg = pgSize
 							acc.reqR()
 						}
