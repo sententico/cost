@@ -396,8 +396,8 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				work.imo = ""
 				logE.Printf("unrecognized AWS CUR input: %q", meta[8:])
 			}
-		} else if strings.HasPrefix(meta, "end ") && len(work.idet.Line) > 0 {
-			psum, pdet, mos, max, min := m.data[0].(*curSum), m.data[1].(*curDetail), 0, "", "9"
+		} else if strings.HasPrefix(meta, "end ") {
+			psum, pdet := m.data[0].(*curSum), m.data[1].(*curDetail)
 			for mo, wm := range work.idet.Line {
 				for id, line := range wm {
 					if line.Cost == 0 {
@@ -414,32 +414,17 @@ func curawsInsert(m *model, item map[string]string, now int) {
 							nl++
 						}
 					}
-					logE.Printf("%s CUR update rejected: only %d line items (%d new) updating %d",
+					logE.Printf("%s CUR update rejected: only %d line items (%d new) to update %d",
 						bt.Format("Jan06"), len(wm), nl, len(pm))
-					work.isum.ByAcct.drop(bh, eh)
-					work.isum.ByRegion.drop(bh, eh)
-					work.isum.ByTyp.drop(bh, eh)
-					work.isum.BySvc.drop(bh, eh)
 				} else {
+					psum.ByAcct.update(work.isum.ByAcct, bh, eh)
+					psum.ByRegion.update(work.isum.ByRegion, bh, eh)
+					psum.ByTyp.update(work.isum.ByTyp, bh, eh)
+					psum.BySvc.update(work.isum.BySvc, bh, eh)
 					pdet.Line[mo], pdet.Month[mo] = wm, &[2]int32{bh, eh}
 				}
 			}
-			psum.ByAcct.update(work.isum.ByAcct)
-			psum.ByRegion.update(work.isum.ByRegion)
-			psum.ByTyp.update(work.isum.ByTyp)
-			psum.BySvc.update(work.isum.BySvc)
-			for mo := range pdet.Line {
-				if mos++; mo < min {
-					min = mo
-				} else if mo > max {
-					max = mo
-				}
-			}
-			for hrs := pdet.Month[max]; hrs[1] > hrs[0] && psum.ByAcct[hrs[1]] == nil; hrs[1]-- {
-			}
-			if psum.Current, work.idet.Line = pdet.Month[max][1], nil; mos > 3 {
-				delete(pdet.Line, min)
-			}
+			work.idet.Line = nil
 		}
 		return
 	} else if work.imo == "" {

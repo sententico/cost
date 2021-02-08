@@ -11,9 +11,9 @@ cd aws/cache || exit 1
 
 # TODO: parameterize CUR location & naming pattern
 CUR="*hourly-[0-9]*"
-find . -maxdepth 1 -name "$CUR.csv.gz*" -mmin +86400 -delete
+find . -maxdepth 1 -name "$CUR.csv.gz*" -mmin +90720 -delete
 prior="$(ls -l $CUR.csv.gz~link)"
-/opt/sententix/bin/s3sync -k sinceD=58 -lf cost-reporting.aspect.com/CUR/xaws-hourly -- "\.csv\.gz$"&
+/opt/sententix/bin/s3sync -k sinceD=60 -lf cost-reporting.aspect.com/CUR/xaws-hourly -- "\.csv\.gz$"&
 wait
 
 if [ -n "$prior" ] && [ "$prior" = "$(ls -l $CUR.csv.gz~link)" ]; then

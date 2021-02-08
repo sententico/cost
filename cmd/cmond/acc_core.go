@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -450,22 +451,17 @@ func (m hsA) add(hr int32, k string, amount float64) {
 		hm[k] += amount
 	}
 }
-func (m hsA) update(u hsA) {
+func (m hsA) update(u hsA, from, to int32) {
 	for hr, hm := range u {
-		for s, a := range hm {
-			if ra := math.Round(a * 1e5); ra == 0 {
-				delete(hm, s)
-			} else {
-				hm[s] = ra / 1e5
-			}
-		}
-		m[hr] = hm
-	}
-}
-func (m hsA) drop(from, to int32) {
-	for hr := range m {
 		if from <= hr && hr <= to {
-			delete(m, hr)
+			for s, a := range hm {
+				if ra := math.Round(a * 1e5); ra == 0 {
+					delete(hm, s)
+				} else {
+					hm[s] = ra / 1e5
+				}
+			}
+			m[hr] = hm
 		}
 	}
 }
@@ -728,27 +724,34 @@ func curawsClean(m *model, deep bool) {
 	acc := m.newAcc()
 	acc.reqW()
 
-	// clean expired/invalid/insignificant data
+	// clean expired detail months; trim month map hours & remove expired entries
 	sum, detail := m.data[0].(*curSum), m.data[1].(*curDetail)
-	exp := sum.Current - 24*100
-	sum.ByAcct.clean(exp)
-	sum.ByRegion.clean(exp)
-	sum.ByTyp.clean(exp)
-	sum.BySvc.clean(exp)
-	for min := "9"; len(detail.Month) > 0; min = "9" {
-		for mo := range detail.Month {
-			if mo < min {
-				min = mo
+	var sm []string
+	var hrs *[2]int32
+	for m := range detail.Month {
+		sm = append(sm, m)
+	}
+	if sort.Strings(sm); len(sm) > 0 {
+		for hrs = detail.Month[sm[len(sm)-1]]; hrs[1] > hrs[0] && sum.ByAcct[hrs[1]] == nil; hrs[1]-- {
+		}
+		if sum.Current = hrs[1]; len(sm) > 3 {
+			for _, m := range sm[3:] {
+				delete(detail.Line, m)
 			}
 		}
-		hrs := detail.Month[min]
-		for ; hrs[0] <= hrs[1] && sum.ByAcct[hrs[0]] == nil; hrs[0]++ {
+		exp := sum.Current - 24*100
+		sum.ByAcct.clean(exp)
+		sum.ByRegion.clean(exp)
+		sum.ByTyp.clean(exp)
+		sum.BySvc.clean(exp)
+		for _, m := range sm {
+			for hrs = detail.Month[m]; hrs[0] <= hrs[1] && sum.ByAcct[hrs[0]] == nil; hrs[0]++ {
+			}
+			if hrs[0] <= hrs[1] {
+				break
+			}
+			delete(detail.Month, m)
 		}
-		if hrs[0] <= hrs[1] {
-			break
-		}
-		delete(detail.Month, min)
-		delete(detail.Line, min)
 	}
 
 	acc.rel()
