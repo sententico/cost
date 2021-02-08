@@ -462,6 +462,13 @@ func (m hsA) update(u hsA) {
 		m[hr] = hm
 	}
 }
+func (m hsA) drop(from, to int32) {
+	for hr := range m {
+		if from <= hr && hr <= to {
+			delete(m, hr)
+		}
+	}
+}
 func (m hsA) clean(exp int32) {
 	for hr := range m {
 		if hr <= exp {
@@ -474,9 +481,9 @@ func (m hsA) clean(exp int32) {
 //
 func ec2awsBoot(m *model) {
 	sum, detail, work := &ec2Sum{
-		ByAcct:   make(hsU, 2184),
-		ByRegion: make(hsU, 2184),
-		BySKU:    make(hsU, 2184),
+		ByAcct:   make(hsU, 2424),
+		ByRegion: make(hsU, 2424),
+		BySKU:    make(hsU, 2424),
 	}, &ec2Detail{
 		Inst: make(map[string]*ec2Item, 512),
 	}, &ec2Work{}
@@ -501,7 +508,7 @@ func ec2awsClean(m *model, deep bool) {
 			delete(detail.Inst, id)
 		}
 	}
-	exp := sum.Current - 24*90
+	exp := sum.Current - 24*100
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
@@ -551,9 +558,9 @@ func ec2awsTerm(m *model) {
 //
 func ebsawsBoot(m *model) {
 	sum, detail, work := &ebsSum{
-		ByAcct:   make(hsU, 2184),
-		ByRegion: make(hsU, 2184),
-		BySKU:    make(hsU, 2184),
+		ByAcct:   make(hsU, 2424),
+		ByRegion: make(hsU, 2424),
+		BySKU:    make(hsU, 2424),
 	}, &ebsDetail{
 		Vol: make(map[string]*ebsItem, 1024),
 	}, &ebsWork{}
@@ -578,7 +585,7 @@ func ebsawsClean(m *model, deep bool) {
 			delete(detail.Vol, id)
 		}
 	}
-	exp := sum.Current - 24*90
+	exp := sum.Current - 24*100
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
@@ -625,9 +632,9 @@ func ebsawsTerm(m *model) {
 //
 func rdsawsBoot(m *model) {
 	sum, detail, work := &rdsSum{
-		ByAcct:   make(hsU, 2184),
-		ByRegion: make(hsU, 2184),
-		BySKU:    make(hsU, 2184),
+		ByAcct:   make(hsU, 2424),
+		ByRegion: make(hsU, 2424),
+		BySKU:    make(hsU, 2424),
 	}, &rdsDetail{
 		DB: make(map[string]*rdsItem, 128),
 	}, &rdsWork{}
@@ -655,7 +662,7 @@ func rdsawsClean(m *model, deep bool) {
 			delete(detail.DB, id)
 		}
 	}
-	exp := sum.Current - 24*90
+	exp := sum.Current - 24*100
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
@@ -702,10 +709,10 @@ func rdsawsTerm(m *model) {
 //
 func curawsBoot(m *model) {
 	sum, detail, work := &curSum{
-		ByAcct:   make(hsA, 2184),
-		ByRegion: make(hsA, 2184),
-		ByTyp:    make(hsA, 2184),
-		BySvc:    make(hsA, 2184),
+		ByAcct:   make(hsA, 2424),
+		ByRegion: make(hsA, 2424),
+		ByTyp:    make(hsA, 2424),
+		BySvc:    make(hsA, 2424),
 	}, &curDetail{
 		Month: make(map[string]*[2]int32, 6),
 		Line:  make(map[string]map[string]*curItem, 6),
@@ -723,7 +730,7 @@ func curawsClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*curSum), m.data[1].(*curDetail)
-	exp := sum.Current - 24*90
+	exp := sum.Current - 24*100
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.ByTyp.clean(exp)
@@ -741,6 +748,7 @@ func curawsClean(m *model, deep bool) {
 			break
 		}
 		delete(detail.Month, min)
+		delete(detail.Line, min)
 	}
 
 	acc.rel()
@@ -884,19 +892,19 @@ func (m hnC) sig(active int32, min float64) {
 //
 func cdraspBoot(m *model) {
 	tsum, osum, tdetail, odetail, work := &termSum{
-		ByCust: make(hsC, 2184),
-		ByGeo:  make(hsC, 2184),
-		BySP:   make(hsC, 2184),
-		ByLoc:  make(hsC, 2184),
-		ByTo:   make(hnC, 2184),
-		ByFrom: make(hnC, 2184),
+		ByCust: make(hsC, 2424),
+		ByGeo:  make(hsC, 2424),
+		BySP:   make(hsC, 2424),
+		ByLoc:  make(hsC, 2424),
+		ByTo:   make(hnC, 2424),
+		ByFrom: make(hnC, 2424),
 	}, &origSum{
-		ByCust: make(hsC, 2184),
-		ByGeo:  make(hsC, 2184),
-		BySP:   make(hsC, 2184),
-		ByLoc:  make(hsC, 2184),
-		ByTo:   make(hnC, 2184),
-		ByFrom: make(hnC, 2184),
+		ByCust: make(hsC, 2424),
+		ByGeo:  make(hsC, 2424),
+		BySP:   make(hsC, 2424),
+		ByLoc:  make(hsC, 2424),
+		ByTo:   make(hnC, 2424),
+		ByFrom: make(hnC, 2424),
 	}, &termDetail{
 		CDR: make(hiD, 60),
 	}, &origDetail{
@@ -966,7 +974,7 @@ func cdraspClean(m *model, deep bool) {
 	osum.ByCust.sig(oexp, "other", 1.00)
 	osum.ByTo.sig(oexp, 1.00)
 	osum.ByFrom.sig(oexp, 1.00)
-	texp, oexp = tsum.Current-24*90, osum.Current-24*90
+	texp, oexp = tsum.Current-24*100, osum.Current-24*100
 	tsum.ByCust.clean(texp)
 	tsum.ByGeo.clean(texp)
 	tsum.BySP.clean(texp)
