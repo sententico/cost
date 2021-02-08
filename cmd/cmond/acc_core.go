@@ -724,21 +724,22 @@ func curawsClean(m *model, deep bool) {
 	acc := m.newAcc()
 	acc.reqW()
 
-	// clean expired detail months; trim month map hours & remove expired entries
+	// clean expired detail months; trim month map hours & remove entries no longer overlaying summaries
 	sum, detail := m.data[0].(*curSum), m.data[1].(*curDetail)
 	var sm []string
-	var hrs *[2]int32
 	for m := range detail.Month {
 		sm = append(sm, m)
 	}
 	if sort.Strings(sm); len(sm) > 0 {
-		for hrs = detail.Month[sm[len(sm)-1]]; hrs[1] > hrs[0] && sum.ByAcct[hrs[1]] == nil; hrs[1]-- {
+		hrs := detail.Month[sm[len(sm)-1]]
+		for ; hrs[1] > hrs[0] && sum.ByAcct[hrs[1]] == nil; hrs[1]-- {
 		}
 		if sum.Current = hrs[1]; len(sm) > 3 {
-			for _, m := range sm[3:] {
+			for _, m := range sm[:len(sm)-3] {
 				delete(detail.Line, m)
 			}
 		}
+		// detail months limit above must not exceed summary months in days limit following
 		exp := sum.Current - 24*100
 		sum.ByAcct.clean(exp)
 		sum.ByRegion.clean(exp)
