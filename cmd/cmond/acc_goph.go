@@ -408,20 +408,20 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				}
 				bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
 				bh, eh := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600
-				if pm, nl := pdet.Line[mo], 0; len(wm) < len(pm)*4/5 {
+				if pm, nl := pdet.Line[mo], 0; len(wm) < len(pm)/5*4 {
 					for id := range wm {
 						if pm[id] == nil {
 							nl++
 						}
 					}
-					logE.Printf("%s CUR update rejected: only %d line items (%d new) to update %d",
+					logE.Printf("%s AWS CUR update rejected: only %d line items (%d new) to update %d",
 						bt.Format("Jan06"), len(wm), nl, len(pm))
 				} else {
+					pdet.Line[mo], pdet.Month[mo] = wm, &[2]int32{bh, eh}
 					psum.ByAcct.update(work.isum.ByAcct, bh, eh)
 					psum.ByRegion.update(work.isum.ByRegion, bh, eh)
 					psum.ByTyp.update(work.isum.ByTyp, bh, eh)
 					psum.BySvc.update(work.isum.BySvc, bh, eh)
-					pdet.Line[mo], pdet.Month[mo] = wm, &[2]int32{bh, eh}
 				}
 			}
 			work.idet.Line = nil

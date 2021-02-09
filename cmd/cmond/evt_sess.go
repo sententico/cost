@@ -121,6 +121,7 @@ func trigcmonScan(m *model, event string) {
 		if err := slackAlerts("#telecom-fraud", alerts); err != nil {
 			logE.Printf("Slack alert problem: %v", err)
 		}
+		// TODO: emailAlerts() docs.aws.amazon.com/ses/latest/DeveloperGuide/examples-send-raw-using-sdk.html
 	}
 }
 

@@ -724,7 +724,7 @@ func curawsClean(m *model, deep bool) {
 	acc := m.newAcc()
 	acc.reqW()
 
-	// clean expired detail months; trim month map hours & remove entries no longer overlaying summaries
+	// remove expired detail months; trim month map hours & remove entries no longer needed
 	sum, detail := m.data[0].(*curSum), m.data[1].(*curDetail)
 	var sm []string
 	for m := range detail.Month {
@@ -734,24 +734,20 @@ func curawsClean(m *model, deep bool) {
 		hrs := detail.Month[sm[len(sm)-1]]
 		for ; hrs[1] > hrs[0] && sum.ByAcct[hrs[1]] == nil; hrs[1]-- {
 		}
-		if sum.Current = hrs[1]; len(sm) > 3 {
-			for _, m := range sm[:len(sm)-3] {
-				delete(detail.Line, m)
-			}
-		}
-		// detail months limit above must not exceed summary months in days limit following
+		sum.Current = hrs[1]
 		exp := sum.Current - 24*100
 		sum.ByAcct.clean(exp)
 		sum.ByRegion.clean(exp)
 		sum.ByTyp.clean(exp)
 		sum.BySvc.clean(exp)
-		for _, m := range sm {
-			for hrs = detail.Month[m]; hrs[0] <= hrs[1] && sum.ByAcct[hrs[0]] == nil; hrs[0]++ {
+		if len(sm) > 3 {
+			for _, m := range sm[:len(sm)-3] {
+				for hrs = detail.Month[m]; hrs[0] <= hrs[1] && sum.ByAcct[hrs[0]] == nil; hrs[0]++ {
+				}
+				if delete(detail.Line, m); hrs[0] > hrs[1] {
+					delete(detail.Month, m)
+				}
 			}
-			if hrs[0] <= hrs[1] {
-				break
-			}
-			delete(detail.Month, m)
 		}
 	}
 
