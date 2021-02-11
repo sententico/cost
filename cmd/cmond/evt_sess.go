@@ -81,13 +81,14 @@ func trigcmonScan(m *model, event string) {
 		var alerts []string
 		for _, metric := range []struct {
 			name   string
-			thresh float64
-			sig    float64
+			thresh float64 // alert threshold amount
+			ratio  float64 // minimum ratio to mean
+			sig    float64 // minimum sigmas from mean
 		}{
-			{"cdr.asp/term/geo", 600, 5},
-			{"cdr.asp/term/cust", 400, 6},
-			{"cdr.asp/term/sp", 1200, 5},
-			{"cdr.asp/term/to", 200, 5},
+			{"cdr.asp/term/geo", 600, 1.2, 5},
+			{"cdr.asp/term/cust", 400, 1.2, 6},
+			{"cdr.asp/term/sp", 1200, 1.2, 5},
+			{"cdr.asp/term/to", 200, 1.2, 5},
 		} {
 			if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/2.2); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -101,10 +102,10 @@ func trigcmonScan(m *model, event string) {
 							"new/rare $%.0f usage burst for %q", metric.name, se[0], k))
 					} else if len(se) < 2 {
 					} else if u := se[0] + se[1]*adj; u < metric.thresh {
-					} else if len(se) < 4 {
+					} else if ss, mean, sdev := basicStats(se[2:]); len(ss) == 0 {
 						alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
 							"new/rare $%.0f hourly usage burst for %q", metric.name, u, k))
-					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
+					} else if u > mean*metric.ratio && u > mean+sdev*metric.sig {
 						switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
 						case high-med < 1 && max-high < 1:
 							alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
