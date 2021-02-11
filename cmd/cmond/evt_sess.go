@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	samplePage = 180 // statistics sample page size (1 high/low value eliminated per page)
+	samplePage = 300 // statistics sample "page" size (1 high/low anomalous value pair eliminated per page)
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	if len(s) > 0 {
 		ss = append([]float64(nil), s...)
-		for sort.Float64s(ss); len(ss) >= samplePage && ss[0] == 0; ss = ss[1:] {
+		for sort.Float64s(ss); len(ss) > 1 && ss[0] == 0; ss = ss[1:] {
 		}
 		if t := len(ss) / samplePage; t > 0 {
 			ss = ss[t : len(ss)-t]
@@ -84,12 +84,12 @@ func trigcmonScan(m *model, event string) {
 			thresh float64
 			sig    float64
 		}{
-			{"cdr.asp/term/geo", 400, 5},
-			{"cdr.asp/term/cust", 300, 6},
+			{"cdr.asp/term/geo", 600, 5},
+			{"cdr.asp/term/cust", 400, 6},
 			{"cdr.asp/term/sp", 1200, 5},
 			{"cdr.asp/term/to", 200, 5},
 		} {
-			if c, err := seriesExtract(metric.name, 24*90, 2, metric.thresh/2.2); err != nil {
+			if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/2.2); err != nil {
 				logE.Printf("problem accessing %q metric: %v", metric.name, err)
 			} else if sx, now, adj := <-c, time.Now().Unix(), 0.0; sx != nil {
 				if adj = 0.2; int32(now/3600) == sx.From {
@@ -97,20 +97,27 @@ func trigcmonScan(m *model, event string) {
 				}
 				for k, se := range sx.Series {
 					if len(se) == 1 && se[0]*(1+adj) > metric.thresh {
-						alerts = append(alerts, fmt.Sprintf(
-							"%q metric signaling fraud: new $%.0f usage burst for %q",
-							metric.name, se[0], k))
+						alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
+							"new/rare $%.0f usage burst for %q", metric.name, se[0], k))
 					} else if len(se) < 2 {
 					} else if u := se[0] + se[1]*adj; u < metric.thresh {
 					} else if len(se) < 4 {
-						alerts = append(alerts, fmt.Sprintf(
-							"%q metric signaling fraud: new $%.0f hourly usage burst for %q",
-							metric.name, u, k))
+						alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
+							"new/rare $%.0f hourly usage burst for %q", metric.name, u, k))
 					} else if ss, mean, sdev := basicStats(se); u > mean+sdev*metric.sig {
-						alerts = append(alerts, fmt.Sprintf(
-							"%q metric signaling fraud: $%.0f hourly usage for %q "+
-								"(normally $%.0f bursting to $%.0f to as much as $%.0f)",
-							metric.name, u, k, ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]))
+						switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
+						case high-med < 1 && max-high < 1:
+							alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
+								"$%.0f hourly usage for %q (normally $%.0f)", metric.name, u, k, high))
+						case max-high < 1:
+							alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
+								"$%.0f hourly usage for %q (normally $%.0f bursting to as much as $%.0f)",
+								metric.name, u, k, med, max))
+						default:
+							alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
+								"$%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)",
+								metric.name, u, k, med, high, max))
+						}
 					}
 				}
 			}
