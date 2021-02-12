@@ -425,16 +425,40 @@ func trigcmonTerm(m *model) {
 
 // *.aws model accessor helpers
 //
-func (m hsU) add(hr int32, k string, usage uint64, cost float32) {
-	if hm := m[hr]; hm == nil {
-		hm = make(map[string]*usageItem)
-		m[hr], hm[k] = hm, &usageItem{Usage: usage, Cost: float64(cost)}
-	} else if u := hm[k]; u == nil {
-		hm[k] = &usageItem{Usage: usage, Cost: float64(cost)}
-	} else {
-		u.Usage += usage
-		u.Cost += float64(cost)
+func (m hsU) add(now, dur int, k string, usage uint64, cost float32) (hr int32) {
+	var pu uint64
+	var p, pc, fd, fu, fc float64
+	if hr = int32(now / 3600); dur > 3600*24*3 {
+		dur = 3600 * 24 * 3
 	}
+	for h, rd, hc := hr, dur, now%3600+1; rd > 0; h, rd, hc = h-1, rd-hc, 3600 {
+		// proportion usage/cost since connectivity disruptions may cause long durations
+		if hc >= rd {
+			if rd == dur {
+				pu, pc = usage, float64(cost)
+			} else {
+				p = float64(rd) / fd
+				pu, pc = uint64(fu*p+0.5), fc*p
+			}
+		} else {
+			if fd == 0 {
+				fd, fu, fc = float64(dur), float64(usage), float64(cost)
+			}
+			p = float64(hc) / fd
+			pu, pc = uint64(fu*p+0.5), fc*p
+		}
+
+		if hm := m[h]; hm == nil {
+			hm = make(map[string]*usageItem)
+			m[h], hm[k] = hm, &usageItem{Usage: pu, Cost: pc}
+		} else if u := hm[k]; u == nil {
+			hm[k] = &usageItem{Usage: pu, Cost: pc}
+		} else {
+			u.Usage += pu
+			u.Cost += pc
+		}
+	}
+	return
 }
 func (m hsU) clean(exp int32) {
 	for hr := range m {

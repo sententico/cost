@@ -190,16 +190,13 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 		} else {
 			inst.Active[len(inst.Active)-1] = now
 			dur := uint64(now - inst.Last)
-			hr, c := int32(now/3600), inst.Rate*float32(dur)/3600
-			if hr > sum.Current {
-				sum.Current = hr
-			}
-			sum.ByAcct.add(hr, inst.Acct, dur, c)
-			sum.ByRegion.add(hr, k.Region, dur, c)
+			c := inst.Rate * float32(dur) / 3600
+			sum.Current = sum.ByAcct.add(now, int(dur), inst.Acct, dur, c)
+			sum.ByRegion.add(now, int(dur), k.Region, dur, c)
 			if inst.Spot == "" {
-				sum.BySKU.add(hr, k.Region+" "+k.Typ+" "+k.Plat, dur, c)
+				sum.BySKU.add(now, int(dur), k.Region+" "+k.Typ+" "+k.Plat, dur, c)
 			} else {
-				sum.BySKU.add(hr, k.Region+" sp."+k.Typ+" "+k.Plat, dur, c)
+				sum.BySKU.add(now, int(dur), k.Region+" sp."+k.Typ+" "+k.Plat, dur, c)
 			}
 		}
 	default:
@@ -278,13 +275,10 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		vol.Rate = 0
 	}
 	if c > 0 {
-		hr, u := int32(now/3600), uint64(vol.Size*dur)
-		if hr > sum.Current {
-			sum.Current = hr
-		}
-		sum.ByAcct.add(hr, vol.Acct, u, c)
-		sum.ByRegion.add(hr, k.Region, u, c)
-		sum.BySKU.add(hr, k.Region+" "+k.Typ, u, c)
+		u := uint64(vol.Size * dur)
+		sum.Current = sum.ByAcct.add(now, dur, vol.Acct, u, c)
+		sum.ByRegion.add(now, dur, k.Region, u, c)
+		sum.BySKU.add(now, dur, k.Region+" "+k.Typ, u, c)
 	}
 	vol.Last = now
 }
@@ -360,13 +354,9 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 		db.Rate = 0
 	}
 	if c > 0 {
-		hr := int32(now / 3600)
-		if hr > sum.Current {
-			sum.Current = hr
-		}
-		sum.ByAcct.add(hr, db.Acct, u, c)
-		sum.ByRegion.add(hr, k.Region, u, c)
-		sum.BySKU.add(hr, k.Region+" "+k.Typ+" "+k.Plat, u, c)
+		sum.Current = sum.ByAcct.add(now, dur, db.Acct, u, c)
+		sum.ByRegion.add(now, dur, k.Region, u, c)
+		sum.BySKU.add(now, dur, k.Region+" "+k.Typ+" "+k.Plat, u, c)
 	}
 	db.Last = now
 }
@@ -385,6 +375,8 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			}, curDetail{
 				Line: make(map[string]map[string]*curItem),
 			}, nil
+		} else if work.isum.ByAcct == nil {
+			logE.Printf("unrecognized AWS CUR input context: %q", meta)
 		} else if strings.HasPrefix(meta, "section 20") && len(meta) > 14 {
 			if t, err := time.Parse(time.RFC3339, meta[8:12]+"-"+meta[12:14]+"-01T00:00:00Z"); err == nil {
 				if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
@@ -424,7 +416,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 					psum.BySvc.update(work.isum.BySvc, bh, eh)
 				}
 			}
-			work.idet.Line = nil
+			work = &curWork{}
 		}
 		return
 	} else if work.imo == "" {
