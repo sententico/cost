@@ -91,7 +91,7 @@ func (sum hsU) series(typ byte, cur int32, span, recent int, truncate float64) (
 		}
 	}
 	if len(ser) > 0 {
-		for h := 0; h < span; h++ {
+		for h, hs := 0, len(sum)-1; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := ser[n]; s != nil {
@@ -104,7 +104,7 @@ func (sum hsU) series(typ byte, cur int32, span, recent int, truncate float64) (
 						ser[n] = s
 					}
 				}
-			} else if h >= recent {
+			} else if hs++; h >= hs {
 				break
 			}
 		}
@@ -125,7 +125,7 @@ func (sum hsA) series(typ byte, cur int32, span, recent int, truncate float64) (
 		}
 	}
 	if len(ser) > 0 {
-		for h := 0; h < span; h++ {
+		for h, hs := 0, len(sum)-1; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := ser[n]; s != nil {
@@ -133,7 +133,7 @@ func (sum hsA) series(typ byte, cur int32, span, recent int, truncate float64) (
 						s[h], ser[n] = i, s
 					}
 				}
-			} else if h >= recent {
+			} else if hs++; h >= hs {
 				break
 			}
 		}
@@ -165,7 +165,7 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, truncate float64) (
 		}
 	}
 	if len(ser) > 0 {
-		for h := 0; h < span; h++ {
+		for h, hs := 0, len(sum)-1; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := ser[n]; s != nil {
@@ -184,7 +184,7 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, truncate float64) (
 						ser[n] = s
 					}
 				}
-			} else if h >= recent {
+			} else if hs++; h >= hs {
 				break
 			}
 		}
@@ -216,7 +216,7 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, truncate float64) (
 		}
 	}
 	if len(nser) > 0 {
-		for h := 0; h < span; h++ {
+		for h, hs := 0, len(sum)-1; h < span; h++ {
 			if m := sum[cur-int32(h)]; m != nil {
 				for n, i := range m {
 					if s := nser[n]; s != nil {
@@ -235,7 +235,7 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, truncate float64) (
 						nser[n] = s
 					}
 				}
-			} else if h >= recent {
+			} else if hs++; h >= hs {
 				break
 			}
 		}
