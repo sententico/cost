@@ -1453,7 +1453,7 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	case "39": // Italy (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Italy
+	case "39": // Italy (Feb21) en.wikipedia.org/wiki/Telephone_numbers_in_Italy
 		switch nat[0] {
 		case '0':
 			switch nat[1] {
@@ -1467,11 +1467,10 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 			// 39[334 737471 02] IDT
 			set(3, 9, 10)
 		case '5':
-			set(2, 10, 11)
+			set(2, 10)
 		case '8':
 			set(3, 6, 10)
 		default:
-			// TODO: '4', '7' implement?
 			err()
 		}
 

@@ -428,8 +428,8 @@ func trigcmonTerm(m *model) {
 func (m hsU) add(now, dur int, k string, usage uint64, cost float32) (hr int32) {
 	var pu uint64
 	var p, pc, fd, fu, fc float64
-	if hr = int32(now / 3600); dur > 3600*24*3 {
-		dur = 3600 * 24 * 3
+	if hr = int32(now / 3600); dur > 3600*24*100 {
+		dur = 3600 * 24 * 100
 	}
 	for h, rd, hc := hr, dur, now%3600+1; rd > 0; h, rd, hc = h-1, rd-hc, 3600 {
 		// proportion usage/cost since connectivity disruptions may cause long durations
