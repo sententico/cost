@@ -526,7 +526,7 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "State", "state", "st":
+		case "State", "state", "stat", "st":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).State == opd })
@@ -778,7 +778,7 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "State", "state", "st":
+		case "State", "state", "stat", "st":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).State == opd })
@@ -1086,7 +1086,7 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "State", "state", "st":
+		case "State", "state", "stat", "st":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).State == opd })
@@ -1142,10 +1142,10 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 
 func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
 	var name, az string
-	var tag cmon.TagMap
 	pg := pgSize
 	acc.reqR()
 	for id, db := range d.DB {
+		var tag cmon.TagMap
 		if db.Last < d.Current {
 			continue
 		} else if name = db.Tag["Name"]; name == "" {
