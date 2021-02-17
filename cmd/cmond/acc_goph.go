@@ -220,7 +220,6 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 	vol, dur := detail.Vol[id], 0
 	if vol == nil {
 		vol = &ebsItem{
-			Typ:   item["type"],
 			Since: now,
 		}
 		detail.Vol[id] = vol
@@ -228,6 +227,7 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 		dur = now - vol.Last
 	}
 	vol.Acct = item["acct"]
+	vol.Typ = item["type"]
 	vol.Size = atoi(item["size"], 0)
 	vol.IOPS = atoi(item["iops"], 0)
 	vol.AZ = item["az"]
