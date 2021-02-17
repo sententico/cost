@@ -190,6 +190,7 @@ def gophCURAWS(model, settings, inputs, args):
                 head = {h:i for i,h in enumerate(l[:-1].split(','))}
 
             elif not l.startswith('#!'):
+                # https://docs.aws.amazon.com/cur/latest/userguide/data-dictionary.html
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
                 id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]
