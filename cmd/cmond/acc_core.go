@@ -524,7 +524,8 @@ func ec2awsClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
 	for id, inst := range detail.Inst {
-		if x := detail.Current - inst.Last; inst.Last-inst.Since < 3600*2 && x > 3600*2 || x > 3600*72 {
+		if x := detail.Current - inst.Last; inst.State == "terminated" && inst.Last-inst.Since < 3600*12 &&
+			x > 0 || x > 3600*72 {
 			delete(detail.Inst, id)
 		}
 	}
@@ -601,7 +602,7 @@ func ebsawsClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
 	for id, vol := range detail.Vol {
-		if x := detail.Current - vol.Last; vol.Last-vol.Since < 3600*2 && x > 3600*2 || x > 3600*72 {
+		if x := detail.Current - vol.Last; vol.Last-vol.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
 			delete(detail.Vol, id)
 		}
 	}
@@ -678,7 +679,7 @@ func rdsawsClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
 	for id, db := range detail.DB {
-		if x := detail.Current - db.Last; db.Last-db.Since < 3600*2 && x > 3600*2 || x > 3600*72 {
+		if x := detail.Current - db.Last; db.Last-db.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
 			delete(detail.DB, id)
 		}
 	}
