@@ -1,6 +1,6 @@
 [Unit]
 Description=cloud monitor service
-ConditionPathExists=/opt/sententix/bin/cmond
+ConditionPathExists=/opt/sententix/bin
 After=network.target
 StartLimitInterval=180s
 StartLimitBurst=3

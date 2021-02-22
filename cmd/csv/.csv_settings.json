@@ -97,11 +97,11 @@
 		"Date": "2020-09-18T11:41:48.582419722-04:00",
 		"Lock": true
 	},
-	"=,{lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType,lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version}": {
-		"Cols": "lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType:={Usage:DiscountedUsage:Tax:RIFee:Refund:Fee:Credit},lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version",
+	"=,{identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:dc,resourceTags/user:env,resourceTags/user:Name,resourceTags/user:product,resourceTags/user:team,resourceTags/user:version,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment}": {
+		"Cols": "identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:dc,resourceTags/user:env,resourceTags/user:Name,resourceTags/user:product,resourceTags/user:team,resourceTags/user:version,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment",
 		"Format": "AWS CUR",
-		"Ver": "2019 Aspect",
-		"Date": "2020-05-06T14:05:45.246309188-04:00",
+		"Ver": "2021 Aspect",
+		"Date": "2021-02-22T15:00:00-05:00",
 		"Lock": true
 	},
 	"=f32,f16:0:1:2:3:4:5:6:7:8:9,f24:  ": {
