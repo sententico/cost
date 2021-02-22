@@ -186,29 +186,44 @@ def gophCURAWS(model, settings, inputs, args):
 
     with subprocess.Popen([settings.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
-            if l.startswith('identity/LineItemId,'):
+            if l.startswith('identity/LineItemId,'):                    # https://docs.aws.amazon.com/cur/latest/userguide/data-dictionary.html
                 head = {h:i for i,h in enumerate(l[:-1].split(','))}
 
             elif not l.startswith('#!'):
-                # https://docs.aws.amazon.com/cur/latest/userguide/data-dictionary.html
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
-                id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]
-                rec,typ = {
+                typ = { 'Usage':                                'usage',
+                        'DiscountedUsage':                      'RI usage',
+                        'RIFee':                                'RI unused',
+                        'Fee':                                  'fee',
+                        'SavingsPlanUpfrontFee':                'fee',
+                        'SavingsPlanCoveredUsage':              'SP usage',
+                        'SavingsPlanRecurringFee':              'SP unused',
+                        'Refund':                               'EDP/refund',
+                        'Credit':                               'CSC/WMP/credit',
+                        'Tax':                                  'tax',
+                        'SavingsPlanNegation':                  'skip',
+                      }.get(col[head['lineItem/LineItemType']], 'unknown')
+                if typ == 'skip': continue
+                id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]; rec = {
                     'id':       id,                                     # compact line item ID
                     'hour':     hour,                                   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
-                },  col[head['lineItem/LineItemType']]
-                if typ != 'RIFee':                                      # TODO: expand calculation for SPs
-                    ubl,fee = col[head['lineItem/UnblendedCost']], col[head['reservation/RecurringFeeForUsage']]
-                    try:    rec.update({
-                        'usg':  col[head['lineItem/UsageAmount']],      # usage quantity/cost
-                        'cost': ubl if not fee else str(float(fee)+float(ubl)),
-                    })
-                    except  ValueError: continue
-                else: rec.update({
-                        'usg':  col[head['reservation/UnusedQuantity']],# unused reservation quantity/cost
-                        'cost': col[head['reservation/UnusedRecurringFee']],
-                    })
+                    'usg':      col[head['lineItem/UsageAmount']],      # default usage quantity
+                }
+                if   typ == 'RI usage': rec['cost'] = col[head['reservation/EffectiveCost']]
+                elif typ == 'RI unused':
+                    try:    rec['usg'], rec['cost'] = col[head['reservation/UnusedQuantity']], str(float(
+                                                      col[head['reservation/UnusedAmortizedUpfrontFeeForBillingPeriod']])+float(
+                                                      col[head['reservation/UnusedRecurringFee']]))
+                    except ValueError: continue
+                elif typ == 'SP usage': rec['cost'] = col[head['savingsPlan/SavingsPlanEffectiveCost']]
+                elif typ == 'SP unused':
+                    try:                rec['cost'] = str(float(
+                                                      col[head['savingsPlan/TotalCommitmentToDate']])-float(
+                                                      col[head['savingsPlan/UsedCommitment']]))
+                    except ValueError: continue
+                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']]
+
                 if new:
                     svc,uop,az,rid,end,nm =\
                         col[head['product/ProductName']],   col[head['lineItem/Operation']],    col[head['product/region']],\
@@ -223,18 +238,7 @@ def gophCURAWS(model, settings, inputs, args):
                                 'monthly '  if ivl < 2678402    else (
                                 'periodic ' if ivl < 31103999   else
                                 'annual '))) +                          # usage interval category
-                               {'Usage':                'usage',
-                                'Tax':                  'tax',
-                                'Refund':               'EDP/refund',
-                                'Credit':               'CSC/WMP/credit',
-                                'Fee':                  'fee',
-                                'SavingsPlanUpfrontFee':'fee',
-                                'DiscountedUsage':      'RI usage',
-                                'SavingsPlanCoveredUsage':'SP usage',
-                                'SavingsPlanNegation':  'SP usage',
-                                'RIFee':                'RI unused',
-                                'SavingsPlanRecurringFee':'SP unused',
-                               }.get(typ,               'unknown'),     # line item type
+                               typ,                                     # line item type
                         'svc': {'Amazon Elastic Compute Cloud':         'EC2',
                                 'Amazon Simple Storage Service':        'S3',
                                 'Amazon Simple Notification Service':   'SNS',
