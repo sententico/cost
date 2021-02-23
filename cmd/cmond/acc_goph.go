@@ -391,16 +391,37 @@ func curawsInsert(m *model, item map[string]string, now int) {
 		} else if strings.HasPrefix(meta, "end ") {
 			psum, pdet := m.data[0].(*curSum), m.data[1].(*curDetail)
 			for mo, wm := range work.idet.Line {
+				bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
+				bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
 				for id, line := range wm {
 					if line.Cost == 0 {
 						delete(wm, id)
+						continue
 					} else if line.Cost < curItemMin && -curItemMin < line.Cost {
 						line.Hour, line.HUsg = nil, nil
+					} else if len(line.Hour) > 1 {
+						husg, c, rh, ru := [745]float32{}, 0, 0, float32(0)
+						for i, h := range line.Hour {
+							for ho, r := int32(h&baseMask)-bh, int32(h>>rangeShift&rangeMask); r >= 0; r-- {
+								husg[ho+r] = line.HUsg[i]
+								c++
+							}
+						}
+						line.Hour, line.HUsg = nil, nil // size-optimize usage history
+						for ho, u := range husg {
+							if u == ru {
+								continue
+							} else if ru != 0 {
+								r := ho - rh
+								line.Hour = append(line.Hour, uint32(r-1<<rangeShift|int(bh)+rh))
+								line.HUsg = append(line.HUsg, ru)
+								if c -= r; c <= 0 {
+									break
+								}
+							}
+							rh, ru = ho, u
+						}
 					}
-				}
-				bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
-				bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
-				for id := range wm {
 					if pm[id] == nil {
 						nl++
 					}
@@ -450,21 +471,22 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			Cust: item["cust"],
 			Team: item["team"],
 			Ver:  item["ver"],
-			Hour: []uint32{h},
-			HUsg: []float32{us},
+			Mu:   -1,
 		}
 		work.idetm[id] = line
-	} else if last := line.Hour[len(line.Hour)-1]; us == line.HUsg[len(line.HUsg)-1] &&
-		h == (last&baseMask)+(last>>rangeShift&rangeMask)+1 {
+	}
+	if co == 0 {
+		return
+	} else if len(line.HUsg) > 0 && us == line.HUsg[len(line.HUsg)-1] &&
+		h == (line.Hour[len(line.Hour)-1]&baseMask)+(line.Hour[len(line.Hour)-1]>>rangeShift&rangeMask)+1 {
 		line.Hour[len(line.Hour)-1] += 1 << rangeShift
-		line.Mu++
 	} else {
 		line.Hour = append(line.Hour, h)
 		line.HUsg = append(line.HUsg, us)
-		line.Mu++
 	}
 	line.Usg += us
 	line.Cost += co
+	line.Mu++
 	work.isum.ByAcct.add(hr, line.Acct, c)
 	work.isum.ByRegion.add(hr, line.Reg, c)
 	work.isum.ByTyp.add(hr, line.Typ, c)

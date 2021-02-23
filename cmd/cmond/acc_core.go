@@ -759,7 +759,9 @@ func curawsClean(m *model, deep bool) {
 		hrs := detail.Month[sm[len(sm)-1]]
 		for ; hrs[1] > hrs[0] && sum.ByAcct[hrs[1]] == nil; hrs[1]-- {
 		}
-		sum.Current = hrs[1]
+		if sum.Current = int32(time.Now().Unix()/3600) - 8; sum.Current > hrs[1] {
+			sum.Current = hrs[1] // TODO: fix unwanted drift for updates to prior months
+		}
 		exp := sum.Current - 24*100
 		sum.ByAcct.clean(exp)
 		sum.ByRegion.clean(exp)
