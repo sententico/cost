@@ -413,7 +413,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 								continue
 							} else if ru != 0 {
 								r := ho - rh
-								line.Hour = append(line.Hour, uint32(r-1<<rangeShift|int(bh)+rh))
+								line.Hour = append(line.Hour, uint32((r-1)<<rangeShift|(int(bh)+rh)&baseMask))
 								line.HUsg = append(line.HUsg, ru)
 								if c -= r; c <= 0 {
 									break
@@ -478,7 +478,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	if co == 0 {
 		return
 	} else if len(line.HUsg) > 0 && us == line.HUsg[len(line.HUsg)-1] &&
-		h == (line.Hour[len(line.Hour)-1]&baseMask)+(line.Hour[len(line.Hour)-1]>>rangeShift&rangeMask)+1 {
+		h == line.Hour[len(line.Hour)-1]&baseMask+line.Hour[len(line.Hour)-1]>>rangeShift&rangeMask+1 {
 		line.Hour[len(line.Hour)-1] += 1 << rangeShift
 	} else {
 		line.Hour = append(line.Hour, h)
