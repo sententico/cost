@@ -375,7 +375,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			}, curDetail{
 				Line: make(map[string]map[string]*curItem),
 			}, nil
-		} else if work.isum.ByAcct == nil {
+		} else if work.isum.ByTyp == nil {
 			logE.Printf("unrecognized AWS CUR input context: %q", meta)
 		} else if strings.HasPrefix(meta, "section 20") && len(meta) > 14 {
 			if t, err := time.Parse(time.RFC3339, meta[8:12]+"-"+meta[12:14]+"-01T00:00:00Z"); err == nil {
@@ -399,7 +399,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 						continue
 					} else if line.Cost < curItemMin && -curItemMin < line.Cost {
 						line.Hour, line.HUsg = nil, nil
-					} else if len(line.Hour) > 1 {
+					} else if len(line.Hour) > 1 { // size-optimize usage history
 						husg, c, rh, ru := [745]float32{}, 0, 0, float32(0)
 						for i, h := range line.Hour {
 							for ho, r := int32(h&baseMask)-bh, int32(h>>rangeShift&rangeMask); r >= 0; r-- {
@@ -407,7 +407,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 								c++
 							}
 						}
-						line.Hour, line.HUsg = nil, nil // size-optimize usage history
+						line.Hour, line.HUsg = nil, nil
 						for ho, u := range husg {
 							if u == ru {
 								continue

@@ -757,11 +757,11 @@ func curawsClean(m *model, deep bool) {
 	}
 	if sort.Strings(sm); len(sm) > 0 {
 		hrs := detail.Month[sm[len(sm)-1]]
-		for ; hrs[1] > hrs[0] && sum.ByAcct[hrs[1]] == nil; hrs[1]-- {
+		for ; hrs[1] > hrs[0] && sum.ByTyp[hrs[1]] == nil; hrs[1]-- {
 		}
-		if sum.Current = int32(time.Now().Unix()/3600) - 8; sum.Current > hrs[1] {
-			sum.Current = hrs[1] // TODO: fix unwanted drift for updates to prior months
+		for sum.Current = hrs[1]; sum.Current > hrs[0] && sum.ByTyp[sum.Current]["usage"] == 0; sum.Current-- {
 		}
+		sum.Current -= 3 // account for unstable trailing hours of reported usage
 		exp := sum.Current - 24*100
 		sum.ByAcct.clean(exp)
 		sum.ByRegion.clean(exp)
@@ -769,7 +769,7 @@ func curawsClean(m *model, deep bool) {
 		sum.BySvc.clean(exp)
 		if len(sm) > 3 {
 			for _, m := range sm[:len(sm)-3] {
-				for hrs = detail.Month[m]; hrs[0] <= hrs[1] && sum.ByAcct[hrs[0]] == nil; hrs[0]++ {
+				for hrs = detail.Month[m]; hrs[0] <= hrs[1] && sum.ByTyp[hrs[0]] == nil; hrs[0]++ {
 				}
 				if delete(detail.Line, m); hrs[0] > hrs[1] {
 					delete(detail.Month, m)
