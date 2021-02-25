@@ -393,6 +393,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 			for mo, wm := range work.idet.Line {
 				bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
 				bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
+				// TODO: paginate model access throughout optimization?
 				for id, line := range wm {
 					if line.Cost == 0 {
 						delete(wm, id)
