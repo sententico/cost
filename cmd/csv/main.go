@@ -200,8 +200,11 @@ func getRes(scache *csv.Settings, fn string) {
 				decoder.Full(row["toNumber"], &tn)
 				d, _ := strconv.ParseFloat(row["rawDuration"], 64)
 				d /= 60000
-				ch, _ := strconv.ParseFloat(row["charges"], 64)
-				if ra = float64(rater.Lookup(&tn)) * d; ra == 0 {
+				m, _ := strconv.ParseFloat(row["meteredDuration"], 64)
+				m /= 60000
+				if ch, _ := strconv.ParseFloat(row["charges"], 64); ch/m < 0.00251 {
+					ra = 0 // zero-rate presumed BYOC call
+				} else if ra = float64(rater.Lookup(&tn)) * d; ra == 0 {
 					ra = ch
 				} else {
 					ra = math.Trunc(ra*0.86*1e3+0.999999999) / 1e3 // convert USD to EUR
