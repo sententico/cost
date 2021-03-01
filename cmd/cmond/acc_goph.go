@@ -417,6 +417,7 @@ func curawsFinalize(m *model) {
 						}
 					}
 				} else if mbuild := func() {
+					ht, ut = 0, 0
 					for h, u := range hu {
 						if u == ut {
 							continue
