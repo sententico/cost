@@ -164,8 +164,8 @@ type (
 		Cust string    `json:"Cu,omitempty"`
 		Team string    `json:"Te,omitempty"`
 		Ver  string    `json:"V,omitempty"`
-		Hour []uint32  `json:"H,omitempty"`  // type | range hrs (+base) | base (hrs in Unix epoch)
-		HUsg []float32 `json:"HU,omitempty"` // hourly usage (maps to Hour ranges)
+		HMap []uint32  `json:"H,omitempty"`  // range hrs (+base) | usage (index/value) | base (hr in month)
+		HUsg []float32 `json:"HU,omitempty"` // hourly usage (indexed by hr/offset in month or HMap)
 		Mu   int16     `json:"M,omitempty"`  // multiple CSV usage record count (+initial)
 		Usg  float32   `json:"U,omitempty"`
 		Cost float32   `json:"C,omitempty"`
@@ -176,7 +176,7 @@ type (
 	}
 	curWork struct {
 		imo   string              // CUR insertion month
-		ihr   uint32              // CUR insertion default hour range (in Unix epoch)
+		ihr   uint32              // CUR insertion month base hour (in Unix epoch)
 		isum  curSum              // CUR summary insertion maps
 		idet  curDetail           // CUR line item insertion map
 		idetm map[string]*curItem // CUR line item month insertion map

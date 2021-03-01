@@ -16,10 +16,11 @@ import (
 const (
 	curItemMin = 0.05 // minimum CUR line item cost to keep hourly usage detail
 
-	typShift   = 32 - 2   // CUR hour range type
-	rangeShift = 30 - 10  // CUR hour range width (hours - 1)
-	rangeMask  = 0x3ff    // CUR hour range width (hours - 1)
-	baseMask   = 0xf_ffff // CUR hour range base (hours in Unix epoch)
+	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
+	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
+	usgMask    = 0xfff   // CUR hour map usage reference (index/value)
+	usgIndex   = 743     // CUR hour map usage reference (<=index, >value+743)
+	baseMask   = 0x3ff   // CUR hour map range base (hour offset in month)
 
 	gwlocShift = 64 - 12            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
 	shelfShift = 52 - 4             // CDR ID shelf (GSX could have 6)
@@ -363,6 +364,99 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 
 // cur.aws model gopher accessors
 //
+func curawsFinalize(m *model) {
+	psum, pdet, work := m.data[0].(*curSum), m.data[1].(*curDetail), m.data[2].(*curWork)
+	for mo, wm := range work.idet.Line {
+		bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
+		bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
+
+		// TODO: paginate model access throughout optimization?
+		for id, line := range wm {
+			if line.Cost == 0 {
+				delete(wm, id)
+				continue
+			} else if line.Cost < curItemMin && -curItemMin < line.Cost {
+				line.HMap, line.HUsg = nil, nil
+			} else if len(line.HMap) > 1 { // size-optimize usage history
+				hu, uc, min, max, ht, ut, mc := [usgIndex + 2]uint16{}, 0, uint16(usgIndex), uint16(1), 0, uint16(0), 0
+				for _, m := range line.HMap { // expand/order map usage references
+					r, u, b := uint16(m>>rangeShift), uint16(m>>usgShift&usgMask+1), uint16(m&baseMask)
+					if b < min {
+						min = b
+					}
+					for r += b; b <= r; b++ {
+						if hu[b] == 0 {
+							hu[b] = u // +1 to distinguish from nil usage reference
+							uc++
+						}
+					}
+					if b > max {
+						max = b
+					}
+				}
+				for h, u := range hu { // count optimal (minimum) usage-grouped range maps
+					if u == ut {
+						continue
+					} else if ut != 0 {
+						mc++
+						if uc -= h - ht; uc <= 0 {
+							break
+						}
+					}
+					ht, ut = h, u
+				}
+				var husg []float32 // build optimal usage representation (un/mapped)
+				if int(max-min+1) <= mc+len(line.HUsg) {
+					line.HMap, husg = nil, make([]float32, int(max-min+1))
+					husg[0] = float32(min)
+					for h := uint16(1); h <= max-min; h++ {
+						if u := hu[min+h-1]; u > usgIndex+1 {
+							husg[h] = float32(u - usgIndex - 1)
+						} else if u > 0 {
+							husg[h] = line.HUsg[u-1]
+						}
+					}
+				} else if mbuild := func() {
+					for h, u := range hu {
+						if u == ut {
+							continue
+						} else if ut != 0 {
+							line.HMap = append(line.HMap, uint32((h-ht-1)<<rangeShift|int(ut-1)<<usgShift|ht))
+							if mc--; mc == 0 {
+								break
+							}
+						}
+						ht, ut = h, u
+					}
+				}; len(line.HUsg) == cap(line.HUsg) {
+					line.HMap, husg = make([]uint32, 0, mc), line.HUsg
+					mbuild()
+				} else {
+					line.HMap, husg = make([]uint32, 0, mc), make([]float32, len(line.HUsg))
+					mbuild()
+					copy(husg, line.HUsg)
+				}
+				line.HUsg = husg
+			}
+			if pm[id] == nil {
+				nl++
+			}
+		}
+
+		if len(wm) < len(pm)/5*4 {
+			logE.Printf("%s AWS CUR update rejected: only %d line items (%d new) to update %d",
+				bt.Format("Jan06"), len(wm), nl, len(pm))
+		} else {
+			pdet.Line[mo], pdet.Month[mo] = wm, &[2]int32{bh, eh}
+			psum.ByAcct.update(work.isum.ByAcct, bh, eh)
+			psum.ByRegion.update(work.isum.ByRegion, bh, eh)
+			psum.ByTyp.update(work.isum.ByTyp, bh, eh)
+			psum.BySvc.update(work.isum.BySvc, bh, eh)
+			logI.Printf("%s AWS CUR update: %d line items (%d new) updated %d",
+				bt.Format("Jan06"), len(wm), nl, len(pm))
+		}
+	}
+}
 func curawsInsert(m *model, item map[string]string, now int) {
 	work, id := m.data[2].(*curWork), item["id"]
 	if id == "" {
@@ -376,84 +470,38 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				Line: make(map[string]map[string]*curItem),
 			}, nil
 		} else if work.isum.ByTyp == nil {
-			logE.Printf("unrecognized AWS CUR input context: %q", meta)
+			logE.Printf("AWS CUR input out of context: %q", meta)
 		} else if strings.HasPrefix(meta, "section 20") && len(meta) > 14 {
 			if t, err := time.Parse(time.RFC3339, meta[8:12]+"-"+meta[12:14]+"-01T00:00:00Z"); err == nil {
 				if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
 					work.idet.Line[work.imo] = make(map[string]*curItem)
 				}
-				work.ihr = uint32(t.Unix()/3600) & baseMask
+				work.ihr = uint32(t.Unix() / 3600)
 				work.idetm = work.idet.Line[work.imo]
 			} else {
 				work.imo = ""
-				logE.Printf("unrecognized AWS CUR input: %q", meta[8:])
+				logE.Printf("unrecognized AWS CUR input section: %q", meta[8:])
 			}
 		} else if strings.HasPrefix(meta, "end ") {
-			psum, pdet := m.data[0].(*curSum), m.data[1].(*curDetail)
-			for mo, wm := range work.idet.Line {
-				bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
-				bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
-				// TODO: paginate model access throughout optimization?
-				for id, line := range wm {
-					if line.Cost == 0 {
-						delete(wm, id)
-						continue
-					} else if line.Cost < curItemMin && -curItemMin < line.Cost {
-						line.Hour, line.HUsg = nil, nil
-					} else if len(line.Hour) > 1 { // size-optimize usage history
-						husg, c, rh, ru := [745]float32{}, 0, 0, float32(0)
-						for i, h := range line.Hour {
-							for ho, r := int32(h&baseMask)-bh, int32(h>>rangeShift&rangeMask); r >= 0; r-- {
-								husg[ho+r] = line.HUsg[i]
-								c++
-							}
-						}
-						line.Hour, line.HUsg = nil, nil
-						for ho, u := range husg {
-							if u == ru {
-								continue
-							} else if ru != 0 {
-								r := ho - rh
-								line.Hour = append(line.Hour, uint32((r-1)<<rangeShift|(int(bh)+rh)&baseMask))
-								line.HUsg = append(line.HUsg, ru)
-								if c -= r; c <= 0 {
-									break
-								}
-							}
-							rh, ru = ho, u
-						}
-					}
-					if pm[id] == nil {
-						nl++
-					}
-				}
-				if len(wm) < len(pm)/5*4 {
-					logE.Printf("%s AWS CUR update rejected: only %d line items (%d new) to update %d",
-						bt.Format("Jan06"), len(wm), nl, len(pm))
-				} else {
-					pdet.Line[mo], pdet.Month[mo] = wm, &[2]int32{bh, eh}
-					psum.ByAcct.update(work.isum.ByAcct, bh, eh)
-					psum.ByRegion.update(work.isum.ByRegion, bh, eh)
-					psum.ByTyp.update(work.isum.ByTyp, bh, eh)
-					psum.BySvc.update(work.isum.BySvc, bh, eh)
-					logI.Printf("%s AWS CUR update: %d line items (%d new) updated %d",
-						bt.Format("Jan06"), len(wm), nl, len(pm))
-				}
-			}
+			curawsFinalize(m)
 			work = &curWork{}
+		} else if meta != "" {
+			logE.Printf("unrecognized AWS CUR input: %q", meta)
 		}
 		return
 	} else if work.imo == "" {
 		return
 	}
 
-	h := work.ihr
+	h := uint32(0)
 	if t, err := time.Parse(time.RFC3339, item["hour"]); err == nil {
-		h = uint32(t.Unix()/3600) & baseMask
+		if h = uint32(t.Unix()/3600) - work.ihr; h > usgIndex {
+			h = 0
+		}
 	}
 	u, _ := strconv.ParseFloat(item["usg"], 64)
 	c, _ := strconv.ParseFloat(item["cost"], 64)
-	line, hr, us, co := work.idetm[id], int32(h), float32(u), float32(c)
+	line, hr, r, us, ur, co := work.idetm[id], int32(h+work.ihr), 0, float32(u), uint32(0), float32(c)
 	if line == nil {
 		line = &curItem{
 			Acct: item["acct"],
@@ -478,13 +526,23 @@ func curawsInsert(m *model, item map[string]string, now int) {
 	}
 	if co == 0 {
 		return
-	} else if len(line.HUsg) > 0 && us == line.HUsg[len(line.HUsg)-1] &&
-		h == line.Hour[len(line.Hour)-1]&baseMask+line.Hour[len(line.Hour)-1]>>rangeShift&rangeMask+1 {
-		line.Hour[len(line.Hour)-1] += 1 << rangeShift
+	} else if us > 0 && us <= usgMask-usgIndex && us == float32(int32(us)) {
+		ur = uint32(us) + usgIndex
 	} else {
-		line.Hour = append(line.Hour, h)
-		line.HUsg = append(line.HUsg, us)
+		for ; ur < uint32(len(line.HUsg)) && line.HUsg[ur] != us; ur++ {
+		}
+		if ur == uint32(len(line.HUsg)) && ur <= usgIndex {
+			line.HUsg = append(line.HUsg, us)
+		}
 	}
+	for ; r < len(line.HMap) && line.HMap[r]&baseMask+line.HMap[r]>>rangeShift+1 != h; r++ {
+	}
+	if r == len(line.HMap) || line.HMap[r]>>usgShift&usgMask != ur {
+		line.HMap = append(line.HMap, ur<<usgShift|h)
+	} else {
+		line.HMap[r] += 1 << rangeShift
+	}
+
 	line.Usg += us
 	line.Cost += co
 	line.Mu++

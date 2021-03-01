@@ -1718,16 +1718,24 @@ func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, er
 	return flt, nil
 }
 
-func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id string, mb int32, tag cmon.TagMap, dts string, flt []func(...interface{}) bool) func() []string {
-	var husg [744]float32
-	var rate float32
+func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id string, tag cmon.TagMap, dts string, flt []func(...interface{}) bool) func() []string {
+	var husg [usgIndex + 1]float32
+	var rate, u float32
 	if un < 720 {
-		if rate = li.Cost / li.Usg; len(li.Hour) > 0 {
-			for i, h := range li.Hour {
-				for ho, r := int32(h&baseMask)-mb, int32(h>>rangeShift&rangeMask); r >= 0; r-- {
-					husg[ho+r] = li.HUsg[i]
+		if rate = li.Cost / li.Usg; len(li.HMap) > 0 {
+			for _, m := range li.HMap {
+				if ur := m >> usgShift & usgMask; ur > usgIndex {
+					u = float32(ur - usgIndex)
+				} else {
+					u = li.HUsg[ur]
+				}
+				r, b := m>>rangeShift, m&baseMask
+				for r += b; b <= r; b++ {
+					husg[b] = u
 				}
 			}
+		} else if len(li.HUsg) > 1 {
+			copy(husg[int(li.HUsg[0]):], li.HUsg[1:])
 		} else {
 			husg[0] = li.Usg
 		}
@@ -1738,40 +1746,43 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 	return func() []string {
 		var rec int16
 		var usg, cost float32
+		if from > to {
+			return nil
+		}
 		switch un {
 		case 1: // hourly
-			for prev := from; ; prev = from {
-				if from > to {
-					return nil
-				} else if from++; husg[prev] != 0 {
-					rec, usg = 1, husg[prev]
-					if cost = usg * rate; (cost >= tr || -tr >= cost) && !skip(flt, rec, usg) {
-						dts = dts[:8] + fmt.Sprintf("%02d %02d:00", prev/24+1, prev%24)
+			for {
+				if husg[from] != 0 {
+					rec, usg = 1, husg[from]
+					if cost = usg * rate; (cost > tr || -tr > cost) && !skip(flt, rec, usg) {
+						dts = dts[:8] + fmt.Sprintf("%02d %02d:00", from/24+1, from%24)
+						from++
 						break
 					}
+				}
+				if from++; from > to {
+					return nil
 				}
 			}
 		case 24: // daily
 			for ; ; rec, usg = 0, 0 {
-				if from > to {
-					return nil
-				}
 				for day := from + 23; from <= day; from++ {
 					if husg[from] != 0 {
 						rec++
 						usg += husg[from]
 					}
 				}
-				if cost = usg * rate; (cost >= tr || -tr >= cost) && !skip(flt, rec, usg) {
+				if cost = usg * rate; (cost > tr || -tr > cost) && !skip(flt, rec, usg) {
 					dts = dts[:8] + fmt.Sprintf("%02d", from/24)
 					break
+				} else if from > to {
+					return nil
 				}
 			}
 		default: // monthly
-			if rec, usg = li.Mu+1, li.Usg; from > to || skip(flt, rec, usg) {
+			if rec, usg, cost, from = li.Mu+1, li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
 				return nil
 			}
-			cost, from = li.Cost, to+1
 		}
 		return []string{
 			id,
@@ -1832,7 +1843,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 			for mo, hrs := range cur.Month {
 				if to >= hrs[0] && hrs[1] >= from {
 					for _, li := range cur.Line[mo] {
-						if (li.Cost >= trunc || -trunc >= li.Cost) && strings.HasPrefix(li.RID, "vol-") {
+						if (li.Cost > trunc || -trunc > li.Cost) && strings.HasPrefix(li.RID, "vol-") {
 							vinst[li.RID] = ""
 						}
 					}
@@ -1876,7 +1887,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				}
 				mto -= hrs[0]
 				for id, li := range cur.Line[mo] {
-					if li.Cost < trunc && -trunc < li.Cost {
+					if li.Cost <= trunc && -trunc <= li.Cost {
 						continue
 					}
 					if tag := (cmon.TagMap{
@@ -1890,7 +1901,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 					}).Update(nTags(li.Name)).Update(nTags(li.RID)).Update(itags[vinst[li.RID]]).Update(
 						settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg]); skip(flt, li, tag) {
 						continue
-					} else if item := cur.table(li, mfr, mto, units, trunc, id, hrs[0], tag, dts, rflt); item != nil {
+					} else if item := cur.table(li, mfr, mto, units, trunc, id, tag, dts, rflt); item != nil {
 						for row := item(); row != nil; row = item() {
 							if rows--; rows == 0 {
 								break outerLoop
