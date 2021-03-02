@@ -592,7 +592,7 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 }
 
 func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
-	pg := pgSize
+	pg := smPage
 	acc.reqR()
 	for id, inst := range d.Inst {
 		if inst.Last < d.Current {
@@ -640,7 +640,7 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 		}
 		acc.rel()
 		res <- row
-		pg = pgSize
+		pg = smPage
 		acc.reqR()
 	}
 	acc.rel()
@@ -853,7 +853,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 		}()
 	}
 
-	pg := pgSize
+	pg := smPage
 	acc.reqR()
 	for id, vol := range d.Vol {
 		if vol.Last < d.Current {
@@ -899,7 +899,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 		}
 		acc.rel()
 		res <- row
-		pg = pgSize
+		pg = smPage
 		acc.reqR()
 	}
 	acc.rel()
@@ -1142,7 +1142,7 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 
 func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
 	var name, az string
-	pg := pgSize
+	pg := smPage
 	acc.reqR()
 	for id, db := range d.DB {
 		var tag cmon.TagMap
@@ -1199,7 +1199,7 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 		}
 		acc.rel()
 		res <- row
-		pg = pgSize
+		pg = smPage
 		acc.reqR()
 	}
 	acc.rel()
@@ -1361,7 +1361,7 @@ func (d *hiD) table(acc *modAcc, res chan []string, rows int, flt []func(...inte
 	var sl tel.SLmap
 	sp.Load(nil)
 	sl.Load(nil)
-	pg := pgSize
+	pg := smPage
 	acc.reqR()
 outerLoop:
 	for h, hm := range *d {
@@ -1395,7 +1395,7 @@ outerLoop:
 			}
 			acc.rel()
 			res <- row
-			pg = pgSize
+			pg = smPage
 			acc.reqR()
 		}
 	}
@@ -1835,7 +1835,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				close(res)
 			}
 		}()
-		pg, trunc := pgSize, float32(truncate)
+		pg, trunc := smPage, float32(truncate)
 
 		vinst, itags := make(map[string]string, 8192), make(map[string]cmon.TagMap, 4096)
 		if ebs, ec2 := mMod["ebs.aws"].newAcc(), mMod["ec2.aws"].newAcc(); ebs != nil && ec2 != nil && len(ebs.m.data) > 1 && len(ec2.m.data) > 1 {
@@ -1915,7 +1915,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 							}
 							acc.rel()
 							res <- row
-							pg = pgSize
+							pg = smPage
 							acc.reqR()
 						}
 					}
