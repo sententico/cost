@@ -538,7 +538,7 @@ func ec2awsClean(m *model, deep bool) {
 }
 func ec2awsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.name, m.newAcc(), ec2awsInsert, false) > 0 {
+		if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
 			ec2awsClean(m, true)
 			evt <- m.name
 		}
@@ -551,7 +551,7 @@ func ec2awsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.name, m.newAcc(), ec2awsInsert, false) > 0 {
+				if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
@@ -615,7 +615,7 @@ func ebsawsClean(m *model, deep bool) {
 }
 func ebsawsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.name, m.newAcc(), ebsawsInsert, false) > 0 {
+		if fetch(m.newAcc(), ebsawsInsert, false) > 0 {
 			ebsawsClean(m, true)
 			evt <- m.name
 		}
@@ -628,7 +628,7 @@ func ebsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.name, m.newAcc(), ebsawsInsert, false) > 0 {
+				if fetch(m.newAcc(), ebsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
@@ -692,7 +692,7 @@ func rdsawsClean(m *model, deep bool) {
 }
 func rdsawsMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.name, m.newAcc(), rdsawsInsert, false) > 0 {
+		if fetch(m.newAcc(), rdsawsInsert, false) > 0 {
 			rdsawsClean(m, true)
 			evt <- m.name
 		}
@@ -705,7 +705,7 @@ func rdsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.name, m.newAcc(), rdsawsInsert, false) > 0 {
+				if fetch(m.newAcc(), rdsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
@@ -783,7 +783,7 @@ func curawsClean(m *model, deep bool) {
 func curawsMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 6*time.Second, func() {
-		if fetch(m.name, m.newAcc(), curawsInsert, true) > 0 {
+		if fetch(m.newAcc(), curawsInsert, true) > 0 {
 			curawsClean(m, true)
 			m.store(false)
 			evt <- m.name
@@ -797,7 +797,7 @@ func curawsMaint(m *model) {
 			goaftSession(0, 6*time.Second, func() {
 				select {
 				case <-goGo: // serialize cur.aws gophers
-					if fetch(m.name, m.newAcc(), curawsInsert, true) > 0 {
+					if fetch(m.newAcc(), curawsInsert, true) > 0 {
 						curawsClean(m, true)
 						m.store(false)
 						evt <- m.name
@@ -1020,7 +1020,7 @@ func cdraspClean(m *model, deep bool) {
 func cdraspMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.name, m.newAcc(), cdraspInsert, false) > 0 {
+		if fetch(m.newAcc(), cdraspInsert, false) > 0 {
 			cdraspClean(m, true)
 			evt <- m.name
 		}
@@ -1036,7 +1036,7 @@ func cdraspMaint(m *model) {
 			goaftSession(0, 18*time.Second, func() {
 				select {
 				case <-goGo: // serialize cdr.asp gophers
-					if fetch(m.name, m.newAcc(), cdraspInsert, false) > 0 {
+					if fetch(m.newAcc(), cdraspInsert, false) > 0 {
 						evt <- m.name
 					}
 					goGo <- true

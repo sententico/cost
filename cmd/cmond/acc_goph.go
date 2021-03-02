@@ -52,7 +52,7 @@ var (
 	}
 )
 
-func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), meta bool) (items int) {
+func fetch(acc *modAcc, insert func(*modAcc, map[string]string, int), meta bool) (items int) {
 	start, now, pages := int(time.Now().Unix()), 0, 0
 	csvout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	defer func() {
@@ -60,18 +60,18 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 			if acc.rel() {
 				csvout.Close()
 			}
-			logE.Printf("gopher error while fetching %q: %v", n, r)
+			logE.Printf("gopher error while fetching %q: %v", acc.m.name, r)
 		}
 		if items > 0 {
 			if !meta {
 				defer func() { recover(); acc.rel() }()
 				acc.reqW()
-				insert(acc.m, nil, start)
+				insert(acc, nil, start)
 			}
-			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, n)
+			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, acc.m.name)
 		}
 	}()
-	if gophin, gophout, err := gopherCmd.new(n, nil); err != nil {
+	if gophin, gophout, err := gopherCmd.new(acc.m.name, nil); err != nil {
 		panic(err)
 	} else if err = gophin.Close(); err != nil {
 		gophout.Close()
@@ -84,14 +84,14 @@ func fetch(n string, acc *modAcc, insert func(*model, map[string]string, int), m
 	var pg int16
 	results, errors := csvout.Get()
 	for item := range results {
-		now, pg = int(time.Now().Unix()), pgSize
+		now, pg = int(time.Now().Unix()), smPage
 		pages++
 		for acc.reqW(); ; {
 			if item["~meta"] == "" {
-				insert(acc.m, item, now)
+				insert(acc, item, now)
 				items++
 			} else if meta {
-				insert(acc.m, item, now)
+				insert(acc, item, now)
 			}
 			if pg--; pg > 0 {
 				select {
@@ -126,8 +126,8 @@ func ec2awsHack(inst *ec2Item) {
 		}
 	}
 }
-func ec2awsInsert(m *model, item map[string]string, now int) {
-	sum, detail, work, id := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail), m.data[2].(*ec2Work), item["id"]
+func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
+	sum, detail, work, id := acc.m.data[0].(*ec2Sum), acc.m.data[1].(*ec2Detail), acc.m.data[2].(*ec2Work), item["id"]
 	if item == nil {
 		if now > detail.Current {
 			detail.Current = now
@@ -208,8 +208,8 @@ func ec2awsInsert(m *model, item map[string]string, now int) {
 
 // ebs.aws model gopher accessors
 //
-func ebsawsInsert(m *model, item map[string]string, now int) {
-	sum, detail, work, id := m.data[0].(*ebsSum), m.data[1].(*ebsDetail), m.data[2].(*ebsWork), item["id"]
+func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
+	sum, detail, work, id := acc.m.data[0].(*ebsSum), acc.m.data[1].(*ebsDetail), acc.m.data[2].(*ebsWork), item["id"]
 	if item == nil {
 		if now > detail.Current {
 			detail.Current = now
@@ -286,8 +286,8 @@ func ebsawsInsert(m *model, item map[string]string, now int) {
 
 // rds.aws model gopher accessors
 //
-func rdsawsInsert(m *model, item map[string]string, now int) {
-	sum, detail, work, id := m.data[0].(*rdsSum), m.data[1].(*rdsDetail), m.data[2].(*rdsWork), item["id"]
+func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
+	sum, detail, work, id := acc.m.data[0].(*rdsSum), acc.m.data[1].(*rdsDetail), acc.m.data[2].(*rdsWork), item["id"]
 	if item == nil {
 		if now > detail.Current {
 			detail.Current = now
@@ -364,21 +364,20 @@ func rdsawsInsert(m *model, item map[string]string, now int) {
 
 // cur.aws model gopher accessors
 //
-func curawsFinalize(m *model) {
-	psum, pdet, work := m.data[0].(*curSum), m.data[1].(*curDetail), m.data[2].(*curWork)
+func curawsFinalize(acc *modAcc) {
+	psum, pdet, work := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail), acc.m.data[2].(*curWork)
 	for mo, wm := range work.idet.Line {
 		bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
-		bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
+		bh, eh, pm, nl, pg := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0, 0
 
-		// TODO: paginate model access throughout optimization?
 		for id, line := range wm {
 			if line.Cost == 0 {
 				delete(wm, id)
 				continue
 			} else if line.Cost < curItemMin && -curItemMin < line.Cost {
 				line.HMap, line.HUsg = nil, nil
-			} else if len(line.HMap) > 1 { // size-optimize usage history
-				hu, uc, min, max, ht, ut, mc := [usgIndex + 2]uint16{}, 0, uint16(usgIndex), uint16(1), 0, uint16(0), 0
+			} else if len(line.HMap) > 0 { // size-optimize usage history
+				hu, min, max, ht, ut, mc := [usgIndex + 2]uint16{}, uint16(usgIndex), uint16(1), 0, uint16(0), 0
 				for _, m := range line.HMap { // expand/order map usage references
 					r, u, b := uint16(m>>rangeShift), uint16(m>>usgShift&usgMask+1), uint16(m&baseMask)
 					if b < min {
@@ -387,23 +386,19 @@ func curawsFinalize(m *model) {
 					for r += b; b <= r; b++ {
 						if hu[b] == 0 {
 							hu[b] = u // +1 to distinguish from nil usage reference
-							uc++
 						}
 					}
 					if b > max {
 						max = b
 					}
 				}
-				for h, u := range hu { // count optimal (minimum) usage-grouped range maps
+				for _, u := range hu[min : max+1] { // count optimal (minimum) usage-grouped range maps
 					if u == ut {
 						continue
 					} else if ut != 0 {
 						mc++
-						if uc -= h - ht; uc <= 0 {
-							break
-						}
 					}
-					ht, ut = h, u
+					ut = u
 				}
 				var husg []float32 // build optimal usage representation (un/mapped)
 				if int(max-min+1) <= mc+len(line.HUsg) {
@@ -417,27 +412,29 @@ func curawsFinalize(m *model) {
 						}
 					}
 				} else if mbuild := func() {
-					ht, ut = 0, 0
-					for h, u := range hu {
+					line.HMap, ut = make([]uint32, 0, mc), 0
+					for h, u := range hu[min : max+1] {
 						if u == ut {
 							continue
 						} else if ut != 0 {
-							line.HMap = append(line.HMap, uint32((h-ht-1)<<rangeShift|int(ut-1)<<usgShift|ht))
-							if mc--; mc == 0 {
-								break
-							}
+							line.HMap = append(line.HMap, uint32((h-ht-1)<<rangeShift|int(ut-1)<<usgShift|int(min)+ht))
 						}
 						ht, ut = h, u
 					}
 				}; len(line.HUsg) == cap(line.HUsg) {
-					line.HMap, husg = make([]uint32, 0, mc), line.HUsg
 					mbuild()
+					husg = line.HUsg
 				} else {
-					line.HMap, husg = make([]uint32, 0, mc), make([]float32, len(line.HUsg))
 					mbuild()
+					husg = make([]float32, len(line.HUsg))
 					copy(husg, line.HUsg)
 				}
 				line.HUsg = husg
+				if pg--; pg <= 0 { // paginate sustained model access required for optimization
+					acc.rel()
+					pg = lgPage
+					acc.reqW()
+				}
 			}
 			if pm[id] == nil {
 				nl++
@@ -458,8 +455,8 @@ func curawsFinalize(m *model) {
 		}
 	}
 }
-func curawsInsert(m *model, item map[string]string, now int) {
-	work, id := m.data[2].(*curWork), item["id"]
+func curawsInsert(acc *modAcc, item map[string]string, now int) {
+	work, id := acc.m.data[2].(*curWork), item["id"]
 	if id == "" {
 		if meta := item["~meta"]; strings.HasPrefix(meta, "begin ") {
 			work.imo, work.isum, work.idet, work.idetm = "", curSum{
@@ -484,7 +481,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 				logE.Printf("unrecognized AWS CUR input section: %q", meta[8:])
 			}
 		} else if strings.HasPrefix(meta, "end ") {
-			curawsFinalize(m)
+			curawsFinalize(acc)
 			work = &curWork{}
 		} else if meta != "" {
 			logE.Printf("unrecognized AWS CUR input: %q", meta)
@@ -494,7 +491,7 @@ func curawsInsert(m *model, item map[string]string, now int) {
 		return
 	}
 
-	h := uint32(0)
+	var h uint32
 	if t, err := time.Parse(time.RFC3339, item["hour"]); err == nil {
 		if h = uint32(t.Unix()/3600) - work.ihr; h > usgIndex {
 			h = 0
@@ -567,9 +564,9 @@ func billmarg(brate float32, crate float32, dur uint32) (b float32, m float32) {
 	b *= brate
 	return float32(math.Round(float64(b)*1e4) / 1e4), float32(math.Round(float64(b-m*crate)*1e6) / 1e6)
 }
-func cdraspInsert(m *model, item map[string]string, now int) {
-	id, tsum, osum := cdrID(ato64(item["id"], 0)), m.data[0].(*termSum), m.data[1].(*origSum)
-	tdetail, odetail, work := m.data[2].(*termDetail), m.data[3].(*origDetail), m.data[4].(*cdrWork)
+func cdraspInsert(acc *modAcc, item map[string]string, now int) {
+	id, tsum, osum := cdrID(ato64(item["id"], 0)), acc.m.data[0].(*termSum), acc.m.data[1].(*origSum)
+	tdetail, odetail, work := acc.m.data[2].(*termDetail), acc.m.data[3].(*origDetail), acc.m.data[4].(*cdrWork)
 	b, err := time.Parse(time.RFC3339, item["begin"])
 	if err != nil || id == 0 {
 		if len(work.except) > 0 {
