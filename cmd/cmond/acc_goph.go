@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	curItemMin = 0.05 // minimum CUR line item cost to keep hourly usage detail
+	curItemMin = 2e-7 // minimum CUR line item cost above which it is retained (<curItemDet)
+	curItemDet = 0.05 // minimum CUR line item cost to keep hourly usage detail
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -365,16 +366,16 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 // cur.aws model gopher accessors
 //
 func curawsFinalize(acc *modAcc) {
-	psum, pdet, work := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail), acc.m.data[2].(*curWork)
+	psum, pdet, work, pg := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail), acc.m.data[2].(*curWork), lgPage
 	for mo, wm := range work.idet.Line {
 		bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
-		bh, eh, pm, nl, pg := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0, 0
+		bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
 
 		for id, line := range wm {
-			if line.Cost == 0 {
+			if line.Cost <= curItemMin && -curItemMin <= line.Cost {
 				delete(wm, id)
 				continue
-			} else if line.Cost < curItemMin && -curItemMin < line.Cost {
+			} else if line.Cost < curItemDet && -curItemDet < line.Cost {
 				line.HMap, line.HUsg = nil, nil
 			} else if len(line.HMap) > 0 { // size-optimize usage history
 				hu, min, max, ht, ut, mc := [usgIndex + 2]uint16{}, uint16(usgIndex), uint16(1), 0, uint16(0), 0
@@ -430,7 +431,7 @@ func curawsFinalize(acc *modAcc) {
 					copy(husg, line.HUsg)
 				}
 				line.HUsg = husg
-				if pg--; pg <= 0 { // paginate sustained model access required for optimization
+				if pg--; pg <= 0 { // paginate sustained model access
 					acc.rel()
 					pg = lgPage
 					acc.reqW()
@@ -497,7 +498,7 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 			h = 0
 		}
 	}
-	u, _ := strconv.ParseFloat(item["usg"], 64)
+	u, _ := strconv.ParseFloat(item["usg"], 32)
 	c, _ := strconv.ParseFloat(item["cost"], 64)
 	line, hr, r, us, ur, co := work.idetm[id], int32(h+work.ihr), 0, float32(u), uint32(0), float32(c)
 	if line == nil {
@@ -522,9 +523,9 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 		}
 		work.idetm[id] = line
 	}
-	if co == 0 {
-		return
-	} else if us > 0 && us <= usgMask-usgIndex && us == float32(int32(us)) {
+	if us <= 0 {
+		ur, us = usgIndex+1, 1
+	} else if us <= usgMask-usgIndex && us == float32(int32(us)) {
 		ur = uint32(us) + usgIndex
 	} else {
 		for ; ur < uint32(len(line.HUsg)) && line.HUsg[ur] != us; ur++ {

@@ -56,7 +56,7 @@ const (
 	tokReadExp  = 30   // model read access token expiration (seconds)
 	tokWriteExp = 6    // model write access token expiration (seconds)
 	smPage      = 512  // model access small page size (gopher/weasel access with I/O)
-	lgPage      = 8192 // model access large page size (access without I/O)
+	lgPage      = 4096 // model access large page size (access without I/O)
 )
 
 var (
