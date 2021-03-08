@@ -51,8 +51,8 @@ func alertWeasel(weasel string, alerts []map[string]string) (err error) {
 	return
 }
 
-func alertDetail(alert map[string]string, filter string, rows int) {
-	c, err := tableExtract(alert["model"], rows, []string{filter})
+func alertDetail(alert map[string]string, filters []string, rows int) {
+	c, err := tableExtract(alert["model"], rows, filters)
 	if i := 0; err == nil {
 		for row := range c {
 			alert[strconv.Itoa(i)] = strings.Join(row, "\",\"")
@@ -163,7 +163,10 @@ func cdrFraud() (alerts []map[string]string) {
 					a["profile"] = "telecom fraud"
 					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
 					a["c.cols"] = "CDR,Loc,To,From,~,Cust/App,Start,Min,Tries,Billable,~"
-					alertDetail(a, metric.filter(k), 20)
+					alertDetail(a, []string{
+						metric.filter(k),
+						fmt.Sprintf(`start>%s`, time.Unix(now-90*60, 0).UTC().Format(time.RFC3339)),
+					}, 20)
 					alerts = append(alerts, a)
 				}
 			}
