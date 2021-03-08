@@ -96,8 +96,8 @@ def weaSESAWS(service, settings, args):
     for line in sys.stdin:
         alert = json.loads(line.strip())
         profile,cust = profiles.get(alert['profile'],profiles['default']), customers.get(alert.get('cust'),{})
-        if (not {'to','cc'}&set(profile) or send(client, alert, profile, cust, False)) and (
-            not {'to','cc'}&set(cust)    or send(client, alert, profile, cust, True)): sent+=1
+        if ('to' not in profile or send(client, alert, profile, cust, False)) and (
+            'to' not in cust    or send(client, alert, profile, cust, True)): sent+=1
     sys.stdout.write('{}\n'.format(sent))
 
 
