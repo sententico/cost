@@ -71,9 +71,10 @@ def select(d, kl, dk=None):
     return d[dk] if dk else ''
 def send(client, alert, profile, cust, csend):
     msg = MIMEMultipart('mixed')
-    msg.update({'Subject':select(profile, ['c.subject','subject'] if csend else ['subject']),
-                'From':profile['from'], 'To':cust.get('to','') if csend else profile.get('to',''),
-                'Cc':cust.get('cc','') if csend else profile.get('cc','')})
+    msg['Subject'] = select(profile, ['c.subject','subject'] if csend else ['subject'])
+    msg['From'] = profile['from']
+    msg['To'] = cust.get('to','') if csend else profile.get('to','')
+    msg['Cc'] = cust.get('cc','') if csend else profile.get('cc','')
     body = MIMEMultipart('alternative')
     heading = select(profile, ['c.heading','heading'] if csend else ['heading'])
     text = select(alert, ['c.long','c.short','long'] if csend else ['long'], 'short')
