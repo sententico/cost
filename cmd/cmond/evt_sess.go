@@ -160,7 +160,7 @@ func cdrFraud() (alerts []map[string]string) {
 					}
 				}
 				if a != nil {
-					a["profile"] = "fraud"
+					a["profile"] = "telecom fraud"
 					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
 					a["c.cols"] = "CDR,Loc,To,From,~,Cust/App,Start,Min,Tries,Billable,~"
 					alertDetail(a, metric.filter(k), 20)

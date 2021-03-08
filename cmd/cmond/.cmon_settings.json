@@ -1,26 +1,26 @@
 {
 	"Options":	"<placeholder>",
 	"Unit":		"cmon-aspect",
-	"Address":	":4414",
+	"Address":	":4404",
 	"WorkDir":	"/var/opt/sententix/aspect",
 	"BinDir":	"/opt/sententix/bin",
 	"Models": {
-		"trig.cmon":".cmon_trigcmon.json",
+		"trig.cmon":	".cmon_trigcmon.json",
 		"ec2.aws":	".cmon_ec2aws.json",
 		"ebs.aws":	".cmon_ebsaws.json",
 		"rds.aws":	".cmon_rdsaws.json",
-		"cur.aws":	".cmon_curaws.json",
-		"cdr.asp":	".cmon_cdrasp.json"
+		"cur.aws":	".cmon_curaws.gob",
+		"cdr.asp":	".cmon_cdrasp.gob"
 	},
 	"Alerts": {
 		"Options":	"<placeholder>",
 		"Profiles": {
 			"default": {
 			}, "cost": {
-			}, "fraud": {
+			}, "telecom fraud": {
 				"from":"xxx",
-				"cc":"xxx",
-				"slack":"#xxx",
+				"to":"xxx",
+				"slack":"#telecom-fraud",
 				"subject":"xxx",
 				"heading":"xxx",
 				"c.action":"xxx",
@@ -40,9 +40,9 @@
 		}
 	},
 	"Datadog": {
-		"Options": "<placeholder>",
-		"APIKey": "dd605d1d620eb2fb227812efe0xxxxxx",
-		"AppKey": "01688890ef0439d7530098a54c89821ecaxxxxxx"
+		"Options":	"<placeholder>",
+		"APIKey":	"dd605d1d620eb2fb227812efe0xxxxxx",
+		"AppKey":	"01688890ef0439d7530098a54c89821ecaxxxxxx"
 	},
 	"AWS": {
 		"Options":	"<placeholder>",
@@ -63,11 +63,6 @@
 				"eu-central-1":0.0001,"eu-west-1":0.0001,"eu-west-2":0.0001,"eu-west-3":0.0001,"eu-north-1":0.0001,
 				"ap-south-1":0.0001,"ap-northeast-1":0.0001,"ap-northeast-2":0.0001,"ap-southeast-1":0.0001,"ap-southeast-2":0.0001,
 				"ca-central-1":0.0001,"sa-east-1":0.0001
-			},"eu west": {
-				"us-east-1":0.01,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
-				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
-				"ca-central-1":0.001,"sa-east-1":0.001
 			},"us": {
 				"us-east-1":1.0,"us-east-2":0.01,"us-west-1":1.0,"us-west-2":1.0,
 				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
@@ -81,6 +76,11 @@
 			},"us east 1": {
 				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
 				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
+				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"ca-central-1":0.001,"sa-east-1":0.001
+			},"eu west": {
+				"us-east-1":0.01,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
+				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
 				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"global": {
