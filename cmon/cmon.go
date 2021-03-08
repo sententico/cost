@@ -14,6 +14,12 @@ type (
 	// TagMap ...
 	TagMap map[string]string
 
+	// alertsFeature settings
+	alertsFeature struct {
+		Options             string
+		Profiles, Customers map[string]map[string]string
+	}
+
 	// awsService settings
 	awsService struct {
 		Options                    string
@@ -39,6 +45,7 @@ type (
 		Unit, Address   string
 		WorkDir, BinDir string
 		Models          map[string]string
+		Alerts          alertsFeature
 		AWS             awsService
 		Datadog         datadogService
 		Slack           slackService

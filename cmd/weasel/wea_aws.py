@@ -1,15 +1,18 @@
 #!/usr/bin/python3
 
-# Slack notes:
-# https://aspectsoftware.slack.com/services/B01HMSM7Z6W?added=1
-# https://aspectsoftware.slack.com/services/1599905271234?updated=1
+# SES notes:
+# https://docs.aws.amazon.com/ses/latest/DeveloperGuide/examples-send-raw-using-sdk.html
 
 import  sys
 import  os
 import  signal
 import  argparse
 import  json
-from    slack_sdk.webhook       import  WebhookClient
+from    email.mime.multipart    import  MIMEMultipart
+from    email.mime.text         import  MIMEText
+from    email.mime.application  import  MIMEApplication
+import  boto3
+from    botocore.exceptions     import  ProfileNotFound,ClientError,EndpointConnectionError,ConnectionClosedError
 #from    datetime                import  datetime,timedelta
 #import  subprocess
 #import  awslib.patterns         as      aws
@@ -54,29 +57,58 @@ def ex(err, code):
     if err: sys.stderr.write(err)
     sys.exit(code)
 
-def weaHOOKSLACK(service, settings, args):
+def detail(alert, cols):
+    cols = cols.split(',')
+    det = [','.join([h for h in cols if h!='~'])]
+    for i in range(20):
+        if str(i) not in alert: break
+        f = alert[str(i)].split('","')
+        det.append('"{}"'.format('","'.join([f[c] for c,h in enumerate(cols) if h!='~'])))
+    return '{}\r\n'.format('\r\n'.join(det))
+def select(d, kl, dk=None):
+    for k in kl:
+        if k in d: return d[k]
+    return d[dk] if dk else ''
+def send(client, alert, profile, cust, csend):
+    msg = MIMEMultipart('mixed')
+    msg.update({'Subject':select(profile, ['c.subject','subject'] if csend else ['subject']),
+                'From':profile['from'], 'To':cust.get('to','') if csend else profile.get('to',''),
+                'Cc':cust.get('cc','') if csend else profile.get('cc','')})
+    body = MIMEMultipart('alternative')
+    heading = select(profile, ['c.heading','heading'] if csend else ['heading'])
+    text = select(alert, ['c.long','c.short','long'] if csend else ['long'], 'short')
+    action = select(profile, ['c.action','action'] if csend else ['action'])
+    body.attach(MIMEText('{}\r\n{}\r\n{}\r\n'.format(heading, text, action), 'plain', 'utf-8'))
+    body.attach(MIMEText('<html><head></head><body><h3>{}</h3><p>{}</p><p>{}</p></body>'
+                         '</html>'.format(heading, text, action), 'html', 'utf-8'))
+    msg.attach(body)
+    att = MIMEApplication(detail(alert, select(alert, ['c.cols'] if csend else [], 'cols')))
+    att.replace_header('Content-Type', 'text/csv')
+    att.add_header('Content-Disposition', 'attachment', filename='detail.csv')
+    msg.attach(att)
+    return 'MessageId' in client.send_raw_email(RawMessage={'Data':msg.as_string()})
+
+def weaSESAWS(service, settings, args):
     if not settings.get('Alerts',{}).get('Profiles'): raise WError('no alerts profiles found for {}'.format(service))
-    if not settings.get('Slack',{}).get('Webhooks'): raise WError('no Slack webhooks found for {}'.format(service))
-    clients, sent, profiles, hooks = {}, 0, settings['Alerts']['Profiles'], settings['Slack']['Webhooks']
+    sent, profiles, customers = 0, settings['Alerts']['Profiles'], settings['Alerts'].get('Customers',{})
+    client = boto3.client('ses', region_name='us-east-2') # TODO: get SES region from AWS settings
     for line in sys.stdin:
         alert = json.loads(line.strip())
-        ch,txt = profiles.get(alert['profile'],profiles['default']).get('slack'), alert['short']
-        if ch not in clients:
-            clients[ch] = WebhookClient(hooks.get(ch, hooks['default']))
-        # blocks have replaced attachments
-        if clients[ch].send(text=txt).status_code == 200: sent += 1
+        profile,cust = profiles.get(alert['profile'],profiles['default']), customers.get(alert.get('cust'),{})
+        if (not {'to','cc'}&set(profile) or send(client, alert, profile, cust, False)) and (
+            not {'to','cc'}&set(cust)    or send(client, alert, profile, cust, True)): sent+=1
     sys.stdout.write('{}\n'.format(sent))
 
 
 def main():
     '''Parse command line args and release the weasel'''
     weaServices = {                     # weasel service map
-        'hook.slack':   [weaHOOKSLACK,  'write Slack messages to channels'],
+        'ses.aws':      [weaSESAWS,     'send email via AWS Simple Email Service'],
     }
                                         # define and parse command line parameters
-    parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content to a Slack service''')
+    parser = argparse.ArgumentParser(description='''This weasel agent delivers Cloud Monitor content via AWS services''')
     parser.add_argument('service',      choices=weaServices, metavar='service',
-                        help='''Slack service; {} are supported'''.format(', '.join(weaServices)))
+                        help='''AWS service; {} are supported'''.format(', '.join(weaServices)))
     parser.add_argument('-o','--opt',   action='append', metavar='option', default=[],
                         help='''weasel option''')
     parser.add_argument('-k','--key',   action='append', metavar='kvp', default=[],
@@ -97,6 +129,7 @@ def main():
     except  BrokenPipeError:            os._exit(0)
     except  KeyboardInterrupt:          ex('\n** weasel interrupted **\n\n', 10)
     except (AssertionError, RuntimeError, AttributeError, KeyError, TypeError, IndexError, IOError,
+            ProfileNotFound, ClientError, EndpointConnectionError, ConnectionClosedError,
             WError) as e:               ex('\n** {} **\n\n'.format(e if e else 'unknown exception'), 10)
 
 if __name__ == '__main__':  main()      # called as weasel

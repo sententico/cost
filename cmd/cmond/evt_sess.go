@@ -7,6 +7,7 @@ import (
 	"math"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,6 +19,47 @@ const (
 var (
 	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( with SQL (SE|EE|Web|EX)| Spot)?|SQL (SE|EE|Web|EX))\b`)
 )
+
+func alertWeasel(weasel string, alerts []map[string]string) (err error) {
+	if len(alerts) == 0 {
+		return
+	}
+	var weain io.WriteCloser
+	var weaout io.ReadCloser
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+		weain.Close()
+		weaout.Close()
+	}()
+	if weain, weaout, err = weaselCmd.new(weasel, nil); err != nil {
+		return fmt.Errorf("couldn't release weasel: %v", err)
+	}
+	enc, n := json.NewEncoder(weain), 0
+	for _, a := range alerts {
+		if err = enc.Encode(&a); err != nil {
+			return fmt.Errorf("error encoding request: %v", err)
+		}
+	}
+	weain.Close()
+	if err = json.NewDecoder(weaout).Decode(&n); err != nil {
+		return fmt.Errorf("error decoding response: %v", err)
+	} else if n != len(alerts) {
+		return fmt.Errorf("response code %v", n)
+	}
+	return
+}
+
+func alertDetail(alert map[string]string, filter string, rows int) {
+	c, err := tableExtract(alert["model"], rows, []string{filter})
+	if i := 0; err == nil {
+		for row := range c {
+			alert[strconv.Itoa(i)] = strings.Join(row, "\",\"")
+			i++ // TODO: fix for fields containing double-quotes
+		}
+	}
+}
 
 func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	if len(s) > 0 {
@@ -41,95 +83,115 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	return
 }
 
-func slackAlerts(ch string, alerts []string) (err error) {
-	if len(alerts) == 0 {
-		return
+func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
+	a = make(map[string]string, 32)
+	switch a["model"] = "cdr.asp/term"; len(v) {
+	case 1:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f usage burst for %q", m, v[0], k)
+	case 2:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f hourly usage burst for %q", m, v[1], k)
+	case 3:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f)", m, v[1], k, v[2])
+	case 4:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f bursting to as much as $%.0f)", m, v[1], k, v[2], v[3])
+	case 5:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)", m, v[1], k, v[2], v[3], v[4])
+	default:
+		return nil
 	}
-	var weain io.WriteCloser
-	var weaout io.ReadCloser
-	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
+	return
+}
+func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
+	a = make(map[string]string, 32)
+	switch a["cust"], a["model"] = strings.Split(k, "/")[0], "cdr.asp/term"; len(v) {
+	case 1:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f usage burst for %q", m, v[0], k)
+	case 2:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f hourly usage burst for %q", m, v[1], k)
+	case 3:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f)", m, v[1], k, v[2])
+	case 4:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f bursting to as much as $%.0f)", m, v[1], k, v[2], v[3])
+	case 5:
+		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)", m, v[1], k, v[2], v[3], v[4])
+		a["c.long"] = fmt.Sprintf("We're noticing elevated outbound call spending at an estimated hourly rate of $%.0f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
+		a["c.long"] += fmt.Sprintf(" For comparison, your typical spending is around $%.0f per hour, with bursts from $%.0f to as much as $%.0f.", v[2], v[3], v[4])
+	default:
+		return nil
+	}
+	return
+}
+func cdrFraud() (alerts []map[string]string) {
+	for _, metric := range []struct {
+		name   string
+		thresh float64 // alert threshold amount
+		ratio  float64 // minimum ratio to mean
+		sig    float64 // minimum sigmas from mean
+		alert  func(string, string, ...float64) map[string]string
+		filter func(string) string
+	}{
+		{"cdr.asp/term/geo", 600, 1.2, 5, cdrtermFraud, func(k string) string { return `to~ ` + k + `$` }},
+		{"cdr.asp/term/cust", 400, 1.2, 6, cdrtermcustFraud, func(k string) string { return `cust=` + k }},
+		{"cdr.asp/term/sp", 1200, 1.2, 5, cdrtermFraud, func(k string) string { return `sp=` + k }},
+		{"cdr.asp/term/to", 200, 1.2, 5, cdrtermFraud, func(k string) string { return `to~^\` + k[:strings.LastIndexByte(k, ' ')+1] }},
+	} {
+		if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/2.2); err != nil {
+			logE.Printf("problem accessing %q metric: %v", metric.name, err)
+		} else if sx, now, adj := <-c, time.Now().Unix(), 0.0; sx != nil {
+			if adj = 0.2; int32(now/3600) == sx.From {
+				adj += float64(3600-now%3600) / 3600
+			}
+			for k, se := range sx.Series {
+				var a map[string]string
+				if len(se) == 1 && se[0]*(1+adj) > metric.thresh {
+					a = metric.alert(metric.name, k, se[0])
+				} else if len(se) < 2 {
+				} else if u := se[0] + se[1]*adj; u < metric.thresh {
+				} else if ss, mean, sdev := basicStats(se[2:]); len(ss) == 0 {
+					a = metric.alert(metric.name, k, se[0], u)
+				} else if u > mean*metric.ratio && u > mean+sdev*metric.sig {
+					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
+					case high-med < 1 && max-high < 1:
+						a = metric.alert(metric.name, k, se[0], u, high)
+					case max-high < 1:
+						a = metric.alert(metric.name, k, se[0], u, med, max)
+					default:
+						a = metric.alert(metric.name, k, se[0], u, med, high, max)
+					}
+				}
+				if a != nil {
+					a["profile"] = "fraud"
+					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
+					a["c.cols"] = "CDR,Loc,To,From,~,Cust/App,Start,Min,Tries,Billable,~"
+					alertDetail(a, metric.filter(k), 20)
+					alerts = append(alerts, a)
+				}
+			}
 		}
-		weain.Close()
-		weaout.Close()
-	}()
-	if weain, weaout, err = weaselCmd.new("hook.slack", nil); err != nil {
-		return fmt.Errorf("couldn't release weasel: %v", err)
-	}
-	enc, arg, n := json.NewEncoder(weain), map[string]string{
-		"Channel": ch,
-	}, 0
-	for _, alert := range alerts {
-		arg["Text"] = alert
-		if err = enc.Encode(&arg); err != nil {
-			return fmt.Errorf("error encoding request: %v", err)
-		}
-	}
-	weain.Close()
-	if err = json.NewDecoder(weaout).Decode(&n); err != nil {
-		return fmt.Errorf("error decoding response: %v", err)
-	} else if n != len(alerts) {
-		return fmt.Errorf("response code %v", n)
 	}
 	return
 }
 
 func trigcmonScan(m *model, event string) {
+	var alerts []map[string]string
 	switch event {
 	case "cdr.asp":
-		var alerts []string
-		for _, metric := range []struct {
-			name   string
-			thresh float64 // alert threshold amount
-			ratio  float64 // minimum ratio to mean
-			sig    float64 // minimum sigmas from mean
+		alerts = append(alerts, cdrFraud()...)
+	}
+	if len(alerts) > 0 {
+		for _, a := range alerts {
+			logW.Print(a["short"])
+		}
+		for _, weasel := range []struct {
+			cmd, name string
 		}{
-			{"cdr.asp/term/geo", 600, 1.2, 5},
-			{"cdr.asp/term/cust", 400, 1.2, 6},
-			{"cdr.asp/term/sp", 1200, 1.2, 5},
-			{"cdr.asp/term/to", 200, 1.2, 5},
+			{"hook.slack", "Slack"},
+			{"ses.aws", "SES"},
 		} {
-			if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/2.2); err != nil {
-				logE.Printf("problem accessing %q metric: %v", metric.name, err)
-			} else if sx, now, adj := <-c, time.Now().Unix(), 0.0; sx != nil {
-				if adj = 0.2; int32(now/3600) == sx.From {
-					adj += float64(3600-now%3600) / 3600
-				}
-				for k, se := range sx.Series {
-					if len(se) == 1 && se[0]*(1+adj) > metric.thresh {
-						alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
-							"new/rare $%.0f usage burst for %q", metric.name, se[0], k))
-					} else if len(se) < 2 {
-					} else if u := se[0] + se[1]*adj; u < metric.thresh {
-					} else if ss, mean, sdev := basicStats(se[2:]); len(ss) == 0 {
-						alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
-							"new/rare $%.0f hourly usage burst for %q", metric.name, u, k))
-					} else if u > mean*metric.ratio && u > mean+sdev*metric.sig {
-						switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
-						case high-med < 1 && max-high < 1:
-							alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
-								"$%.0f hourly usage for %q (normally $%.0f)", metric.name, u, k, high))
-						case max-high < 1:
-							alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
-								"$%.0f hourly usage for %q (normally $%.0f bursting to as much as $%.0f)",
-								metric.name, u, k, med, max))
-						default:
-							alerts = append(alerts, fmt.Sprintf("%q metric signaling fraud: "+
-								"$%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)",
-								metric.name, u, k, med, high, max))
-						}
-					}
-				}
+			if err := alertWeasel(weasel.cmd, alerts); err != nil {
+				logE.Printf("%s alert problem: %v", weasel.name, err)
 			}
 		}
-		for _, a := range alerts {
-			logW.Printf(a)
-		}
-		if err := slackAlerts("#telecom-fraud", alerts); err != nil {
-			logE.Printf("Slack alert problem: %v", err)
-		}
-		// TODO: emailAlerts() docs.aws.amazon.com/ses/latest/DeveloperGuide/examples-send-raw-using-sdk.html
 	}
 }
 

@@ -12,12 +12,37 @@
 		"cur.aws":	".cmon_curaws.json",
 		"cdr.asp":	".cmon_cdrasp.json"
 	},
+	"Alerts": {
+		"Options":	"<placeholder>",
+		"Profiles": {
+			"default": {
+			}, "cost": {
+			}, "fraud": {
+				"from":"xxx",
+				"cc":"xxx",
+				"slack":"#xxx",
+				"subject":"xxx",
+				"heading":"xxx",
+				"c.action":"xxx",
+				"action":"xxx"
+			}
+		},
+		"Customers": {
+			"202xxx":	{"name":"xxx", "to":"xxx"},
+			"206xxx":	{"name":"xxx", "to":"xxx"}
+		}
+	},
 	"Slack": {
 		"Options":	"<placeholder>",
 		"Webhooks": {
 			"#telecom-fraud":	"https://hooks.slack.com/services/T0xxx/B0xxx/xxx",
 			"default":			"https://hooks.slack.com/services/T0xxx/B0xxx/xxx"
 		}
+	},
+	"Datadog": {
+		"Options": "<placeholder>",
+		"APIKey": "dd605d1d620eb2fb227812efe0xxxxxx",
+		"AppKey": "01688890ef0439d7530098a54c89821ecaxxxxxx"
 	},
 	"AWS": {
 		"Options":	"<placeholder>",
@@ -172,10 +197,5 @@
 				"~name":"WFM","~profile":"global"
 			}
 		}
-	},
-	"Datadog": {
-		"Options": "<placeholder>",
-		"APIKey": "dd605d1d620eb2fb227812efe0xxxxxx",
-		"AppKey": "01688890ef0439d7530098a54c89821ecaxxxxxx"
 	}
 }
