@@ -20,11 +20,11 @@
 			}, "telecom fraud": {
 				"from":"xxx",
 				"to":"xxx",
-				"slack":"#telecom-fraud",
 				"subject":"xxx",
 				"heading":"xxx",
 				"c.action":"xxx",
-				"action":"xxx"
+				"action":"xxx",
+				"slack":"#telecom-fraud"
 			}
 		},
 		"Customers": {
@@ -50,6 +50,10 @@
 		"SavCov":	0.7,
 		"SpotDisc":	0.65,
 		"UsageAdj":	0.94,
+		"SES": {
+			"region":	"us-east-2",
+			"from":		"xxx"
+		},
 		"Regions": {
 			"USW1": {"dc":"sfo"},"us-west-1": {"dc":"sfo"},
 			"USW2": {"dc":"eug"},"us-west-2": {"dc":"eug"},

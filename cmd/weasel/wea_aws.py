@@ -10,7 +10,6 @@ import  argparse
 import  json
 from    email.mime.multipart    import  MIMEMultipart
 from    email.mime.text         import  MIMEText
-from    email.mime.application  import  MIMEApplication
 import  boto3
 from    botocore.exceptions     import  ProfileNotFound,ClientError,EndpointConnectionError,ConnectionClosedError
 #from    datetime                import  datetime,timedelta
@@ -69,11 +68,11 @@ def select(d, kl, dk=None):
     for k in kl:
         if k in d: return d[k]
     return d[dk] if dk else ''
-def send(client, alert, profile, cust, csend):
+def send(client, alert, ses, profile, cust, csend):
     msg = MIMEMultipart('mixed')
     msg['Subject'] = select(profile, ['c.subject','subject'] if csend else ['subject'])
-    msg['From'] = profile['from']
-    msg['To'] = cust.get('to','') if csend else profile.get('to','')
+    msg['From'] = profile['from'] if 'from' in profile else ses['from']
+    msg['To'] = cust['to'] if csend else profile['to']
     msg['Cc'] = cust.get('cc','') if csend else profile.get('cc','')
     body = MIMEMultipart('alternative')
     heading = select(profile, ['c.heading','heading'] if csend else ['heading'])
@@ -83,21 +82,21 @@ def send(client, alert, profile, cust, csend):
     body.attach(MIMEText('<html><head></head><body><h3>{}</h3><p>{}</p><p>{}</p></body>'
                          '</html>'.format(heading, text, action), 'html', 'utf-8'))
     msg.attach(body)
-    att = MIMEApplication(detail(alert, select(alert, ['c.cols'] if csend else [], 'cols')))
-    att.replace_header('Content-Type', 'text/csv')
+    att = MIMEText(detail(alert, select(alert, ['c.cols'] if csend else [], 'cols')), 'csv', 'utf-8')
     att.add_header('Content-Disposition', 'attachment', filename='detail.csv')
     msg.attach(att)
     return 'MessageId' in client.send_raw_email(RawMessage={'Data':msg.as_string()})
 
 def weaSESAWS(service, settings, args):
+    if not settings.get('AWS',{}).get('SES'): raise WError('no SES settings found for {}'.format(service))
     if not settings.get('Alerts',{}).get('Profiles'): raise WError('no alerts profiles found for {}'.format(service))
-    sent, profiles, customers = 0, settings['Alerts']['Profiles'], settings['Alerts'].get('Customers',{})
-    client = boto3.client('ses', region_name='us-east-2') # TODO: get SES region from AWS settings
+    ses,profiles,customers,sent = settings['AWS']['SES'], settings['Alerts']['Profiles'], settings['Alerts'].get('Customers',{}), 0
+    client = boto3.client('ses', region_name=ses['region'])
     for line in sys.stdin:
         alert = json.loads(line.strip())
         profile,cust = profiles.get(alert['profile'],profiles['default']), customers.get(alert.get('cust'),{})
-        if ('to' not in profile or send(client, alert, profile, cust, False)) and (
-            'to' not in cust    or send(client, alert, profile, cust, True)): sent+=1
+        if ('to' not in profile or send(client, alert, ses, profile, cust, False)) and (
+            'to' not in cust    or send(client, alert, ses, profile, cust, True)): sent+=1
     sys.stdout.write('{}\n'.format(sent))
 
 
