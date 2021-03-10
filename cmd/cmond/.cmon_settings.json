@@ -20,6 +20,7 @@
 			}, "telecom fraud": {
 				"from":"xxx",
 				"to":"xxx",
+				"cc":"xxx",
 				"subject":"xxx",
 				"heading":"xxx",
 				"c.action":"xxx",
@@ -28,7 +29,7 @@
 			}
 		},
 		"Customers": {
-			"202xxx":	{"name":"xxx", "to":"xxx"},
+			"202xxx":	{"name":"xxx", "to":"xxx", "cc":"xxx"},
 			"206xxx":	{"name":"xxx", "to":"xxx"}
 		}
 	},
