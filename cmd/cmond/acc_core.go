@@ -791,7 +791,7 @@ func curawsMaint(m *model) {
 		goGo <- true
 	})
 
-	for f := time.NewTicker(720 * time.Second); ; {
+	for f := time.NewTicker(2160 * time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 6*time.Second, func() {

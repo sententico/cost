@@ -369,10 +369,11 @@ func curawsFinalize(acc *modAcc) {
 	psum, pdet, work, pg := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail), acc.m.data[2].(*curWork), lgPage
 	for mo, wm := range work.idet.Line {
 		bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
-		bh, eh, pm, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0
+		bh, eh, pm, tc, nl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0.0, 0
 
 		for id, line := range wm {
 			if line.Cost <= curItemMin && -curItemMin <= line.Cost {
+				tc += float64(line.Cost)
 				delete(wm, id)
 				continue
 			} else if line.Cost < curItemDet && -curItemDet < line.Cost {
@@ -451,8 +452,8 @@ func curawsFinalize(acc *modAcc) {
 			psum.ByRegion.update(work.isum.ByRegion, bh, eh)
 			psum.ByTyp.update(work.isum.ByTyp, bh, eh)
 			psum.BySvc.update(work.isum.BySvc, bh, eh)
-			logI.Printf("%s AWS CUR update: %d line items (%d new) updated %d",
-				bt.Format("Jan06"), len(wm), nl, len(pm))
+			logI.Printf("%s AWS CUR update: %d line items (%d new; $%.4f truncated) updated %d",
+				bt.Format("Jan06"), len(wm), nl, tc, len(pm))
 		}
 	}
 }
