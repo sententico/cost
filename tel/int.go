@@ -119,6 +119,7 @@ const (
 		"2":	{"Name":"FRA",			"Alias":["#EU primary",	"fra",		"SBC50"]},
 		"3":	{"Name":"LHR",			"Alias":["#EU standby",	"lhr",		"SBC40"]},
 
+		"6":	{"Name":"DUB",			"Alias":["#UK standby", "dub",		"UKSSPRD...RBBN"]},
 		"7":	{"Name":"LGW",			"Alias":["#UK primary",	"lgw",		"UKSSPRD2A1RBBN","UKSSPRD2B1RBBN","UKSSPRD2C1RBBN"]},
 
 		"62":	{"Name":"AWS lab",		"Alias":["AWS LAB",	"soft lab",		"SSD1A1RBBN","SSD1A2RBBN","SSD1B1RBBN","SSD1B2RBBN","SSD1D1RBBN","SSD1D2RBBN"]},

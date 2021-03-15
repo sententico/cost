@@ -84,6 +84,9 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 }
 
 func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
+	if k == "" {
+		k = "any/any"
+	}
 	a = make(map[string]string, 32)
 	switch a["model"] = "cdr.asp/term"; len(v) {
 	case 1:
