@@ -84,9 +84,6 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 }
 
 func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
-	if k == "" {
-		k = "any/any"
-	}
 	a = make(map[string]string, 32)
 	switch a["model"] = "cdr.asp/term"; len(v) {
 	case 1:
@@ -113,7 +110,9 @@ func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
 	return
 }
 func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
-	a = make(map[string]string, 32)
+	if a = make(map[string]string, 32); k == "" {
+		k = "any/any"
+	}
 	switch a["cust"], a["model"] = strings.Split(k, "/")[0], "cdr.asp/term"; len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: new/rare $%.0f usage burst", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
