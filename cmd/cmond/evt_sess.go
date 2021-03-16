@@ -16,6 +16,17 @@ const (
 	samplePage = 300 // statistics sample "page" size (1 high/low anomalous value pair eliminated per page)
 )
 
+type (
+	alertMetric struct {
+		name   string
+		thresh float64 // alert threshold amount
+		ratio  float64 // minimum ratio to mean
+		sig    float64 // minimum sigmas from mean
+		alert  func(string, string, ...float64) map[string]string
+		filter func(string) string
+	}
+)
+
 var (
 	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( with SQL (SE|EE|Web|EX)| Spot)?|SQL (SE|EE|Web|EX))\b`)
 )
@@ -60,6 +71,15 @@ func alertDetail(alert map[string]string, filters []string, rows int) {
 		}
 	}
 }
+func alertCURDetail(alert map[string]string, from int32, filters []string, rows int) {
+	c, err := curtabExtract(from, 0, 1, rows, 0.25, filters)
+	if i := 0; err == nil {
+		for row := range c { // TODO: extract m rows, insert n, where m>>n and n are highest cost of m
+			alert[strconv.Itoa(i)] = strings.Join(row, "\",\"")
+			i++ // TODO: fix for fields containing double-quotes
+		}
+	}
+}
 
 func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	if len(s) > 0 {
@@ -83,8 +103,73 @@ func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	return
 }
 
+func curawsCost(m, k string, v ...float64) (a map[string]string) {
+	a = make(map[string]string, 256)
+	switch len(v) {
+	case 1:
+		a["short"] = fmt.Sprintf("%q metric cost alert: new/rare $%.0f hourly usage burst for %q", m, v[0], k)
+		a["long"] = fmt.Sprintf("The %q metric is seeing new or unusual consumption.  A billable $%.0f hourly usage burst for %q has occurred.", m, v[1], k)
+	case 2:
+		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f)", m, v[0], k, v[1])
+		a["long"] = fmt.Sprintf("The %q metric is seeing elevated consumption amounting to $%.0f of hourly cost for %q.", m, v[0], k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour.", v[1])
+	case 3:
+		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f with bursts ranging to $%.0f)", m, v[0], k, v[1], v[2])
+		a["long"] = fmt.Sprintf("The %q metric is seeing heavy consumption amounting to $%.0f of hourly cost for %q.", m, v[0], k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f.", v[1], v[2])
+	case 4:
+		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)", m, v[0], k, v[1], v[2], v[3])
+		a["long"] = fmt.Sprintf("The %q metric is seeing heavy consumption amounting to $%.0f of hourly cost for %q.", m, v[0], k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f or occasionally to as much as $%.0f.", v[1], v[2], v[3])
+	default:
+		return nil
+	}
+	return
+}
+func curCost() (alerts []map[string]string) {
+	for _, metric := range []alertMetric{
+		{"cur.aws/acct", 4, 1.2, 4, curawsCost, func(k string) string { return `acct~^` + k }},
+		{"cur.aws/region", 8, 1.2, 4, curawsCost, func(k string) string { return `region=` + k }},
+		{"cur.aws/typ", 8, 1.2, 4, curawsCost, func(k string) string { return `typ=` + k }},
+		{"cur.aws/svc", 2, 1.2, 4, curawsCost, func(k string) string { return `svc=` + k }},
+	} {
+		if c, err := seriesExtract(metric.name, 24*100, 12, metric.thresh); err != nil {
+			logE.Printf("problem accessing %q metric: %v", metric.name, err)
+		} else if sx := <-c; sx != nil {
+			for k, se := range sx.Series {
+				// metric, k, se, adj
+				var a map[string]string
+				if len(se) <= 12 {
+					if _, u, _ := basicStats(se); u > metric.thresh {
+						a = metric.alert(metric.name, k, u)
+					}
+				} else if _, u, _ := basicStats(se[:12]); u <= metric.thresh {
+				} else if ss, mean, sdev := basicStats(se[12:]); u > mean*metric.ratio && u > mean+sdev*metric.sig {
+					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
+					case high-med < 1 && max-high < 1:
+						a = metric.alert(metric.name, k, u, high)
+					case max-high < 1:
+						a = metric.alert(metric.name, k, u, med, max)
+					default:
+						a = metric.alert(metric.name, k, u, med, high, max)
+					}
+				}
+				if a != nil {
+					a["profile"] = "cost"
+					a["cols"] = "Invoice Item,Hour,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description,Name,env,dc,product,app,cust,team,version,Recs,Usage,Billed"
+					alertCURDetail(a, -12, []string{
+						metric.filter(k),
+					}, 240)
+					alerts = append(alerts, a)
+				}
+			}
+		}
+	}
+	return
+}
+
 func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
-	a = make(map[string]string, 32)
+	a = make(map[string]string, 64)
 	switch a["model"] = "cdr.asp/term"; len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f usage burst for %q", m, v[0], k)
@@ -110,7 +195,7 @@ func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
 	return
 }
 func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
-	if a = make(map[string]string, 32); k == "" {
+	if a = make(map[string]string, 64); k == "" {
 		k = "any/any"
 	}
 	switch a["cust"], a["model"] = strings.Split(k, "/")[0], "cdr.asp/term"; len(v) {
@@ -146,14 +231,7 @@ func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
 	return
 }
 func cdrFraud() (alerts []map[string]string) {
-	for _, metric := range []struct {
-		name   string
-		thresh float64 // alert threshold amount
-		ratio  float64 // minimum ratio to mean
-		sig    float64 // minimum sigmas from mean
-		alert  func(string, string, ...float64) map[string]string
-		filter func(string) string
-	}{
+	for _, metric := range []alertMetric{
 		{"cdr.asp/term/geo", 600, 1.2, 5, cdrtermFraud, func(k string) string { return `to~ ` + k + `$` }},
 		{"cdr.asp/term/cust", 400, 1.2, 6, cdrtermcustFraud, func(k string) string { return `cust=` + k }},
 		{"cdr.asp/term/sp", 1200, 1.2, 5, cdrtermFraud, func(k string) string { return `sp=` + k }},
@@ -170,7 +248,7 @@ func cdrFraud() (alerts []map[string]string) {
 				if len(se) == 1 && se[0]*(1+adj) > metric.thresh {
 					a = metric.alert(metric.name, k, se[0])
 				} else if len(se) < 2 {
-				} else if u := se[0] + se[1]*adj; u < metric.thresh {
+				} else if u := se[0] + se[1]*adj; u <= metric.thresh {
 				} else if ss, mean, sdev := basicStats(se[2:]); len(ss) == 0 {
 					a = metric.alert(metric.name, k, se[0], u)
 				} else if u > mean*metric.ratio && u > mean+sdev*metric.sig {
@@ -190,7 +268,7 @@ func cdrFraud() (alerts []map[string]string) {
 					alertDetail(a, []string{
 						metric.filter(k),
 						fmt.Sprintf(`start>%s`, time.Unix(now-60*90, 0).UTC().Format(time.RFC3339)),
-					}, 20)
+					}, 48)
 					alerts = append(alerts, a)
 				}
 			}
@@ -202,6 +280,9 @@ func cdrFraud() (alerts []map[string]string) {
 func trigcmonScan(m *model, event string) {
 	var alerts []map[string]string
 	switch event {
+	case "ec2.aws", "ebs.aws", "rds.aws":
+	case "cur.aws":
+		alerts = append(alerts, curCost()...)
 	case "cdr.asp":
 		alerts = append(alerts, cdrFraud()...)
 	}

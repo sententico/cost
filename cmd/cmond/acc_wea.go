@@ -1812,20 +1812,26 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 
 func curtabExtract(from, to int32, units int16, rows int, truncate float64, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
+	var sum *curSum
 	var cur *curDetail
 	var flt, rflt []func(...interface{}) bool
 	if rows++; from > to || units < 1 || rows < 0 || rows == 1 || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
-	} else if cur = acc.m.data[1].(*curDetail); cur == nil {
+	} else if sum, cur = acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail); cur == nil {
 	} else if flt, err = cur.filters(criteria); err != nil {
 		return
 	} else if rflt, err = cur.rfilters(criteria); err != nil {
 		return
 	}
 
-	res = make(chan []string, 32)
+	if res = make(chan []string, 32); from <= 0 {
+		acc.reqR()
+		from += sum.Current
+		to += sum.Current
+		acc.rel()
+	}
 	go func() {
 		defer func() {
 			acc.rel()
