@@ -481,7 +481,7 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 			}
 		} else if strings.HasPrefix(meta, "end ") {
 			curawsFinalize(acc)
-			work = &curWork{}
+			acc.m.data[2] = &curWork{}
 		} else if meta != "" {
 			logE.Printf("unrecognized AWS CUR input: %q", meta)
 		}
