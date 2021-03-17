@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	curItemMin = 2e-7 // minimum CUR line item cost above which it is retained (<curItemDet)
+	curItemMin = 3e-7 // minimum CUR line item cost above which it is retained (<curItemDet)
 	curItemDet = 0.05 // minimum CUR line item cost to keep hourly usage detail
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)

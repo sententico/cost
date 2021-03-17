@@ -144,10 +144,10 @@ func curawsCost(m, k string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", 4, 1.2, 2.5, curawsCost, func(k string) string { return `acct~^` + k }},
-		{"cur.aws/region", 8, 1.2, 2.5, curawsCost, func(k string) string { return `region=` + k }},
-		{"cur.aws/typ", 8, 1.2, 2.5, curawsCost, func(k string) string { return `typ=` + k }},
-		{"cur.aws/svc", 2, 1.2, 2.5, curawsCost, func(k string) string { return `svc=` + k }},
+		{"cur.aws/acct", 4, 1.2, 2, curawsCost, func(k string) string { return `acct~^` + k }},
+		{"cur.aws/region", 8, 1.2, 2, curawsCost, func(k string) string { return `region=` + k }},
+		{"cur.aws/typ", 8, 1.2, 2, curawsCost, func(k string) string { return `typ=` + k }},
+		{"cur.aws/svc", 2, 1.2, 2, curawsCost, func(k string) string { return `svc=` + k }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
