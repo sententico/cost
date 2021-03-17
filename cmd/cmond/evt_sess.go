@@ -67,17 +67,32 @@ func alertDetail(alert map[string]string, filters []string, rows int) {
 	if i := 0; err == nil {
 		for row := range c {
 			alert[strconv.Itoa(i)] = strings.Join(row, "\",\"")
-			i++ // TODO: fix for fields containing double-quotes
+			// TODO: fix for fields containing double-quotes
+			i++
 		}
 	}
 }
 func alertCURDetail(alert map[string]string, from int32, filters []string, xrows, rows int) {
-	c, err := curtabExtract(from, 0, 1, rows, 0.25, filters)
-	if i := 0; err == nil {
-		// TODO: extract xrows, insert rows, where xrows>>rows and rows are highest cost of xrows
+	if c, err := curtabExtract(from, 0, 1, xrows, 0.25, filters); err == nil {
+		m := make(map[string][]string, xrows/8)
 		for row := range c {
-			alert[strconv.Itoa(i)] = strings.Join(row, "\",\"")
-			i++ // TODO: fix for fields containing double-quotes
+			m[row[0]] = row
+		}
+		type rowVal struct {
+			rid string
+			val float64
+		}
+		rv, v := make([]rowVal, 0, len(m)), 0.0
+		for i, row := range m {
+			v, _ = strconv.ParseFloat(row[len(row)-1], 64)
+			rv = append(rv, rowVal{i, v})
+		}
+		sort.Slice(rv, func(p, q int) bool {
+			return rv[p].val >= rv[q].val
+		})
+		for i := 0; i < len(rv) && i < rows; i++ {
+			alert[strconv.Itoa(i)] = strings.Join(m[rv[i].rid], "\",\"")
+			// TODO: fix for fields containing double-quotes
 		}
 	}
 }
@@ -108,18 +123,18 @@ func curawsCost(m, k string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("%q metric cost alert: new/rare $%.0f hourly usage burst for %q", m, v[0], k)
-		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual Amazon consumption.  A $%.0f hourly cost burst for %q has occurred.", m, v[0], k)
+		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual AWS consumption.  A $%.0f hourly cost burst for %q has occurred.", m, v[0], k)
 	case 2:
 		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f)", m, v[0], k, v[1])
-		a["long"] = fmt.Sprintf("The %q metric is recording elevated Amazon consumption costing $%.0f per hour for %q.", m, v[0], k)
+		a["long"] = fmt.Sprintf("The %q metric is recording elevated AWS consumption costing $%.0f per hour for %q.", m, v[0], k)
 		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour.", v[1])
 	case 3:
 		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f with bursts ranging to $%.0f)", m, v[0], k, v[1], v[2])
-		a["long"] = fmt.Sprintf("The %q metric is recording heavy Amazon consumption costing $%.0f per hour for %q.", m, v[0], k)
+		a["long"] = fmt.Sprintf("The %q metric is recording heavy AWS consumption costing $%.0f per hour for %q.", m, v[0], k)
 		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f.", v[1], v[2])
 	case 4:
 		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)", m, v[0], k, v[1], v[2], v[3])
-		a["long"] = fmt.Sprintf("The %q metric is recording heavy Amazon consumption costing $%.0f per hour for %q.", m, v[0], k)
+		a["long"] = fmt.Sprintf("The %q metric is recording heavy AWS consumption costing $%.0f per hour for %q.", m, v[0], k)
 		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f or occasionally to as much as $%.0f.", v[1], v[2], v[3])
 	default:
 		return nil
@@ -127,23 +142,24 @@ func curawsCost(m, k string, v ...float64) (a map[string]string) {
 	return
 }
 func curCost() (alerts []map[string]string) {
+	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", 4, 1.2, 3, curawsCost, func(k string) string { return `acct~^` + k }},
-		{"cur.aws/region", 8, 1.2, 3, curawsCost, func(k string) string { return `region=` + k }},
-		{"cur.aws/typ", 8, 1.2, 3, curawsCost, func(k string) string { return `typ=` + k }},
-		{"cur.aws/svc", 2, 1.2, 3, curawsCost, func(k string) string { return `svc=` + k }},
+		{"cur.aws/acct", 4, 1.2, 2.5, curawsCost, func(k string) string { return `acct~^` + k }},
+		{"cur.aws/region", 8, 1.2, 2.5, curawsCost, func(k string) string { return `region=` + k }},
+		{"cur.aws/typ", 8, 1.2, 2.5, curawsCost, func(k string) string { return `typ=` + k }},
+		{"cur.aws/svc", 2, 1.2, 2.5, curawsCost, func(k string) string { return `svc=` + k }},
 	} {
-		if c, err := seriesExtract(metric.name, 24*100, 12, metric.thresh); err != nil {
+		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
 		} else if sx := <-c; sx != nil {
 			for k, se := range sx.Series {
 				var a map[string]string
-				if len(se) <= 12 {
+				if len(se) <= recent {
 					if _, u, _ := basicStats(se); u > metric.thresh {
 						a = metric.alert(metric.name, k, u)
 					}
-				} else if _, u, _ := basicStats(se[:12]); u <= metric.thresh {
-				} else if ss, mean, sdev := basicStats(se[12:]); u > mean*metric.ratio && u > mean+sdev*metric.sig {
+				} else if _, u, _ := basicStats(se[:recent]); u <= metric.thresh {
+				} else if ss, mean, sdev := basicStats(se[recent:]); u > mean*metric.ratio && u > mean+sdev*metric.sig {
 					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
 					case high-med < 1 && max-high < 1:
 						a = metric.alert(metric.name, k, u, max)
@@ -154,11 +170,11 @@ func curCost() (alerts []map[string]string) {
 					}
 				}
 				if a != nil {
-					a["profile"] = "cost"
+					a["profile"] = "cloud cost"
 					a["cols"] = "Invoice Item,Hour,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description,Name,env,dc,product,app,cust,team,version,~,Usage,Billed"
-					alertCURDetail(a, -12, []string{
+					alertCURDetail(a, -recent, []string{
 						metric.filter(k),
-					}, 2000, 240)
+					}, 12000, 240)
 					alerts = append(alerts, a)
 				}
 			}
