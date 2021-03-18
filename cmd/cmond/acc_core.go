@@ -395,7 +395,7 @@ func evtcmonClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	evt := m.data[0].(*evtModel)
 	for id, a := range evt.Alert {
-		if exp, _ := time.Parse(time.RFC3339, a["expires"]); time.Until(exp.Add(time.Hour*24*100)) < 0 {
+		if rst, _ := time.Parse(time.RFC3339, a["reset"]); time.Until(rst.Add(time.Hour*24*100)) < 0 {
 			delete(evt.Alert, id)
 		}
 	}
