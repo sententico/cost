@@ -95,14 +95,14 @@ func alertEnabled(a map[string]string, metric alertMetric, k, p string) bool {
 		acc.reqW()
 		defer func() { acc.rel() }()
 		evt, id := acc.m.data[0].(*evtModel), strings.Join([]string{metric.name, k, p}, "~")
-		exp, _ := time.Parse(time.RFC3339, evt.Alert[id]["expires"])
-		if time.Until(exp) > 0 {
+		rst, _ := time.Parse(time.RFC3339, evt.Alert[id]["reset"])
+		if time.Until(rst) > 0 {
 			return false
 		}
-		a["expires"] = time.Now().Add(time.Second * time.Duration(metric.reset*3600)).Format(time.RFC3339)
+		a["reset"] = time.Now().Add(time.Second * time.Duration(metric.reset*3600)).Format(time.RFC3339)
 		a["profile"] = p
 		h := sha256.New()
-		h.Write([]byte(id))
+		h.Write([]byte(id + "sa!tyGophers"))
 		a["hash"] = fmt.Sprintf("%x", h.Sum(nil))
 		copy := make(map[string]string, len(a))
 		for ak, av := range a {
