@@ -86,12 +86,12 @@ func init() {
 	logE = log.New(os.Stderr, "ERROR ", log.Lshortfile)
 
 	mMod, sfile = map[string]*model{
-		"trig.cmon": {boot: trigcmonBoot, maint: trigcmonMaint, term: trigcmonTerm, immed: true},
-		"ec2.aws":   {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
-		"ebs.aws":   {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
-		"rds.aws":   {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
-		"cur.aws":   {boot: curawsBoot, maint: curawsMaint, term: curawsTerm},
-		"cdr.asp":   {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
+		"evt.cmon": {boot: evtcmonBoot, maint: evtcmonMaint, term: evtcmonTerm, immed: true},
+		"ec2.aws":  {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
+		"ebs.aws":  {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
+		"rds.aws":  {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
+		"cur.aws":  {boot: curawsBoot, maint: curawsMaint, term: curawsTerm},
+		"cdr.asp":  {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
 	}, cmon.Getarg([]string{"CMON_SETTINGS", ".cmon_settings.json"})
 	if err := settings.Load(sfile); err != nil {
 		logE.Fatalf("%v", err)
@@ -127,7 +127,7 @@ func init() {
 	gosrv.Register(&Admin{})
 	go0srv.Register(&API{Ver: 0})
 
-	gob.Register(&trigModel{})
+	gob.Register(&evtModel{})
 	gob.Register(&ec2Sum{})
 	gob.Register(&ec2Detail{})
 	gob.Register(&ebsSum{})

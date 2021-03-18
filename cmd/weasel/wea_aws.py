@@ -2,6 +2,8 @@
 
 # SES notes:
 # https://docs.aws.amazon.com/ses/latest/DeveloperGuide/examples-send-raw-using-sdk.html
+# recommended DNS SPF record with SES dedicated IP
+# recommended DKIM signature for aspect.com (DNS tokens)
 
 import  sys
 import  os

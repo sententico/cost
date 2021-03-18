@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +23,7 @@ type (
 		thresh float64 // alert threshold amount
 		ratio  float64 // minimum ratio to mean
 		sig    float64 // minimum sigmas from mean
+		reset  float32 // hours to reset
 		alert  func(string, string, ...float64) map[string]string
 		filter func(string) string
 	}
@@ -62,6 +64,55 @@ func alertWeasel(weasel string, alerts []map[string]string) (err error) {
 	return
 }
 
+func basicStats(s []float64) (ss []float64, mean, sdev float64) {
+	if len(s) > 0 {
+		ss = append([]float64(nil), s...)
+		for sort.Float64s(ss); len(ss) > 1 && ss[0] == 0; ss = ss[1:] {
+		}
+		if t := len(ss) / samplePage; t > 0 {
+			ss = ss[t : len(ss)-t]
+		}
+		for _, v := range ss {
+			mean += v
+		}
+		mean /= float64(len(ss))
+		var d float64
+		for _, v := range ss {
+			d = v - mean
+			sdev += d * d
+		}
+		sdev = math.Sqrt(sdev / float64(len(ss)))
+	}
+	return
+}
+
+func alertEnabled(a map[string]string, metric alertMetric, k, p string) bool {
+	if a == nil {
+		return false
+	} else if acc := mMod["evt.cmon"].newAcc(); acc == nil {
+		return false
+	} else {
+		acc.reqW()
+		defer func() { acc.rel() }()
+		evt, id := acc.m.data[0].(*evtModel), strings.Join([]string{metric.name, k, p}, "~")
+		exp, _ := time.Parse(time.RFC3339, evt.Alert[id]["expires"])
+		if time.Until(exp) > 0 {
+			return false
+		}
+		a["expires"] = time.Now().Add(time.Second * time.Duration(metric.reset*3600)).Format(time.RFC3339)
+		a["profile"] = p
+		h := sha256.New()
+		h.Write([]byte(id))
+		a["hash"] = fmt.Sprintf("%x", h.Sum(nil))
+		copy := make(map[string]string, len(a))
+		for ak, av := range a {
+			copy[ak] = av
+		}
+		evt.Alert[id] = copy
+		return true
+	}
+}
+
 func alertDetail(alert map[string]string, filters []string, rows int) {
 	c, err := tableExtract(alert["model"], rows, filters)
 	if i := 0; err == nil {
@@ -97,28 +148,6 @@ func alertCURDetail(alert map[string]string, from int32, filters []string, xrows
 	}
 }
 
-func basicStats(s []float64) (ss []float64, mean, sdev float64) {
-	if len(s) > 0 {
-		ss = append([]float64(nil), s...)
-		for sort.Float64s(ss); len(ss) > 1 && ss[0] == 0; ss = ss[1:] {
-		}
-		if t := len(ss) / samplePage; t > 0 {
-			ss = ss[t : len(ss)-t]
-		}
-		for _, v := range ss {
-			mean += v
-		}
-		mean /= float64(len(ss))
-		var d float64
-		for _, v := range ss {
-			d = v - mean
-			sdev += d * d
-		}
-		sdev = math.Sqrt(sdev / float64(len(ss)))
-	}
-	return
-}
-
 func curawsCost(m, k string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 1:
@@ -144,10 +173,10 @@ func curawsCost(m, k string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", 4, 1.2, 2, curawsCost, func(k string) string { return `acct~^` + k }},
-		{"cur.aws/region", 8, 1.2, 2, curawsCost, func(k string) string { return `region=` + k }},
-		{"cur.aws/typ", 8, 1.2, 2, curawsCost, func(k string) string { return `typ=` + k }},
-		{"cur.aws/svc", 2, 1.2, 2, curawsCost, func(k string) string { return `svc=` + k }},
+		{"cur.aws/acct", 4, 1.2, 1.5, 24, curawsCost, func(k string) string { return `acct~^` + k }},
+		{"cur.aws/region", 8, 1.2, 1.5, 24, curawsCost, func(k string) string { return `region=` + k }},
+		{"cur.aws/typ", 8, 1.2, 1.5, 24, curawsCost, func(k string) string { return `typ=` + k }},
+		{"cur.aws/svc", 2, 1.2, 1.5, 24, curawsCost, func(k string) string { return `svc=` + k }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -169,8 +198,7 @@ func curCost() (alerts []map[string]string) {
 						a = metric.alert(metric.name, k, u, med, high, max)
 					}
 				}
-				if a != nil {
-					a["profile"] = "cloud cost"
+				if alertEnabled(a, metric, k, "cloud cost") {
 					a["cols"] = "Invoice Item,Hour,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description,Name,env,dc,product,app,cust,team,version,~,Usage,Billed"
 					alertCURDetail(a, -recent, []string{
 						metric.filter(k),
@@ -247,10 +275,10 @@ func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
 }
 func cdrFraud() (alerts []map[string]string) {
 	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo", 600, 1.2, 5, cdrtermFraud, func(k string) string { return `to~ ` + k + `$` }},
-		{"cdr.asp/term/cust", 400, 1.2, 6, cdrtermcustFraud, func(k string) string { return `cust=` + k }},
-		{"cdr.asp/term/sp", 1200, 1.2, 5, cdrtermFraud, func(k string) string { return `sp=` + k }},
-		{"cdr.asp/term/to", 200, 1.2, 5, cdrtermFraud, func(k string) string { return `to~^\` + k[:strings.LastIndexByte(k, ' ')+1] }},
+		{"cdr.asp/term/geo", 600, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `to~ ` + k + `$` }},
+		{"cdr.asp/term/cust", 400, 1.2, 6, 0.5, cdrtermcustFraud, func(k string) string { return `cust=` + k }},
+		{"cdr.asp/term/sp", 1200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `sp=` + k }},
+		{"cdr.asp/term/to", 200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `to~^\` + k[:strings.LastIndexByte(k, ' ')+1] }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/2.2); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -276,8 +304,7 @@ func cdrFraud() (alerts []map[string]string) {
 						a = metric.alert(metric.name, k, se[0], u, med, high, max)
 					}
 				}
-				if a != nil {
-					a["profile"] = "telecom fraud"
+				if alertEnabled(a, metric, k, "telecom fraud") {
 					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
 					a["c.cols"] = "CDR,Loc,To,From,~,Cust/App,Start,Min,Tries,Billable,~"
 					alertDetail(a, []string{
@@ -292,7 +319,7 @@ func cdrFraud() (alerts []map[string]string) {
 	return
 }
 
-func trigcmonScan(m *model, event string) {
+func evtcmonHandler(m *model, event string) {
 	var alerts []map[string]string
 	switch event {
 	case "ec2.aws", "ebs.aws", "rds.aws":

@@ -23,16 +23,9 @@ import (
 type (
 	cmdMap map[string]string
 
-	trigItem struct {
-		Name   string
-		Snap   map[string][][]string
-		Action []string
-	}
-	trigModel struct {
+	evtModel struct {
 		Placeholder string
-		Trigger     []*trigItem
-
-		tMap map[int64]*trigItem
+		Alert       map[string]map[string]string
 	}
 
 	perfItem struct {
@@ -385,41 +378,49 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 	return nil, nil, err
 }
 
-// trig.cmon model core accessors
+// evt.cmon model core accessors
 //
-func trigcmonBoot(m *model) {
-	trig := &trigModel{}
-	m.data = append(m.data, trig)
+func evtcmonBoot(m *model) {
+	evt := &evtModel{
+		Alert: make(map[string]map[string]string, 512),
+	}
+	m.data = append(m.data, evt)
 	m.persist = len(m.data)
 	m.load()
 }
-func trigcmonClean(m *model, deep bool) {
+func evtcmonClean(m *model, deep bool) {
 	acc := m.newAcc()
 	acc.reqW()
 
 	// clean expired/invalid/insignificant data
-	// trig := m.data[0].(*trigModel)
+	evt := m.data[0].(*evtModel)
+	for id, a := range evt.Alert {
+		if exp, _ := time.Parse(time.RFC3339, a["expires"]); time.Until(exp.Add(time.Hour*24*100)) < 0 {
+			delete(evt.Alert, id)
+		}
+	}
+
 	acc.rel()
 }
-func trigcmonMaint(m *model) {
-	goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(m, true) })
+func evtcmonMaint(m *model) {
+	goaftSession(318*time.Second, 320*time.Second, func() { evtcmonClean(m, true) })
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 	for cl, st :=
 		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { trigcmonClean(m, true) })
+			goaftSession(318*time.Second, 320*time.Second, func() { evtcmonClean(m, true) })
 		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
-			goaftSession(0, 0, func() { trigcmonScan(m, event) })
+			goaftSession(0, 0, func() { evtcmonHandler(m, event) })
 		}
 	}
 }
-func trigcmonTerm(m *model) {
-	trigcmonClean(m, false)
+func evtcmonTerm(m *model) {
+	evtcmonClean(m, false)
 	m.store(true)
 }
 
