@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	curItemMin = 3e-7 // minimum CUR line item cost above which it is retained (<curItemDet)
-	curItemDet = 0.05 // minimum CUR line item cost to keep hourly usage detail
+	curItemMin = 2.75e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
+	curItemDet = 0.05    // minimum CUR line item cost to keep hourly usage detail
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -441,7 +441,7 @@ func curawsFinalize(acc *modAcc) {
 		}
 
 		if len(wm) < len(pm)/5*4 {
-			logE.Printf("%s AWS CUR update rejected: only %d line items available to update %d",
+			logE.Printf("%s AWS CUR update rejected: only %d line items offered to update %d",
 				bt.Format("Jan06"), len(wm), len(pm))
 		} else {
 			pdet.Line[mo], pdet.Month[mo] = wm, &[2]int32{bh, eh}
