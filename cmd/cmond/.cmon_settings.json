@@ -5,7 +5,7 @@
 	"WorkDir":	"/var/opt/sententix/aspect",
 	"BinDir":	"/opt/sententix/bin",
 	"Models": {
-		"trig.cmon":	".cmon_trigcmon.json",
+		"evt.cmon":	".cmon_evtcmon.json",
 		"ec2.aws":	".cmon_ec2aws.json",
 		"ebs.aws":	".cmon_ebsaws.json",
 		"rds.aws":	".cmon_rdsaws.json",
@@ -16,7 +16,7 @@
 		"Options":	"<placeholder>",
 		"Profiles": {
 			"default": {
-			}, "cost": {
+			}, "cloud cost": {
 			}, "telecom fraud": {
 				"from":"xxx",
 				"to":"xxx",
