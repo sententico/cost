@@ -66,7 +66,24 @@ func alertWeasel(weasel string, alerts []map[string]string) (err error) {
 
 func basicStats(s []float64) (ss []float64, mean, sdev float64) {
 	if len(s) > 0 {
-		ss = append([]float64(nil), s...)
+		ss = append(make([]float64, 0, len(s)), s...)
+		sort.Float64s(ss)
+		for _, v := range ss {
+			mean += v
+		}
+		mean /= float64(len(ss))
+		var d float64
+		for _, v := range ss {
+			d = v - mean
+			sdev += d * d
+		}
+		sdev = math.Sqrt(sdev / float64(len(ss)))
+	}
+	return
+}
+func basicZStats(s []float64) (ss []float64, mean, sdev float64) {
+	if len(s) > 0 {
+		ss = append(make([]float64, 0, len(s)), s...)
 		for sort.Float64s(ss); len(ss) > 1 && ss[0] == 0; ss = ss[1:] {
 		}
 		if t := len(ss) / samplePage; t > 0 {
@@ -173,21 +190,18 @@ func curawsCost(m, k string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", 4, 1.2, 1.5, 24, curawsCost, func(k string) string { return `acct~^` + k }},
-		{"cur.aws/region", 8, 1.2, 1.5, 24, curawsCost, func(k string) string { return `region=` + k }},
-		{"cur.aws/typ", 8, 1.2, 1.5, 24, curawsCost, func(k string) string { return `typ=` + k }},
-		{"cur.aws/svc", 2, 1.2, 1.5, 24, curawsCost, func(k string) string { return `svc=` + k }},
+		{"cur.aws/acct", 4, 1.1, 1, 24, curawsCost, func(k string) string { return `acct~^` + k }},
+		{"cur.aws/region", 8, 1.1, 1, 24, curawsCost, func(k string) string { return `region=` + k }},
+		{"cur.aws/typ", 8, 1.1, 1, 24, curawsCost, func(k string) string { return `typ=` + k }},
+		{"cur.aws/svc", 2, 1.1, 1, 24, curawsCost, func(k string) string { return `svc=` + k }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
 		} else if sx := <-c; sx != nil {
 			for k, se := range sx.Series {
 				var a map[string]string
-				if len(se) <= recent {
-					if _, u, _ := basicStats(se); u > metric.thresh {
-						a = metric.alert(metric.name, k, u)
-					}
-				} else if _, u, _ := basicStats(se[:recent]); u <= metric.thresh {
+				if _, u, _ := basicStats(se[:recent]); len(se) <= recent {
+					a = metric.alert(metric.name, k, u*recent/float64(len(se)))
 				} else if ss, mean, sdev := basicStats(se[recent:]); u > mean*metric.ratio && u > mean+sdev*metric.sig {
 					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
 					case high-med < 1 && max-high < 1:
@@ -280,19 +294,19 @@ func cdrFraud() (alerts []map[string]string) {
 		{"cdr.asp/term/sp", 1200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `sp=` + k }},
 		{"cdr.asp/term/to", 200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `to~^\` + k[:strings.LastIndexByte(k, ' ')+1] }},
 	} {
-		if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/2.2); err != nil {
+		if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/1.2/2); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
-		} else if sx, now, adj := <-c, time.Now().Unix(), 0.0; sx != nil {
-			if adj = 0.2; int32(now/3600) == sx.From {
-				adj += float64(3600-now%3600) / 3600
+		} else if sx, now, hr := <-c, time.Now().Unix(), 0.0; sx != nil {
+			if int32(now/3600) == sx.From {
+				hr = float64(3599-now%3600) / 3600
 			}
 			for k, se := range sx.Series {
 				var a map[string]string
-				if len(se) == 1 && se[0]*(1+adj) > metric.thresh {
+				if len(se) == 1 && se[0]/(1-hr)*1.3 > metric.thresh {
 					a = metric.alert(metric.name, k, se[0])
 				} else if len(se) < 2 {
-				} else if u := se[0] + se[1]*adj; u <= metric.thresh {
-				} else if ss, mean, sdev := basicStats(se[2:]); len(ss) == 0 {
+				} else if u := (se[0] + se[1]*hr) * 1.2; u <= metric.thresh {
+				} else if ss, mean, sdev := basicZStats(se[2:]); len(ss) == 0 {
 					a = metric.alert(metric.name, k, se[0], u)
 				} else if u > mean*metric.ratio && u > mean+sdev*metric.sig {
 					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {

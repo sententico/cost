@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -10,6 +11,10 @@ import (
 
 	"github.com/sententico/cost/cmon"
 	"github.com/sententico/cost/tel"
+)
+
+const (
+	maxPctMargin = 10 // maximum magnitude of %margin for non-billed amounts
 )
 
 var (
@@ -73,170 +78,254 @@ func rdsawsLookupX(m *model, v url.Values, res chan<- interface{}) {
 	res <- s
 }
 
-func (sum hsU) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
-	rct, ser := make(map[string]float64), make(map[string][]float64)
+func (sum hsU) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
+	ser = make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			switch typ {
+			var s []float64
+			if s = ser[n]; s == nil {
+				s = make([]float64, 0, span)
+			}
+			switch s = s[:h+1]; typ {
 			case 'n':
-				rct[n] += float64(i.Usage) / 3600
+				s[h] = float64(i.Usage) / 3600
 			default:
-				rct[n] += i.Cost
+				s[h] = i.Cost
+			}
+			ser[n] = s
+		}
+	}
+	switch tr := truncate.(type) {
+	case float64:
+		tr = math.Abs(tr)
+		for n, rct := range ser {
+			avg := 0.0
+			for _, v := range rct {
+				avg += v
+			}
+			if avg /= float64(len(rct)); avg > -tr && tr > avg {
+				delete(ser, n)
+			}
+		}
+	case func([]float64) bool:
+		for n, rct := range ser {
+			if tr(rct) {
+				delete(ser, n)
 			}
 		}
 	}
-	for n, t := range rct {
-		if t >= truncate || -truncate >= t {
-			ser[n] = make([]float64, 0, span)
-		}
-	}
 	if len(ser) > 0 {
-		for h, hs := 0, len(sum)-1; h < span; h++ {
-			if m := sum[cur-int32(h)]; m != nil {
-				for n, i := range m {
-					if s := ser[n]; s != nil {
-						switch s = s[:h+1]; typ {
-						case 'n':
-							s[h] = float64(i.Usage) / 3600
-						default:
-							s[h] = i.Cost
-						}
-						ser[n] = s
+		for h := recent; h < span; h++ {
+			for n, i := range sum[cur-int32(h)] {
+				if s := ser[n]; s != nil {
+					switch s = s[:h+1]; typ {
+					case 'n':
+						s[h] = float64(i.Usage) / 3600
+					default:
+						s[h] = i.Cost
 					}
+					ser[n] = s
 				}
-			} else if hs++; h >= hs {
-				break
 			}
 		}
 	}
 	return
 }
 
-func (sum hsA) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
-	rct, ser := make(map[string]float64), make(map[string][]float64)
+func (sum hsA) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
+	ser = make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			rct[n] += i
+			var s []float64
+			if s = ser[n]; s == nil {
+				s = make([]float64, 0, span)
+			}
+			s = s[:h+1]
+			s[h], ser[n] = i, s
 		}
 	}
-	for n, t := range rct {
-		if t >= truncate || -truncate >= t {
-			ser[n] = make([]float64, 0, span)
+	switch tr := truncate.(type) {
+	case float64:
+		tr = math.Abs(tr)
+		for n, rct := range ser {
+			avg := 0.0
+			for _, v := range rct {
+				avg += v
+			}
+			if avg /= float64(len(rct)); avg > -tr && tr > avg {
+				delete(ser, n)
+			}
+		}
+	case func([]float64) bool:
+		for n, rct := range ser {
+			if tr(rct) {
+				delete(ser, n)
+			}
 		}
 	}
 	if len(ser) > 0 {
-		for h, hs := 0, len(sum)-1; h < span; h++ {
-			if m := sum[cur-int32(h)]; m != nil {
-				for n, i := range m {
-					if s := ser[n]; s != nil {
-						s = s[:h+1]
-						s[h], ser[n] = i, s
-					}
+		for h := recent; h < span; h++ {
+			for n, i := range sum[cur-int32(h)] {
+				if s := ser[n]; s != nil {
+					s = s[:h+1]
+					s[h], ser[n] = i, s
 				}
-			} else if hs++; h >= hs {
-				break
 			}
 		}
 	}
 	return
 }
 
-func (sum hsC) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
-	rct, ser := make(map[string]float64), make(map[string][]float64)
+func (sum hsC) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
+	ser = make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			switch typ {
+			var s []float64
+			if s = ser[n]; s == nil {
+				s = make([]float64, 0, span)
+			}
+			switch s = s[:h+1]; typ {
 			case 'm':
-				rct[n] += i.Marg
+				s[h] = i.Marg
+			case 'p':
+				if i.Bill == 0 {
+					s[h] = math.Copysign(maxPctMargin, i.Marg)
+				} else {
+					s[h] = i.Marg / i.Bill
+				}
 			case 'c':
-				rct[n] += i.Bill - i.Marg
+				s[h] = i.Bill - i.Marg
 			case 'n':
-				rct[n] += float64(i.Calls)
+				s[h] = float64(i.Calls)
 			case 'd':
-				rct[n] += float64(i.Dur) / 600
+				s[h] = float64(i.Dur) / 600
 			default:
-				rct[n] += i.Bill
+				s[h] = i.Bill
+			}
+			ser[n] = s
+		}
+	}
+	switch tr := truncate.(type) {
+	case float64:
+		tr = math.Abs(tr)
+		for n, rct := range ser {
+			avg := 0.0
+			for _, v := range rct {
+				avg += v
+			}
+			if avg /= float64(len(rct)); avg > -tr && tr > avg {
+				delete(ser, n)
+			}
+		}
+	case func([]float64) bool:
+		for n, rct := range ser {
+			if tr(rct) {
+				delete(ser, n)
 			}
 		}
 	}
-	for n, t := range rct {
-		if t >= truncate || -truncate >= t {
-			ser[n] = make([]float64, 0, span)
-		}
-	}
 	if len(ser) > 0 {
-		for h, hs := 0, len(sum)-1; h < span; h++ {
-			if m := sum[cur-int32(h)]; m != nil {
-				for n, i := range m {
-					if s := ser[n]; s != nil {
-						switch s = s[:h+1]; typ {
-						case 'm':
-							s[h] = i.Marg
-						case 'c':
-							s[h] = i.Bill - i.Marg
-						case 'n':
-							s[h] = float64(i.Calls)
-						case 'd':
-							s[h] = float64(i.Dur) / 600
-						default:
-							s[h] = i.Bill
+		for h := recent; h < span; h++ {
+			for n, i := range sum[cur-int32(h)] {
+				if s := ser[n]; s != nil {
+					switch s = s[:h+1]; typ {
+					case 'm':
+						s[h] = i.Marg
+					case 'p':
+						if i.Bill == 0 {
+							s[h] = math.Copysign(maxPctMargin, i.Marg)
+						} else {
+							s[h] = i.Marg / i.Bill
 						}
-						ser[n] = s
+					case 'c':
+						s[h] = i.Bill - i.Marg
+					case 'n':
+						s[h] = float64(i.Calls)
+					case 'd':
+						s[h] = float64(i.Dur) / 600
+					default:
+						s[h] = i.Bill
 					}
+					ser[n] = s
 				}
-			} else if hs++; h >= hs {
-				break
 			}
 		}
 	}
 	return
 }
 
-func (sum hnC) series(typ byte, cur int32, span, recent int, truncate float64) (ser map[string][]float64) {
-	rct, nser, ser := make(map[tel.E164digest]float64), make(map[tel.E164digest][]float64), make(map[string][]float64)
+func (sum hnC) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
+	nser, ser := make(map[tel.E164digest][]float64), make(map[string][]float64)
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			switch typ {
-			case 'm':
-				rct[n] += i.Marg
-			case 'c':
-				rct[n] += i.Bill - i.Marg
-			case 'n':
-				rct[n] += float64(i.Calls)
-			case 'd':
-				rct[n] += float64(i.Dur) / 600
-			default:
-				rct[n] += i.Bill
+			var s []float64
+			if s = nser[n]; s == nil {
+				s = make([]float64, 0, span)
 			}
+			switch s = s[:h+1]; typ {
+			case 'm':
+				s[h] = i.Marg
+			case 'p':
+				if i.Bill == 0 {
+					s[h] = math.Copysign(maxPctMargin, i.Marg)
+				} else {
+					s[h] = i.Marg / i.Bill
+				}
+			case 'c':
+				s[h] = i.Bill - i.Marg
+			case 'n':
+				s[h] = float64(i.Calls)
+			case 'd':
+				s[h] = float64(i.Dur) / 600
+			default:
+				s[h] = i.Bill
+			}
+			nser[n] = s
 		}
 	}
-	for n, t := range rct {
-		if t >= truncate || -truncate >= t {
-			nser[n] = make([]float64, 0, span)
+	switch tr := truncate.(type) {
+	case float64:
+		tr = math.Abs(tr)
+		for n, rct := range nser {
+			avg := 0.0
+			for _, v := range rct {
+				avg += v
+			}
+			if avg /= float64(len(rct)); avg > -tr && tr > avg {
+				delete(nser, n)
+			}
+		}
+	case func([]float64) bool:
+		for n, rct := range nser {
+			if tr(rct) {
+				delete(nser, n)
+			}
 		}
 	}
 	if len(nser) > 0 {
-		for h, hs := 0, len(sum)-1; h < span; h++ {
-			if m := sum[cur-int32(h)]; m != nil {
-				for n, i := range m {
-					if s := nser[n]; s != nil {
-						switch s = s[:h+1]; typ {
-						case 'm':
-							s[h] = i.Marg
-						case 'c':
-							s[h] = i.Bill - i.Marg
-						case 'n':
-							s[h] = float64(i.Calls)
-						case 'd':
-							s[h] = float64(i.Dur) / 600
-						default:
-							s[h] = i.Bill
+		for h := recent; h < span; h++ {
+			for n, i := range sum[cur-int32(h)] {
+				if s := nser[n]; s != nil {
+					switch s = s[:h+1]; typ {
+					case 'm':
+						s[h] = i.Marg
+					case 'p':
+						if i.Bill == 0 {
+							s[h] = math.Copysign(maxPctMargin, i.Marg)
+						} else {
+							s[h] = i.Marg / i.Bill
 						}
-						nser[n] = s
+					case 'c':
+						s[h] = i.Bill - i.Marg
+					case 'n':
+						s[h] = float64(i.Calls)
+					case 'd':
+						s[h] = float64(i.Dur) / 600
+					default:
+						s[h] = i.Bill
 					}
+					nser[n] = s
 				}
-			} else if hs++; h >= hs {
-				break
 			}
 		}
 		for n, s := range nser {
@@ -246,12 +335,12 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, truncate float64) (
 	return
 }
 
-func seriesExtract(metric string, span, recent int, truncate float64) (res chan *cmon.SeriesRet, err error) {
+func seriesExtract(metric string, span, recent int, truncate interface{}) (res chan *cmon.SeriesRet, err error) {
 	var acc *modAcc
 	var sum interface{}
 	var cur int32
 	var typ byte
-	if span <= 0 || span > 24*100 || recent <= 0 || recent > span || truncate < 0 {
+	if span <= 0 || span > 24*100 || recent <= 0 || recent > span {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(metric, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil {
 		return nil, fmt.Errorf("model not found")
@@ -290,30 +379,30 @@ func seriesExtract(metric string, span, recent int, truncate float64) (res chan 
 	case "cur.aws/svc":
 		sum, cur = acc.m.data[0].(*curSum).BySvc, acc.m.data[0].(*curSum).Current
 
-	case "cdr.asp/term/cust", "cdr.asp/term/cust/m", "cdr.asp/term/cust/c", "cdr.asp/term/cust/n", "cdr.asp/term/cust/d":
+	case "cdr.asp/term/cust", "cdr.asp/term/cust/m", "cdr.asp/term/cust/p", "cdr.asp/term/cust/c", "cdr.asp/term/cust/n", "cdr.asp/term/cust/d":
 		sum, cur = acc.m.data[0].(*termSum).ByCust, acc.m.data[0].(*termSum).Current
-	case "cdr.asp/term/geo", "cdr.asp/term/geo/m", "cdr.asp/term/geo/c", "cdr.asp/term/geo/n", "cdr.asp/term/geo/d":
+	case "cdr.asp/term/geo", "cdr.asp/term/geo/m", "cdr.asp/term/geo/p", "cdr.asp/term/geo/c", "cdr.asp/term/geo/n", "cdr.asp/term/geo/d":
 		sum, cur = acc.m.data[0].(*termSum).ByGeo, acc.m.data[0].(*termSum).Current
-	case "cdr.asp/term/sp", "cdr.asp/term/sp/m", "cdr.asp/term/sp/c", "cdr.asp/term/sp/n", "cdr.asp/term/sp/d":
+	case "cdr.asp/term/sp", "cdr.asp/term/sp/m", "cdr.asp/term/sp/p", "cdr.asp/term/sp/c", "cdr.asp/term/sp/n", "cdr.asp/term/sp/d":
 		sum, cur = acc.m.data[0].(*termSum).BySP, acc.m.data[0].(*termSum).Current
-	case "cdr.asp/term/loc", "cdr.asp/term/loc/m", "cdr.asp/term/loc/c", "cdr.asp/term/loc/n", "cdr.asp/term/loc/d":
+	case "cdr.asp/term/loc", "cdr.asp/term/loc/m", "cdr.asp/term/loc/p", "cdr.asp/term/loc/c", "cdr.asp/term/loc/n", "cdr.asp/term/loc/d":
 		sum, cur = acc.m.data[0].(*termSum).ByLoc, acc.m.data[0].(*termSum).Current
-	case "cdr.asp/term/to", "cdr.asp/term/to/m", "cdr.asp/term/to/c", "cdr.asp/term/to/n", "cdr.asp/term/to/d":
+	case "cdr.asp/term/to", "cdr.asp/term/to/m", "cdr.asp/term/to/p", "cdr.asp/term/to/c", "cdr.asp/term/to/n", "cdr.asp/term/to/d":
 		sum, cur = acc.m.data[0].(*termSum).ByTo, acc.m.data[0].(*termSum).Current
-	case "cdr.asp/term/from", "cdr.asp/term/from/m", "cdr.asp/term/from/c", "cdr.asp/term/from/n", "cdr.asp/term/from/d":
+	case "cdr.asp/term/from", "cdr.asp/term/from/m", "cdr.asp/term/from/p", "cdr.asp/term/from/c", "cdr.asp/term/from/n", "cdr.asp/term/from/d":
 		sum, cur = acc.m.data[0].(*termSum).ByFrom, acc.m.data[0].(*termSum).Current
 
-	case "cdr.asp/orig/cust", "cdr.asp/orig/cust/m", "cdr.asp/orig/cust/c", "cdr.asp/orig/cust/n", "cdr.asp/orig/cust/d":
+	case "cdr.asp/orig/cust", "cdr.asp/orig/cust/m", "cdr.asp/orig/cust/p", "cdr.asp/orig/cust/c", "cdr.asp/orig/cust/n", "cdr.asp/orig/cust/d":
 		sum, cur = acc.m.data[1].(*origSum).ByCust, acc.m.data[1].(*origSum).Current
-	case "cdr.asp/orig/geo", "cdr.asp/orig/geo/m", "cdr.asp/orig/geo/c", "cdr.asp/orig/geo/n", "cdr.asp/orig/geo/d":
+	case "cdr.asp/orig/geo", "cdr.asp/orig/geo/m", "cdr.asp/orig/geo/p", "cdr.asp/orig/geo/c", "cdr.asp/orig/geo/n", "cdr.asp/orig/geo/d":
 		sum, cur = acc.m.data[1].(*origSum).ByGeo, acc.m.data[1].(*origSum).Current
-	case "cdr.asp/orig/sp", "cdr.asp/orig/sp/m", "cdr.asp/orig/sp/c", "cdr.asp/orig/sp/n", "cdr.asp/orig/sp/d":
+	case "cdr.asp/orig/sp", "cdr.asp/orig/sp/m", "cdr.asp/orig/sp/p", "cdr.asp/orig/sp/c", "cdr.asp/orig/sp/n", "cdr.asp/orig/sp/d":
 		sum, cur = acc.m.data[1].(*origSum).BySP, acc.m.data[1].(*origSum).Current
-	case "cdr.asp/orig/loc", "cdr.asp/orig/loc/m", "cdr.asp/orig/loc/c", "cdr.asp/orig/loc/n", "cdr.asp/orig/loc/d":
+	case "cdr.asp/orig/loc", "cdr.asp/orig/loc/m", "cdr.asp/orig/loc/p", "cdr.asp/orig/loc/c", "cdr.asp/orig/loc/n", "cdr.asp/orig/loc/d":
 		sum, cur = acc.m.data[1].(*origSum).ByLoc, acc.m.data[1].(*origSum).Current
-	case "cdr.asp/orig/to", "cdr.asp/orig/to/m", "cdr.asp/orig/to/c", "cdr.asp/orig/to/n", "cdr.asp/orig/to/d":
+	case "cdr.asp/orig/to", "cdr.asp/orig/to/m", "cdr.asp/orig/to/p", "cdr.asp/orig/to/c", "cdr.asp/orig/to/n", "cdr.asp/orig/to/d":
 		sum, cur = acc.m.data[1].(*origSum).ByTo, acc.m.data[1].(*origSum).Current
-	case "cdr.asp/orig/from", "cdr.asp/orig/from/m", "cdr.asp/orig/from/c", "cdr.asp/orig/from/n", "cdr.asp/orig/from/d":
+	case "cdr.asp/orig/from", "cdr.asp/orig/from/m", "cdr.asp/orig/from/p", "cdr.asp/orig/from/c", "cdr.asp/orig/from/n", "cdr.asp/orig/from/d":
 		sum, cur = acc.m.data[1].(*origSum).ByFrom, acc.m.data[1].(*origSum).Current
 
 	default:
