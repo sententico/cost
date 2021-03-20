@@ -64,30 +64,28 @@ func alertWeasel(weasel string, alerts []map[string]string) (err error) {
 	return
 }
 
-func basicStats(s []float64) (ss []float64, mean, sdev float64) {
+func coreStats(s []float64, zeroes, trim bool) (ss []float64, mean, sdev float64) {
 	if len(s) > 0 {
 		ss = append(make([]float64, 0, len(s)), s...)
-		sort.Float64s(ss)
-		for _, v := range ss {
-			mean += v
+		if sort.Float64s(ss); !zeroes {
+			var z, p int
+			for ; z < len(ss) && ss[z] < 0; z++ {
+			}
+			for p = z; p < len(ss) && ss[p] == 0; p++ {
+			}
+			if l := len(ss) - p + z; l == 0 {
+				return nil, 0, 0
+			} else if z == 0 {
+				ss = ss[p:]
+			} else {
+				copy(ss[z:], ss[p:])
+				ss = ss[:l]
+			}
 		}
-		mean /= float64(len(ss))
-		var d float64
-		for _, v := range ss {
-			d = v - mean
-			sdev += d * d
-		}
-		sdev = math.Sqrt(sdev / float64(len(ss)))
-	}
-	return
-}
-func basicZStats(s []float64) (ss []float64, mean, sdev float64) {
-	if len(s) > 0 {
-		ss = append(make([]float64, 0, len(s)), s...)
-		for sort.Float64s(ss); len(ss) > 1 && ss[0] == 0; ss = ss[1:] {
-		}
-		if t := len(ss) / samplePage; t > 0 {
-			ss = ss[t : len(ss)-t]
+		if trim {
+			if t := len(ss) / samplePage; t > 0 {
+				ss = ss[t : len(ss)-t]
+			}
 		}
 		for _, v := range ss {
 			mean += v
@@ -200,9 +198,9 @@ func curCost() (alerts []map[string]string) {
 		} else if sx := <-c; sx != nil {
 			for k, se := range sx.Series {
 				var a map[string]string
-				if _, u, _ := basicStats(se[:recent]); len(se) <= recent {
+				if _, u, _ := coreStats(se[:recent], true, false); len(se) <= recent {
 					a = metric.alert(metric.name, k, u*recent/float64(len(se)))
-				} else if ss, mean, sdev := basicStats(se[recent:]); u > mean*metric.ratio && u > mean+sdev*metric.sig {
+				} else if ss, mean, sdev := coreStats(se[recent:], true, false); u > mean*metric.ratio && u > mean+sdev*metric.sig {
 					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
 					case high-med < 1 && max-high < 1:
 						a = metric.alert(metric.name, k, u, max)
@@ -217,6 +215,53 @@ func curCost() (alerts []map[string]string) {
 					alertCURDetail(a, -recent, []string{
 						metric.filter(k),
 					}, 12000, 240)
+					alerts = append(alerts, a)
+				}
+			}
+		}
+	}
+	return
+}
+
+func cdrtermMargin(m, k string, v ...float64) (a map[string]string) {
+	a = make(map[string]string, 256)
+	switch a["model"] = "cdr.asp/term"; len(v) {
+	case 1:
+		a["short"] = fmt.Sprintf("%q metric margin alert: %.0f%% margin being observed for %q", m, v[0]*100, k)
+		a["long"] = fmt.Sprintf("The %q metric is recording sustained low margin performance for outbound calls. A %.0f%% margin for %q is currently being observed.", m, v[0]*100, k)
+	default:
+		return nil
+	}
+	return
+}
+func cdrMargin() (alerts []map[string]string) {
+	const recent = 10
+	for _, metric := range []alertMetric{
+		{"cdr.asp/term/geo/p", 0.10, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `to~ ` + k + `$` }},
+		{"cdr.asp/term/cust/p", 0.10, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `cust=` + k }},
+		{"cdr.asp/term/sp/p", 0.10, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `sp=` + k }},
+	} {
+		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
+			n, sum := 0, 0.0
+			for _, v := range s {
+				if v != 0 {
+					n++
+					sum += v
+				}
+			}
+			return n < 3 || sum/float64(n) > metric.thresh
+		}); err != nil {
+			logE.Printf("problem accessing %q metric: %v", metric.name, err)
+		} else if sx, now := <-c, time.Now().Unix(); sx != nil {
+			for k, se := range sx.Series {
+				_, p, _ := coreStats(se, false, false)
+				if a := metric.alert(metric.name, k, p); alertEnabled(a, metric, k, "telecom margin") {
+					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
+					alertDetail(a, []string{
+						metric.filter(k),
+						// cannot filter %margin with: fmt.Sprintf(`margin<%g`, metric.thresh),
+						fmt.Sprintf(`start>%s`, time.Unix(now-3600*recent, 0).UTC().Format(time.RFC3339)),
+					}, 240)
 					alerts = append(alerts, a)
 				}
 			}
@@ -290,7 +335,7 @@ func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
 func cdrFraud() (alerts []map[string]string) {
 	for _, metric := range []alertMetric{
 		{"cdr.asp/term/geo", 600, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `to~ ` + k + `$` }},
-		{"cdr.asp/term/cust", 400, 1.2, 6, 0.5, cdrtermcustFraud, func(k string) string { return `cust=` + k }},
+		{"cdr.asp/term/cust", 400, 1.2, 5.5, 0.5, cdrtermcustFraud, func(k string) string { return `cust=` + k }},
 		{"cdr.asp/term/sp", 1200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `sp=` + k }},
 		{"cdr.asp/term/to", 200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `to~^\` + k[:strings.LastIndexByte(k, ' ')+1] }},
 	} {
@@ -306,7 +351,7 @@ func cdrFraud() (alerts []map[string]string) {
 					a = metric.alert(metric.name, k, se[0])
 				} else if len(se) < 2 {
 				} else if u := (se[0] + se[1]*hr) * 1.2; u <= metric.thresh {
-				} else if ss, mean, sdev := basicZStats(se[2:]); len(ss) == 0 {
+				} else if ss, mean, sdev := coreStats(se[2:], false, true); len(ss) == 0 {
 					a = metric.alert(metric.name, k, se[0], u)
 				} else if u > mean*metric.ratio && u > mean+sdev*metric.sig {
 					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
@@ -341,6 +386,7 @@ func evtcmonHandler(m *model, event string) {
 		alerts = append(alerts, curCost()...)
 	case "cdr.asp":
 		alerts = append(alerts, cdrFraud()...)
+		alerts = append(alerts, cdrMargin()...)
 	}
 	if len(alerts) > 0 {
 		for _, a := range alerts {

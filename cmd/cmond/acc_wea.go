@@ -188,10 +188,10 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, truncate interface{
 			case 'm':
 				s[h] = i.Marg
 			case 'p':
-				if i.Bill == 0 {
-					s[h] = math.Copysign(maxPctMargin, i.Marg)
-				} else {
+				if i.Bill != 0 {
 					s[h] = i.Marg / i.Bill
+				} else if i.Marg != 0 {
+					s[h] = math.Copysign(maxPctMargin, i.Marg)
 				}
 			case 'c':
 				s[h] = i.Bill - i.Marg
@@ -232,10 +232,10 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, truncate interface{
 					case 'm':
 						s[h] = i.Marg
 					case 'p':
-						if i.Bill == 0 {
-							s[h] = math.Copysign(maxPctMargin, i.Marg)
-						} else {
+						if i.Bill != 0 {
 							s[h] = i.Marg / i.Bill
+						} else if i.Marg != 0 {
+							s[h] = math.Copysign(maxPctMargin, i.Marg)
 						}
 					case 'c':
 						s[h] = i.Bill - i.Marg
@@ -266,10 +266,10 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, truncate interface{
 			case 'm':
 				s[h] = i.Marg
 			case 'p':
-				if i.Bill == 0 {
-					s[h] = math.Copysign(maxPctMargin, i.Marg)
-				} else {
+				if i.Bill != 0 {
 					s[h] = i.Marg / i.Bill
+				} else if i.Marg != 0 {
+					s[h] = math.Copysign(maxPctMargin, i.Marg)
 				}
 			case 'c':
 				s[h] = i.Bill - i.Marg
@@ -310,10 +310,10 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, truncate interface{
 					case 'm':
 						s[h] = i.Marg
 					case 'p':
-						if i.Bill == 0 {
-							s[h] = math.Copysign(maxPctMargin, i.Marg)
-						} else {
+						if i.Bill != 0 {
 							s[h] = i.Marg / i.Bill
+						} else if i.Marg != 0 {
+							s[h] = math.Copysign(maxPctMargin, i.Marg)
 						}
 					case 'c':
 						s[h] = i.Bill - i.Marg
