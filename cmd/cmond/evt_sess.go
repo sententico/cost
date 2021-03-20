@@ -188,10 +188,10 @@ func curawsCost(m, k string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", 4, 1.1, 1, 24, curawsCost, func(k string) string { return `acct~^` + k }},
-		{"cur.aws/region", 8, 1.1, 1, 24, curawsCost, func(k string) string { return `region=` + k }},
-		{"cur.aws/typ", 8, 1.1, 1, 24, curawsCost, func(k string) string { return `typ=` + k }},
-		{"cur.aws/svc", 2, 1.1, 1, 24, curawsCost, func(k string) string { return `svc=` + k }},
+		{"cur.aws/acct", 4, 1.1, 0.7, 24, curawsCost, func(k string) string { return `acct~^` + k }},
+		{"cur.aws/region", 8, 1.1, 0.7, 24, curawsCost, func(k string) string { return `region=` + k }},
+		{"cur.aws/typ", 8, 1.1, 0.7, 24, curawsCost, func(k string) string { return `typ=` + k }},
+		{"cur.aws/svc", 2, 1.1, 0.7, 24, curawsCost, func(k string) string { return `svc=` + k }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -228,7 +228,7 @@ func cdrtermMargin(m, k string, v ...float64) (a map[string]string) {
 	switch a["model"] = "cdr.asp/term"; len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("%q metric margin alert: %.0f%% margin being observed for %q", m, v[0]*100, k)
-		a["long"] = fmt.Sprintf("The %q metric is recording sustained low margin performance for outbound calls. A %.0f%% margin for %q is currently being observed.", m, v[0]*100, k)
+		a["long"] = fmt.Sprintf("The %q metric is recording sustained low margin performance for outbound calls. A %.1f%% margin for %q is currently being observed.", m, v[0]*100, k)
 	default:
 		return nil
 	}
