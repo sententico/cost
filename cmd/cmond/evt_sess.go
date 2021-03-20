@@ -105,7 +105,7 @@ func alertEnabled(a map[string]string, metric alertMetric, k, p string) bool {
 	if a == nil {
 		return false
 	} else if acc := mMod["evt.cmon"].newAcc(); acc == nil {
-		return false
+		return true // TODO: may consider false as code evolves
 	} else {
 		acc.reqW()
 		defer func() { acc.rel() }()

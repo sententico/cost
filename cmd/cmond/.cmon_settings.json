@@ -17,6 +17,7 @@
 		"Profiles": {
 			"default": {
 			}, "cloud cost": {
+			}, "telecom margin": {
 			}, "telecom fraud": {
 				"from":"xxx",
 				"to":"xxx",

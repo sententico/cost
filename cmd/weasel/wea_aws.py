@@ -61,7 +61,7 @@ def ex(err, code):
 def detail(alert, cols):
     cols = cols.split(',')
     det = [','.join([h for h in cols if h!='~'])]
-    for i in range(20):
+    for i in range(len(alert)):
         if str(i) not in alert: break
         f = alert[str(i)].split('","')
         det.append('"{}"'.format('","'.join([f[c] for c,h in enumerate(cols) if h!='~'])))
