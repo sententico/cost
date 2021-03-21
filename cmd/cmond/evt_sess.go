@@ -109,6 +109,7 @@ func alertEnabled(a map[string]string, metric alertMetric, k, p string) bool {
 	} else {
 		acc.reqW()
 		defer func() { acc.rel() }()
+
 		evt, id := acc.m.data[0].(*evtModel), strings.Join([]string{metric.name, k, p}, "~")
 		rst, _ := time.Parse(time.RFC3339, evt.Alert[id]["reset"])
 		if time.Until(rst) > 0 {
@@ -228,7 +229,7 @@ func cdrtermMargin(m, k string, v ...float64) (a map[string]string) {
 	switch a["model"] = "cdr.asp/term"; len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("%q metric margin alert: %.0f%% margin being observed for %q", m, v[0]*100, k)
-		a["long"] = fmt.Sprintf("The %q metric is recording sustained low margin performance for outbound calls. A %.1f%% margin for %q is currently being observed.", m, v[0]*100, k)
+		a["long"] = fmt.Sprintf("The %q metric is recording sustained low margin performance for outbound calls. The margin for %q is currently being observed at %.1f%%.", m, k, v[0]*100)
 	default:
 		return nil
 	}
