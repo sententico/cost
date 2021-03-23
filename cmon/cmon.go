@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
 )
 
@@ -103,7 +105,7 @@ type (
 	}
 )
 
-// Getarg helper function ...
+// Getarg is a helper function ...
 func Getarg(v []string) string {
 	for _, arg := range v {
 		if strings.HasPrefix(arg, "CMON_") {
@@ -116,14 +118,35 @@ func Getarg(v []string) string {
 	return ""
 }
 
+// resolveSettings is a helper function that resolves settings resource names (pathnames, ...)
+func resolveSettings(n string) string {
+	if strings.HasPrefix(n, "~/") {
+		if u, err := user.Current(); err == nil {
+			if p, err := filepath.Abs(u.HomeDir + n[1:]); err == nil {
+				return p
+			}
+		}
+	} else if strings.HasPrefix(n, "/") || strings.HasPrefix(n, "./") || strings.HasPrefix(n, "../") {
+	} else if p, err := filepath.Abs(n); err == nil {
+		d, f := filepath.Split(p)
+		for _, err = os.Stat(p); os.IsNotExist(err); _, err = os.Stat(p) {
+			if d, _ = filepath.Split(d[:len(d)-1]); d == "" {
+				return n
+			}
+			p = d + f
+		}
+		return p
+	}
+	return n
+}
+
 // Load method on MonSettings ...
 func (s *MonSettings) Load(loc string) (err error) {
 	var b []byte
 	var bb bytes.Buffer
 	if s == nil || loc == "" {
 		return fmt.Errorf("no settings specified")
-	} else if b, err = ioutil.ReadFile(loc); err != nil {
-		// TODO: work up directory hierarchy or check home directory?
+	} else if b, err = ioutil.ReadFile(resolveSettings(loc)); err != nil {
 		return fmt.Errorf("cannot access settings %q: %v", loc, err)
 	} else if err = json.Unmarshal(b, s); err != nil {
 		return fmt.Errorf("%q settings format problem: %v", loc, err)
