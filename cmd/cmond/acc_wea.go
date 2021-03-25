@@ -27,7 +27,7 @@ var (
 		"~":     "weasel",      // command type
 	}
 	aspN = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
-	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w]*?)\s*(?P<op>[=!<>~^])(?P<opd>.*)$`)
+	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w%]*?)\s*(?P<op>[=!<>~^])(?P<opd>.*)$`)
 )
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
@@ -683,7 +683,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				case "<": // last active to a point within opd hours
 					if flt = append(flt, func(v ...interface{}) bool {
 						if ap := v[0].(*ec2Item).Active; len(ap) > 1 {
-							return now-ap[len(ap)-1] < s
+							return now-ap[len(ap)-1] < s && ap[len(ap)-1] < d.Current
 						}
 						return false
 					}); s > adj {

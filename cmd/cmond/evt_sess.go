@@ -200,20 +200,20 @@ func rdsUsage(m, k string, v ...float64) (a map[string]string) {
 func awsRising() (alerts []map[string]string) {
 	const recent = 10
 	for _, metric := range []alertMetric{
-		{"ec2.aws/acct", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
-		{"ec2.aws/region", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
-		{"ec2.aws/sku", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
-		{"ebs.aws/acct", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
-		{"ebs.aws/region", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
-		{"ebs.aws/sku", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
-		{"rds.aws/acct", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
-		{"rds.aws/region", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
-		{"rds.aws/sku", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
+		{"ec2.aws/acct", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
+		{"ec2.aws/region", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
+		{"ec2.aws/sku", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
+		{"ebs.aws/acct", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
+		{"ebs.aws/region", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
+		{"ebs.aws/sku", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
+		{"rds.aws/acct", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
+		{"rds.aws/region", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
+		{"rds.aws/sku", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
 	} {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
-			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.thresh {
+			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || mean < metric.thresh && s[1] < metric.thresh {
 				return true
 			} else {
 				return s[1] < mean+sdev*metric.sig
@@ -238,20 +238,20 @@ func awsRising() (alerts []map[string]string) {
 func awsFalling() (alerts []map[string]string) {
 	const recent = 10
 	for _, metric := range []alertMetric{
-		{"ec2.aws/acct", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
-		{"ec2.aws/region", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
-		{"ec2.aws/sku", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
-		{"ebs.aws/acct", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
-		{"ebs.aws/region", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
-		{"ebs.aws/sku", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
-		{"rds.aws/acct", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
-		{"rds.aws/region", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
-		{"rds.aws/sku", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
+		{"ec2.aws/acct", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
+		{"ec2.aws/region", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
+		{"ec2.aws/sku", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
+		{"ebs.aws/acct", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
+		{"ebs.aws/region", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
+		{"ebs.aws/sku", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
+		{"rds.aws/acct", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
+		{"rds.aws/region", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
+		{"rds.aws/sku", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
 	} {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
-			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.thresh {
+			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || mean < metric.thresh && s[1] < metric.thresh {
 				return true
 			} else {
 				return s[1] > mean-sdev*metric.sig
