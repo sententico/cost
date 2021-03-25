@@ -216,13 +216,13 @@ func tableCmd() {
 		switch args.model {
 		case "ec2.aws":
 			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,AMI,Spot," +
-				"Name,env,dc,product,app,cust,team,version,State,Since,Active,ORate,Rate")
+				"Name,env,dc,product,app,cust,team,version,State,Since,Active%,ORate,Rate")
 		case "ebs.aws":
 			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount," +
-				"Name,env,dc,product,app,cust,team,version,State,Since,Active,Rate")
+				"Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate")
 		case "rds.aws":
 			fmt.Println("DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ," +
-				"Name,env,dc,product,app,cust,team,version,State,Since,Active,Rate")
+				"Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate")
 		case "cdr.asp/term", "cdr.asp/orig":
 			fmt.Println("CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin")
 		}

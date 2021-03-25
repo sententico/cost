@@ -2,6 +2,7 @@
 
 # Slack notes:
 # https://aspectsoftware.slack.com/services/B01HMSM7Z6W?added=1
+# https://aspectsoftware.slack.com/services/B01S08HA4MC?added=1
 # https://aspectsoftware.slack.com/services/1599905271234?updated=1
 
 import  sys

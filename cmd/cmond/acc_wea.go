@@ -480,12 +480,13 @@ func skip(flt []func(...interface{}) bool, v ...interface{}) bool {
 	return false
 }
 
-func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, error) {
+func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
+	var adj int
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
-			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
+			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
 		col, op, opd := ct[1], ct[2], ct[3]
 		switch col {
@@ -498,7 +499,7 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) != ""
 					})
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
@@ -507,7 +508,7 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) == ""
 					})
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Type", "type", "typ":
@@ -520,13 +521,13 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Typ) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Typ) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Plat", "plat":
@@ -539,13 +540,13 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Plat) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Plat) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Vol", "vol":
@@ -561,7 +562,7 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Vol > n })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "AZ", "az":
 			switch op {
@@ -573,13 +574,13 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).AZ) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).AZ) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "AMI", "ami":
@@ -606,13 +607,13 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "State", "state", "stat", "st":
@@ -631,9 +632,9 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Since > int(s) })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
-		case "Active", "active", "act":
+		case "Active%", "active%", "act%":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
 				switch op {
 				case "<":
@@ -646,7 +647,58 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 					})
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			}
+		case "Active", "active", "act":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
+				case "=": // active opd hours ago
+					if flt = append(flt, func(v ...interface{}) bool {
+						ap := v[0].(*ec2Item).Active
+						for i, t := len(ap)-2, now-s; i >= 0; i -= 2 {
+							if t < ap[i] {
+							} else {
+								return t <= ap[i+1]
+							}
+						}
+						return false
+					}); s > adj {
+						adj = s
+					}
+				case "!": // not active opd hours ago
+					s = now - s
+					flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*ec2Item).Active; len(ap) > 1 {
+							for i := len(ap) - 1; i > 0; i -= 2 {
+								if s <= ap[i] {
+								} else {
+									return i+1 == len(ap) || s < ap[i+1]
+								}
+							}
+							return s < ap[0]
+						}
+						return true
+					})
+					adj = d.Current
+				case "<": // last active to a point within opd hours
+					if flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*ec2Item).Active; len(ap) > 1 {
+							return now-ap[len(ap)-1] < s
+						}
+						return false
+					}); s > adj {
+						adj = s
+					}
+				case ">": // last active since a point within opd hours
+					flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*ec2Item).Active; len(ap) > 1 {
+							return now-ap[len(ap)-2] < s && ap[len(ap)-1] >= d.Current
+						}
+						return false
+					})
+				}
+			} else {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Rate", "rate", "ra":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
@@ -657,7 +709,7 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Rate > float32(f) })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "ORate", "orate", "ora":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
@@ -668,23 +720,23 @@ func (d *ec2Detail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).ORate > float32(f) })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
-			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
+			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
 		}
 		if nc == len(flt) {
-			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+			return 0, nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 		}
 	}
-	return flt, nil
+	return d.Current - adj, flt, nil
 }
 
-func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
+func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	pg := smPage
 	acc.reqR()
 	for id, inst := range d.Inst {
-		if inst.Last < d.Current {
+		if inst.Last < cur {
 			continue
 		}
 		tag := cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
@@ -735,12 +787,13 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	acc.rel()
 }
 
-func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
+func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
+	var adj int
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
-			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
+			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
 		col, op, opd := ct[1], ct[2], ct[3]
 		switch col {
@@ -753,7 +806,7 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) != ""
 					})
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
@@ -762,7 +815,7 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) == ""
 					})
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Type", "type", "typ":
@@ -775,13 +828,13 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).Typ) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).Typ) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Size", "size", "siz":
@@ -797,7 +850,7 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Size > n })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "IOPS", "iops":
 			if n, err := strconv.Atoi(opd); err == nil {
@@ -812,7 +865,7 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).IOPS > n })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "AZ", "az":
 			switch op {
@@ -824,13 +877,13 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).AZ) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).AZ) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Mount", "mount", "mnt":
@@ -839,13 +892,13 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).Mount) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).Mount) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
@@ -858,13 +911,13 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "State", "state", "stat", "st":
@@ -883,9 +936,9 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Since > int(s) })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
-		case "Active", "active", "act":
+		case "Active%", "active%", "act%":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
 				switch op {
 				case "<":
@@ -898,7 +951,58 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					})
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			}
+		case "Active", "active", "act":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
+				case "=": // active opd hours ago
+					if flt = append(flt, func(v ...interface{}) bool {
+						ap := v[0].(*ebsItem).Active
+						for i, t := len(ap)-2, now-s; i >= 0; i -= 2 {
+							if t < ap[i] {
+							} else {
+								return t <= ap[i+1]
+							}
+						}
+						return false
+					}); s > adj {
+						adj = s
+					}
+				case "!": // not active opd hours ago
+					s = now - s
+					flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*ebsItem).Active; len(ap) > 1 {
+							for i := len(ap) - 1; i > 0; i -= 2 {
+								if s <= ap[i] {
+								} else {
+									return i+1 == len(ap) || s < ap[i+1]
+								}
+							}
+							return s < ap[0]
+						}
+						return true
+					})
+					adj = d.Current
+				case "<": // last active to a point within opd hours
+					if flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*ebsItem).Active; len(ap) > 1 {
+							return now-ap[len(ap)-1] < s
+						}
+						return false
+					}); s > adj {
+						adj = s
+					}
+				case ">": // last active since a point within opd hours
+					flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*ebsItem).Active; len(ap) > 1 {
+							return now-ap[len(ap)-2] < s && ap[len(ap)-1] >= d.Current
+						}
+						return false
+					})
+				}
+			} else {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Rate", "rate", "ra":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
@@ -909,24 +1013,24 @@ func (d *ebsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Rate > float32(f) })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
-			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
+			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
 		}
 		if nc == len(flt) {
-			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+			return 0, nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 		}
 	}
-	return flt, nil
+	return d.Current - adj, flt, nil
 }
 
-func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
+func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	itags := make(map[string]cmon.TagMap, 4096)
 	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
 		acc.reqR()
 		for _, vol := range d.Vol {
-			if vol.Last >= d.Current && strings.HasPrefix(vol.Mount, "i-") {
+			if vol.Last >= cur && strings.HasPrefix(vol.Mount, "i-") {
 				itags[strings.SplitN(vol.Mount, ":", 2)[0]] = nil
 			}
 		}
@@ -945,7 +1049,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	pg := smPage
 	acc.reqR()
 	for id, vol := range d.Vol {
-		if vol.Last < d.Current {
+		if vol.Last < cur {
 			continue
 		}
 		tag := cmon.TagMap{}.Update(vol.Tag).Update(nTags(vol.Tag["Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]]).UpdateT("team", vol.Tag["SCRM_Group"])
@@ -994,12 +1098,13 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(.
 	acc.rel()
 }
 
-func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
+func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
+	var adj int
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
-			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
+			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
 		col, op, opd := ct[1], ct[2], ct[3]
 		switch col {
@@ -1012,7 +1117,7 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) != ""
 					})
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
@@ -1021,7 +1126,7 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) == ""
 					})
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Type", "type", "typ":
@@ -1034,13 +1139,13 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Typ) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Typ) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Sto", "sto", "stype", "styp":
@@ -1063,7 +1168,7 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Size > n })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "IOPS", "iops":
 			if n, err := strconv.Atoi(opd); err == nil {
@@ -1078,7 +1183,7 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).IOPS > n })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "Engine", "engine", "eng":
 			switch op {
@@ -1090,13 +1195,13 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Engine) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Engine) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "EngVer", "engver", "engv":
@@ -1109,13 +1214,13 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Ver) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Ver) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Lic", "lic":
@@ -1128,13 +1233,13 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Lic) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Lic) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "AZ", "az":
@@ -1147,13 +1252,13 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(string)) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(string)) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
@@ -1166,13 +1271,13 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[2].(cmon.TagMap)[col]) != "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			case "^":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[2].(cmon.TagMap)[col]) == "" })
 				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
 		case "State", "state", "stat", "st":
@@ -1191,9 +1296,9 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Since > int(s) })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
-		case "Active", "active", "act":
+		case "Active%", "active%", "act%":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
 				switch op {
 				case "<":
@@ -1206,7 +1311,58 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					})
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			}
+		case "Active", "active", "act":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
+				case "=": // active opd hours ago
+					if flt = append(flt, func(v ...interface{}) bool {
+						ap := v[0].(*rdsItem).Active
+						for i, t := len(ap)-2, now-s; i >= 0; i -= 2 {
+							if t < ap[i] {
+							} else {
+								return t <= ap[i+1]
+							}
+						}
+						return false
+					}); s > adj {
+						adj = s
+					}
+				case "!": // not active opd hours ago
+					s = now - s
+					flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*rdsItem).Active; len(ap) > 1 {
+							for i := len(ap) - 1; i > 0; i -= 2 {
+								if s <= ap[i] {
+								} else {
+									return i+1 == len(ap) || s < ap[i+1]
+								}
+							}
+							return s < ap[0]
+						}
+						return true
+					})
+					adj = d.Current
+				case "<": // last active to a point within opd hours
+					if flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*rdsItem).Active; len(ap) > 1 {
+							return now-ap[len(ap)-1] < s
+						}
+						return false
+					}); s > adj {
+						adj = s
+					}
+				case ">": // last active since a point within opd hours
+					flt = append(flt, func(v ...interface{}) bool {
+						if ap := v[0].(*rdsItem).Active; len(ap) > 1 {
+							return now-ap[len(ap)-2] < s && ap[len(ap)-1] >= d.Current
+						}
+						return false
+					})
+				}
+			} else {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Rate", "rate", "ra":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
@@ -1217,25 +1373,25 @@ func (d *rdsDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Rate > float32(f) })
 				}
 			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
-			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
+			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
 		}
 		if nc == len(flt) {
-			return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+			return 0, nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 		}
 	}
-	return flt, nil
+	return d.Current - adj, flt, nil
 }
 
-func (d *rdsDetail) table(acc *modAcc, res chan []string, rows int, flt []func(...interface{}) bool) {
+func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	var name, az string
 	pg := smPage
 	acc.reqR()
 	for id, db := range d.DB {
 		var tag cmon.TagMap
-		if db.Last < d.Current {
+		if db.Last < cur {
 			continue
 		} else if name = db.Tag["Name"]; name == "" {
 			s := strings.Split(id, ":")
@@ -1493,6 +1649,7 @@ outerLoop:
 
 func tableExtract(n string, rows int, criteria []string) (res chan []string, err error) {
 	var acc *modAcc
+	var cur int
 	var flt []func(...interface{}) bool
 	if rows++; rows < 0 || rows == 1 {
 		return nil, fmt.Errorf("invalid argument(s)")
@@ -1501,11 +1658,11 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 	} else {
 		switch err = fmt.Errorf("unsupported model"); det := acc.m.data[1].(type) {
 		case *ec2Detail:
-			flt, err = det.filters(criteria)
+			cur, flt, err = det.filters(criteria)
 		case *ebsDetail:
-			flt, err = det.filters(criteria)
+			cur, flt, err = det.filters(criteria)
 		case *rdsDetail:
-			flt, err = det.filters(criteria)
+			cur, flt, err = det.filters(criteria)
 		case *origSum:
 			switch n {
 			case "cdr.asp/term":
@@ -1532,11 +1689,11 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 
 		switch det := acc.m.data[1].(type) {
 		case *ec2Detail:
-			det.table(acc, res, rows, flt)
+			det.table(acc, res, rows, cur, flt)
 		case *ebsDetail:
-			det.table(acc, res, rows, flt)
+			det.table(acc, res, rows, cur, flt)
 		case *rdsDetail:
-			det.table(acc, res, rows, flt)
+			det.table(acc, res, rows, cur, flt)
 		case *origSum:
 			switch n {
 			case "cdr.asp/term":

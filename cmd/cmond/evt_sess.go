@@ -64,7 +64,7 @@ func alertWeasel(weasel string, alerts []map[string]string) (err error) {
 	return
 }
 
-func coreStats(s []float64, zeroes, trim bool) (ss []float64, mean, sdev float64) {
+func coreStats(s []float64, zeroes bool, page int) (ss []float64, mean, sdev float64) {
 	if len(s) > 0 {
 		ss = append(make([]float64, 0, len(s)), s...)
 		if sort.Float64s(ss); !zeroes {
@@ -82,8 +82,8 @@ func coreStats(s []float64, zeroes, trim bool) (ss []float64, mean, sdev float64
 				ss = ss[:l]
 			}
 		}
-		if trim {
-			if t := len(ss) / samplePage; t > 0 {
+		if page > 2 {
+			if t := len(ss) / page; t > 0 {
 				ss = ss[t : len(ss)-t]
 			}
 		}
@@ -164,6 +164,116 @@ func alertCURDetail(alert map[string]string, from int32, filters []string, xrows
 	}
 }
 
+func ec2Usage(m, k string, v ...float64) (a map[string]string) {
+	switch a = make(map[string]string, 256); len(v) {
+	case 2:
+		a["short"] = fmt.Sprintf("EC2 instance usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
+		a["long"] = fmt.Sprintf("EC2 instance usage is experiencing deviation from its norm. The hourly usage for %q, now at $%.2f, is diverging from its $%.2f baseline.", k, v[1], v[0])
+	default:
+		return nil
+	}
+	a["model"], a["cols"] = "ec2.aws", "Inst,Acct,Type,Plat,Vol,AZ,AMI,Spot,Name,env,dc,product,app,cust,team,version,State,Since,Active%,ORate,Rate"
+	return
+}
+func ebsUsage(m, k string, v ...float64) (a map[string]string) {
+	switch a = make(map[string]string, 256); len(v) {
+	case 2:
+		a["short"] = fmt.Sprintf("EBS volume usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
+		a["long"] = fmt.Sprintf("EBS volume usage is experiencing deviation from its norm. The hourly usage for %q, now at $%.2f, is diverging from its $%.2f baseline.", k, v[1], v[0])
+	default:
+		return nil
+	}
+	a["model"], a["cols"] = "ebs.aws", "Vol,Acct,Type,Size,IOPS,AZ,Mount,Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate"
+	return
+}
+func rdsUsage(m, k string, v ...float64) (a map[string]string) {
+	switch a = make(map[string]string, 256); len(v) {
+	case 2:
+		a["short"] = fmt.Sprintf("RDS DB usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
+		a["long"] = fmt.Sprintf("RDS database usage is experiencing deviation from its norm. The hourly usage for %q, now at $%.2f, is diverging from its $%.2f baseline.", k, v[1], v[0])
+	default:
+		return nil
+	}
+	a["model"], a["cols"] = "rds.aws", "DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ,Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate"
+	return
+}
+func awsRising() (alerts []map[string]string) {
+	const recent = 10
+	for _, metric := range []alertMetric{
+		{"ec2.aws/acct", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
+		{"ec2.aws/region", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
+		{"ec2.aws/sku", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
+		{"ebs.aws/acct", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
+		{"ebs.aws/region", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
+		{"ebs.aws/sku", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
+		{"rds.aws/acct", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
+		{"rds.aws/region", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
+		{"rds.aws/sku", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
+	} {
+		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
+			if len(s) < recent {
+				return true
+			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.thresh {
+				return true
+			} else {
+				return s[1] < mean+sdev*metric.sig
+			}
+		}); err != nil {
+			logE.Printf("problem accessing %q metric: %v", metric.name, err)
+		} else if sx := <-c; sx != nil {
+			for k, se := range sx.Series {
+				_, rm, _ := coreStats(se[2:recent], true, 0)
+				if a := metric.alert(metric.name, k, se[1], rm); alertEnabled(a, metric, k, "default") {
+					alertDetail(a, []string{
+						metric.filter(k),
+						`act>1.5`,
+					}, 240)
+					alerts = append(alerts, a)
+				}
+			}
+		}
+	}
+	return
+}
+func awsFalling() (alerts []map[string]string) {
+	const recent = 10
+	for _, metric := range []alertMetric{
+		{"ec2.aws/acct", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
+		{"ec2.aws/region", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
+		{"ec2.aws/sku", 0.05, 0, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
+		{"ebs.aws/acct", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
+		{"ebs.aws/region", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
+		{"ebs.aws/sku", 0.05, 0, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
+		{"rds.aws/acct", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
+		{"rds.aws/region", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
+		{"rds.aws/sku", 0.05, 0, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
+	} {
+		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
+			if len(s) < recent {
+				return true
+			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.thresh {
+				return true
+			} else {
+				return s[1] > mean-sdev*metric.sig
+			}
+		}); err != nil {
+			logE.Printf("problem accessing %q metric: %v", metric.name, err)
+		} else if sx := <-c; sx != nil {
+			for k, se := range sx.Series {
+				_, rm, _ := coreStats(se[2:recent], true, 0)
+				if a := metric.alert(metric.name, k, se[1], rm); alertEnabled(a, metric, k, "default") {
+					alertDetail(a, []string{
+						metric.filter(k),
+						`act<1.5`,
+					}, 240)
+					alerts = append(alerts, a)
+				}
+			}
+		}
+	}
+	return
+}
+
 func curawsCost(m, k string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 1:
@@ -199,9 +309,9 @@ func curCost() (alerts []map[string]string) {
 		} else if sx := <-c; sx != nil {
 			for k, se := range sx.Series {
 				var a map[string]string
-				if _, u, _ := coreStats(se[:recent], true, false); len(se) <= recent {
+				if _, u, _ := coreStats(se[:recent], true, 0); len(se) <= recent {
 					a = metric.alert(metric.name, k, u*recent/float64(len(se)))
-				} else if ss, mean, sdev := coreStats(se[recent:], true, false); u > mean*metric.ratio && u > mean+sdev*metric.sig {
+				} else if ss, mean, sdev := coreStats(se[recent:], true, 0); u > mean*metric.ratio && u > mean+sdev*metric.sig {
 					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
 					case high-med < 1 && max-high < 1:
 						a = metric.alert(metric.name, k, u, max)
@@ -224,56 +334,8 @@ func curCost() (alerts []map[string]string) {
 	return
 }
 
-func cdrtermMargin(m, k string, v ...float64) (a map[string]string) {
-	a = make(map[string]string, 256)
-	switch a["model"] = "cdr.asp/term"; len(v) {
-	case 1:
-		a["short"] = fmt.Sprintf("%q metric margin alert: %.0f%% margin being observed for %q", m, v[0]*100, k)
-		a["long"] = fmt.Sprintf("The %q metric is recording sustained low margin performance for outbound calls. The margin for %q is currently being observed at %.1f%%.", m, k, v[0]*100)
-	default:
-		return nil
-	}
-	return
-}
-func cdrMargin() (alerts []map[string]string) {
-	const recent = 10
-	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo/p", 0.05, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `to~ ` + k + `$` }},
-		{"cdr.asp/term/cust/p", 0.05, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `cust=` + k }},
-		{"cdr.asp/term/sp/p", 0.05, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `sp=` + k }},
-	} {
-		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
-			n, sum := 0, 0.0
-			for _, v := range s {
-				if v != 0 {
-					n++
-					sum += v
-				}
-			}
-			return n < 3 || sum/float64(n) > metric.thresh
-		}); err != nil {
-			logE.Printf("problem accessing %q metric: %v", metric.name, err)
-		} else if sx, now := <-c, time.Now().Unix(); sx != nil {
-			for k, se := range sx.Series {
-				_, p, _ := coreStats(se, false, false)
-				if a := metric.alert(metric.name, k, p); alertEnabled(a, metric, k, "telecom margin") {
-					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
-					alertDetail(a, []string{
-						metric.filter(k),
-						// cannot filter %margin with: fmt.Sprintf(`margin<%g`, metric.thresh),
-						fmt.Sprintf(`start>%s`, time.Unix(now-3600*recent, 0).UTC().Format(time.RFC3339)),
-					}, 240)
-					alerts = append(alerts, a)
-				}
-			}
-		}
-	}
-	return
-}
-
 func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
-	a = make(map[string]string, 64)
-	switch a["model"] = "cdr.asp/term"; len(v) {
+	switch a = make(map[string]string, 64); len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f usage burst for %q", m, v[0], k)
 		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual outbound call activity. A billable $%.0f usage burst for %q is occurring.", m, v[0], k)
@@ -295,13 +357,14 @@ func cdrtermFraud(m, k string, v ...float64) (a map[string]string) {
 	default:
 		return nil
 	}
+	a["model"] = "cdr.asp/term"
 	return
 }
 func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
-	if a = make(map[string]string, 64); k == "" {
+	if k == "" {
 		k = "any/any"
 	}
-	switch a["cust"], a["model"] = strings.Split(k, "/")[0], "cdr.asp/term"; len(v) {
+	switch a = make(map[string]string, 64); len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: new/rare $%.0f usage burst", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
 		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing new or unusual outbound call activity. A billable $%.0f usage burst is occurring.", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
@@ -331,6 +394,7 @@ func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
 	default:
 		return nil
 	}
+	a["cust"], a["model"] = strings.Split(k, "/")[0], "cdr.asp/term"
 	return
 }
 func cdrFraud() (alerts []map[string]string) {
@@ -352,7 +416,7 @@ func cdrFraud() (alerts []map[string]string) {
 					a = metric.alert(metric.name, k, se[0])
 				} else if len(se) < 2 {
 				} else if u := (se[0] + se[1]*hr) * 1.2; u <= metric.thresh {
-				} else if ss, mean, sdev := coreStats(se[2:], false, true); len(ss) == 0 {
+				} else if ss, mean, sdev := coreStats(se[2:], false, samplePage); len(ss) == 0 {
 					a = metric.alert(metric.name, k, se[0], u)
 				} else if u > mean*metric.ratio && u > mean+sdev*metric.sig {
 					switch med, high, max := ss[len(ss)*50/100], ss[len(ss)*95/100], ss[len(ss)-1]; {
@@ -379,10 +443,59 @@ func cdrFraud() (alerts []map[string]string) {
 	return
 }
 
+func cdrtermMargin(m, k string, v ...float64) (a map[string]string) {
+	switch a = make(map[string]string, 256); len(v) {
+	case 1:
+		a["short"] = fmt.Sprintf("%q metric margin alert: %.0f%% margin being observed for %q", m, v[0]*100, k)
+		a["long"] = fmt.Sprintf("The %q metric is recording sustained low margin performance for outbound calls. The margin for %q is currently being observed at %.1f%%.", m, k, v[0]*100)
+	default:
+		return nil
+	}
+	a["model"] = "cdr.asp/term"
+	return
+}
+func cdrMargin() (alerts []map[string]string) {
+	const recent = 10
+	for _, metric := range []alertMetric{
+		{"cdr.asp/term/geo/p", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `to~ ` + k + `$` }},
+		{"cdr.asp/term/cust/p", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `cust=` + k }},
+		{"cdr.asp/term/sp/p", -0.05, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `sp=` + k }},
+	} {
+		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
+			n, sum := 0, 0.0
+			for _, v := range s {
+				if v != 0 {
+					n++
+					sum += v
+				}
+			}
+			return n < 3 || sum/float64(n) > metric.thresh
+		}); err != nil {
+			logE.Printf("problem accessing %q metric: %v", metric.name, err)
+		} else if sx, now := <-c, time.Now().Unix(); sx != nil {
+			for k, se := range sx.Series {
+				_, p, _ := coreStats(se, false, 0)
+				if a := metric.alert(metric.name, k, p); alertEnabled(a, metric, k, "telecom margin") {
+					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
+					alertDetail(a, []string{
+						metric.filter(k),
+						// cannot filter %margin with: fmt.Sprintf(`margin<%g`, metric.thresh),
+						fmt.Sprintf(`start>%s`, time.Unix(now-3600*recent, 0).UTC().Format(time.RFC3339)),
+					}, 240)
+					alerts = append(alerts, a)
+				}
+			}
+		}
+	}
+	return
+}
+
 func evtcmonHandler(m *model, event string) {
 	var alerts []map[string]string
 	switch event {
 	case "ec2.aws", "ebs.aws", "rds.aws":
+		alerts = append(alerts, awsRising()...)
+		alerts = append(alerts, awsFalling()...)
 	case "cur.aws":
 		alerts = append(alerts, curCost()...)
 	case "cdr.asp":
