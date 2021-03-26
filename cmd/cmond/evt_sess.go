@@ -213,10 +213,11 @@ func awsRising() (alerts []map[string]string) {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
-			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || mean < metric.thresh && s[1] < metric.thresh {
+			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 ||
+				sdev/mean > metric.ratio || mean < metric.thresh && s[1] < metric.thresh {
 				return true
 			} else {
-				return s[1] < mean+sdev*metric.sig
+				return s[1] < mean+sdev*metric.sig+3
 			}
 		}); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -225,8 +226,8 @@ func awsRising() (alerts []map[string]string) {
 				_, rm, _ := coreStats(se[2:recent], true, 0)
 				if a := metric.alert(metric.name, k, se[1], rm); alertEnabled(a, metric, k, "default") {
 					alertDetail(a, []string{
-						metric.filter(k),
 						`act>1.5`,
+						metric.filter(k),
 					}, 240)
 					alerts = append(alerts, a)
 				}
@@ -251,10 +252,11 @@ func awsFalling() (alerts []map[string]string) {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
-			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || mean < metric.thresh && s[1] < metric.thresh {
+			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 ||
+				sdev/mean > metric.ratio || mean < metric.thresh && s[1] < metric.thresh {
 				return true
 			} else {
-				return s[1] > mean-sdev*metric.sig
+				return s[1] > mean-sdev*metric.sig-3
 			}
 		}); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -263,8 +265,8 @@ func awsFalling() (alerts []map[string]string) {
 				_, rm, _ := coreStats(se[2:recent], true, 0)
 				if a := metric.alert(metric.name, k, se[1], rm); alertEnabled(a, metric, k, "default") {
 					alertDetail(a, []string{
-						metric.filter(k),
 						`act<1.5`,
+						metric.filter(k),
 					}, 240)
 					alerts = append(alerts, a)
 				}
