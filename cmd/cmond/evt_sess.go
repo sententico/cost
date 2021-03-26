@@ -25,12 +25,59 @@ type (
 		sig    float64 // minimum sigmas from mean
 		reset  float32 // hours to reset
 		alert  func(string, string, ...float64) map[string]string
-		filter func(string) string
+		filter func(string) []string
 	}
 )
 
 var (
 	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( with SQL (SE|EE|Web|EX)| Spot)?|SQL (SE|EE|Web|EX))\b`)
+
+	awsAlerts = []alertMetric{
+		{"ec2.aws/acct", 10, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`acct~^` + k} }},
+		{"ec2.aws/region", 10, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`az~^` + k} }},
+		{"ec2.aws/sku", 10, 0.05, 5, 2, ec2Usage, func(k string) []string {
+			if s := strings.Split(k, " "); len(s) == 3 {
+				if strings.HasPrefix(s[1], "sp.") {
+					return []string{
+						`az~^` + s[0],
+						`typ=` + s[1][3:],
+						`spot!`,
+						// `plat=` + s[2],
+					}
+				}
+				return []string{
+					`az~^` + s[0],
+					`typ=` + s[1],
+					`spot=`,
+					// `plat=` + s[2],
+				}
+			}
+			return nil
+		}},
+		{"ebs.aws/acct", 10, 0.05, 5, 2, ebsUsage, func(k string) []string { return []string{`acct~^` + k} }},
+		{"ebs.aws/region", 10, 0.05, 5, 2, ebsUsage, func(k string) []string { return []string{`az~^` + k} }},
+		{"ebs.aws/sku", 10, 0.05, 5, 2, ebsUsage, func(k string) []string {
+			if s := strings.Split(k, " "); len(s) == 2 {
+				return []string{
+					`az~^` + s[0],
+					`typ=` + s[1],
+				}
+			}
+			return nil
+		}},
+		{"rds.aws/acct", 10, 0.05, 5, 2, rdsUsage, func(k string) []string { return []string{`acct~^` + k} }},
+		{"rds.aws/region", 10, 0.05, 5, 2, rdsUsage, func(k string) []string { return []string{`az~^` + k} }},
+		{"rds.aws/sku", 10, 0.05, 5, 2, rdsUsage, func(k string) []string {
+			if s := strings.Split(k, " "); len(s) == 3 {
+				return []string{
+					`az~^` + s[0],
+					`typ=` + s[1],
+					// `eng=` + s[2],
+				}
+			}
+			return nil
+		}},
+	}
 )
 
 func alertWeasel(weasel string, alerts []map[string]string) (err error) {
@@ -198,18 +245,8 @@ func rdsUsage(m, k string, v ...float64) (a map[string]string) {
 	return
 }
 func awsRising() (alerts []map[string]string) {
-	const recent = 13
-	for _, metric := range []alertMetric{
-		{"ec2.aws/acct", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
-		{"ec2.aws/region", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
-		{"ec2.aws/sku", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
-		{"ebs.aws/acct", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
-		{"ebs.aws/region", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
-		{"ebs.aws/sku", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
-		{"rds.aws/acct", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
-		{"rds.aws/region", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
-		{"rds.aws/sku", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
-	} {
+	const recent = 20
+	for _, metric := range awsAlerts {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
@@ -224,10 +261,9 @@ func awsRising() (alerts []map[string]string) {
 			for k, se := range sx.Series {
 				_, rm, _ := coreStats(se[2:recent], true, 0)
 				if a := metric.alert(metric.name, k, se[1], rm); alertEnabled(a, metric, k, "rising usage") {
-					alertDetail(a, []string{
+					alertDetail(a, append(metric.filter(k),
 						`act>1.5`,
-						metric.filter(k),
-					}, 240)
+					), 240)
 					alerts = append(alerts, a)
 				}
 			}
@@ -236,18 +272,8 @@ func awsRising() (alerts []map[string]string) {
 	return
 }
 func awsFalling() (alerts []map[string]string) {
-	const recent = 13
-	for _, metric := range []alertMetric{
-		{"ec2.aws/acct", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `acct~^` + k }},
-		{"ec2.aws/region", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `region=` + k }},
-		{"ec2.aws/sku", 10, 0.05, 5, 2, ec2Usage, func(k string) string { return `typ=` + k }},
-		{"ebs.aws/acct", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `acct~^` + k }},
-		{"ebs.aws/region", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `region=` + k }},
-		{"ebs.aws/sku", 10, 0.05, 5, 2, ebsUsage, func(k string) string { return `typ=` + k }},
-		{"rds.aws/acct", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `acct~^` + k }},
-		{"rds.aws/region", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `region=` + k }},
-		{"rds.aws/sku", 10, 0.05, 5, 2, rdsUsage, func(k string) string { return `typ=` + k }},
-	} {
+	const recent = 20
+	for _, metric := range awsAlerts {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
@@ -262,10 +288,9 @@ func awsFalling() (alerts []map[string]string) {
 			for k, se := range sx.Series {
 				_, rm, _ := coreStats(se[2:recent], true, 0)
 				if a := metric.alert(metric.name, k, se[1], rm); alertEnabled(a, metric, k, "falling usage") {
-					alertDetail(a, []string{
+					alertDetail(a, append(metric.filter(k),
 						`act<1.5`,
-						metric.filter(k),
-					}, 240)
+					), 240)
 					alerts = append(alerts, a)
 				}
 			}
@@ -299,10 +324,10 @@ func curawsCost(m, k string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", 4, 1.08, 0.5, 24, curawsCost, func(k string) string { return `acct~^` + k }},
-		{"cur.aws/region", 8, 1.08, 0.5, 24, curawsCost, func(k string) string { return `region=` + k }},
-		{"cur.aws/typ", 8, 1.08, 0.5, 24, curawsCost, func(k string) string { return `typ=` + k }},
-		{"cur.aws/svc", 2, 1.08, 0.5, 24, curawsCost, func(k string) string { return `svc=` + k }},
+		{"cur.aws/acct", 4, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`acct~^` + k} }},
+		{"cur.aws/region", 8, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`region=` + k} }},
+		{"cur.aws/typ", 8, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`typ=` + k} }},
+		{"cur.aws/svc", 2, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`svc=` + k} }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -323,9 +348,7 @@ func curCost() (alerts []map[string]string) {
 				}
 				if alertEnabled(a, metric, k, "cloud cost") {
 					a["cols"] = "Invoice Item,Hour,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description,Name,env,dc,product,app,cust,team,version,~,Usage,Billed"
-					alertCURDetail(a, -recent, []string{
-						metric.filter(k),
-					}, 12000, 240)
+					alertCURDetail(a, -recent, metric.filter(k), 12000, 240)
 					alerts = append(alerts, a)
 				}
 			}
@@ -399,10 +422,10 @@ func cdrtermcustFraud(m, k string, v ...float64) (a map[string]string) {
 }
 func cdrFraud() (alerts []map[string]string) {
 	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo", 600, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `to~ ` + k + `$` }},
-		{"cdr.asp/term/cust", 400, 1.2, 5.5, 0.5, cdrtermcustFraud, func(k string) string { return `cust=` + k }},
-		{"cdr.asp/term/sp", 1200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `sp=` + k }},
-		{"cdr.asp/term/to", 200, 1.2, 5, 0.5, cdrtermFraud, func(k string) string { return `to~^\` + k[:strings.LastIndexByte(k, ' ')+1] }},
+		{"cdr.asp/term/geo", 600, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`to~ ` + k + `$`} }},
+		{"cdr.asp/term/cust", 400, 1.2, 5.5, 0.5, cdrtermcustFraud, func(k string) []string { return []string{`cust=` + k} }},
+		{"cdr.asp/term/sp", 1200, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`sp=` + k} }},
+		{"cdr.asp/term/to", 200, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`to~^\` + k[:strings.LastIndexByte(k, ' ')+1]} }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/1.2/2); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -431,10 +454,9 @@ func cdrFraud() (alerts []map[string]string) {
 				if alertEnabled(a, metric, k, "telecom fraud") {
 					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
 					a["c.cols"] = "CDR,Loc,To,From,~,Cust/App,Start,Min,Tries,Billable,~"
-					alertDetail(a, []string{
-						metric.filter(k),
+					alertDetail(a, append(metric.filter(k),
 						fmt.Sprintf(`start>%s`, time.Unix(now-60*90, 0).UTC().Format(time.RFC3339)),
-					}, 48)
+					), 48)
 					alerts = append(alerts, a)
 				}
 			}
@@ -457,9 +479,9 @@ func cdrtermMargin(m, k string, v ...float64) (a map[string]string) {
 func cdrMargin() (alerts []map[string]string) {
 	const recent = 10
 	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo/p", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `to~ ` + k + `$` }},
-		{"cdr.asp/term/cust/p", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `cust=` + k }},
-		{"cdr.asp/term/sp/p", -0.05, 0, 0, 24 * 7, cdrtermMargin, func(k string) string { return `sp=` + k }},
+		{"cdr.asp/term/geo/p", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to~ ` + k + `$`} }},
+		{"cdr.asp/term/cust/p", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`cust=` + k} }},
+		{"cdr.asp/term/sp/p", -0.05, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`sp=` + k} }},
 	} {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			n, sum := 0, 0.0
@@ -477,11 +499,10 @@ func cdrMargin() (alerts []map[string]string) {
 				_, p, _ := coreStats(se, false, 0)
 				if a := metric.alert(metric.name, k, p); alertEnabled(a, metric, k, "telecom margin") {
 					a["cols"] = "CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin"
-					alertDetail(a, []string{
-						metric.filter(k),
+					alertDetail(a, append(metric.filter(k),
 						// cannot filter %margin with: fmt.Sprintf(`margin<%g`, metric.thresh),
 						fmt.Sprintf(`start>%s`, time.Unix(now-3600*recent, 0).UTC().Format(time.RFC3339)),
-					}, 240)
+					), 240)
 					alerts = append(alerts, a)
 				}
 			}
