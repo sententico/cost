@@ -178,8 +178,8 @@ func ec2Usage(m, k string, v ...float64) (a map[string]string) {
 func ebsUsage(m, k string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 2:
-		a["short"] = fmt.Sprintf("EBS volume usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
-		a["long"] = fmt.Sprintf("EBS volume usage is experiencing deviation from its norm. The hourly usage for %q, now at $%.2f, is diverging from its $%.2f baseline.", k, v[1], v[0])
+		a["short"] = fmt.Sprintf("EBS storage usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
+		a["long"] = fmt.Sprintf("EBS storage usage is experiencing deviation from its norm. The hourly usage for %q, now at $%.2f, is diverging from its $%.2f baseline.", k, v[1], v[0])
 	default:
 		return nil
 	}
@@ -216,7 +216,7 @@ func awsRising() (alerts []map[string]string) {
 			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || s[1] < metric.thresh {
 				return true
 			} else {
-				return s[1] < mean+sdev*metric.sig+3
+				return s[1] < mean+mean*metric.ratio+sdev*metric.sig+2
 			}
 		}); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -254,7 +254,7 @@ func awsFalling() (alerts []map[string]string) {
 			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || mean < metric.thresh {
 				return true
 			} else {
-				return s[1] > mean-sdev*metric.sig-3
+				return s[1] > mean-mean*metric.ratio-sdev*metric.sig-2
 			}
 		}); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
