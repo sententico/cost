@@ -652,7 +652,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 		case "Active", "active", "act":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
 				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
-				case "=": // active opd hours ago
+				case "=": // active opd*3600 seconds ago
 					if flt = append(flt, func(v ...interface{}) bool {
 						ap := v[0].(*ec2Item).Active
 						for i, t := len(ap)-2, now-s; i >= 0; i -= 2 {
@@ -665,7 +665,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 					}); s > adj {
 						adj = s
 					}
-				case "!": // not active opd hours ago
+				case "!": // not active opd*3600 seconds ago
 					s = now - s
 					flt = append(flt, func(v ...interface{}) bool {
 						if ap := v[0].(*ec2Item).Active; len(ap) > 1 {
@@ -956,7 +956,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 		case "Active", "active", "act":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
 				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
-				case "=": // active opd hours ago
+				case "=": // active opd*3600 seconds ago
 					if flt = append(flt, func(v ...interface{}) bool {
 						ap := v[0].(*ebsItem).Active
 						for i, t := len(ap)-2, now-s; i >= 0; i -= 2 {
@@ -969,7 +969,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					}); s > adj {
 						adj = s
 					}
-				case "!": // not active opd hours ago
+				case "!": // not active opd*3600 seconds ago
 					s = now - s
 					flt = append(flt, func(v ...interface{}) bool {
 						if ap := v[0].(*ebsItem).Active; len(ap) > 1 {
@@ -1316,7 +1316,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 		case "Active", "active", "act":
 			if f, err := strconv.ParseFloat(opd, 32); err == nil {
 				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
-				case "=": // active opd hours ago
+				case "=": // active opd*3600 seconds ago
 					if flt = append(flt, func(v ...interface{}) bool {
 						ap := v[0].(*rdsItem).Active
 						for i, t := len(ap)-2, now-s; i >= 0; i -= 2 {
@@ -1329,7 +1329,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					}); s > adj {
 						adj = s
 					}
-				case "!": // not active opd hours ago
+				case "!": // not active opd*3600 seconds ago
 					s = now - s
 					flt = append(flt, func(v ...interface{}) bool {
 						if ap := v[0].(*rdsItem).Active; len(ap) > 1 {
