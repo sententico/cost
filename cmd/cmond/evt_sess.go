@@ -21,7 +21,7 @@ type (
 	alertMetric struct {
 		name   string
 		thresh float64 // alert threshold amount
-		ratio  float64 // minimum ratio to mean
+		ratio  float64 // minimum ratio to mean (and alternative uses)
 		sig    float64 // minimum sigmas from mean
 		reset  float32 // hours to reset
 		alert  func(string, string, ...float64) map[string]string
