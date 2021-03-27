@@ -691,8 +691,8 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 					}
 				case ">": // last active since a point within opd hours
 					flt = append(flt, func(v ...interface{}) bool {
-						if ap := v[0].(*ec2Item).Active; len(ap) > 1 {
-							return now-ap[len(ap)-2] < s && ap[len(ap)-1] >= d.Current
+						if ap, last := v[0].(*ec2Item).Active, v[0].(*ec2Item).Last; len(ap) > 1 && last >= d.Current {
+							return now-ap[len(ap)-2] < s && ap[len(ap)-1] == last
 						}
 						return false
 					})
@@ -995,8 +995,8 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					}
 				case ">": // last active since a point within opd hours
 					flt = append(flt, func(v ...interface{}) bool {
-						if ap := v[0].(*ebsItem).Active; len(ap) > 1 {
-							return now-ap[len(ap)-2] < s && ap[len(ap)-1] >= d.Current
+						if ap, last := v[0].(*ebsItem).Active, v[0].(*ebsItem).Last; len(ap) > 1 && last >= d.Current {
+							return now-ap[len(ap)-2] < s && ap[len(ap)-1] == last
 						}
 						return false
 					})
@@ -1355,8 +1355,8 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					}
 				case ">": // last active since a point within opd hours
 					flt = append(flt, func(v ...interface{}) bool {
-						if ap := v[0].(*rdsItem).Active; len(ap) > 1 {
-							return now-ap[len(ap)-2] < s && ap[len(ap)-1] >= d.Current
+						if ap, last := v[0].(*rdsItem).Active, v[0].(*rdsItem).Last; len(ap) > 1 && last >= d.Current {
+							return now-ap[len(ap)-2] < s && ap[len(ap)-1] == last
 						}
 						return false
 					})
