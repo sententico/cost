@@ -81,9 +81,43 @@ type (
 	}
 )
 
+// requires maintenance updates (last Oct20)
+var (
+	PlatMap = map[string]string{
+		"":              "Lin",
+		"windows":       "Win",
+		"rhel":          "RHEL",
+		"mysql":         "MSQL",
+		"postgres":      "PSQL",
+		"oracle-ee":     "MSQL", // BYOL matches MySQL pricing
+		"oracle-se":     "MSQL", // BYOL matches MySQL pricing
+		"oracle-se1":    "ORLs1",
+		"oracle-se2":    "ORLs2",
+		"sqlserver-ee":  "SQLe",
+		"sqlserver-se":  "SQLs",
+		"sqlserver-web": "SQLw",
+		"sqlserver-ex":  "SQLx",
+	}
+
+	PlatRMap = map[string]string{
+		"Lin":   "",
+		"Win":   "windows",
+		"RHEL":  "rhel",
+		"MSQL":  "mysql",
+		"PSQL":  "postgres",
+		"ORLs1": "oracle-se1",
+		"ORLs2": "oracle-se2",
+		"SQLe":  "sqlserver-ee",
+		"SQLs":  "sqlserver-se",
+		"SQLw":  "sqlserver-web",
+		"SQLx":  "sqlserver-ex",
+	}
+)
+
 // Load method on Rater ...
 func (r *Rater) Load(rr io.Reader, filter string) (err error) {
-	res, b := []rateInfo{}, []byte{}
+	var b []byte
+	res := []rateInfo{}
 	if r == nil {
 		return fmt.Errorf("no rater specified")
 	} else if r.kRV = nil; rr != nil {
@@ -132,7 +166,7 @@ func (r *Rater) Lookup(k *RateKey) (v RateValue) {
 	if r == nil || k == nil || k.Typ == "" {
 		return
 	}
-	if p := platMap[k.Plat]; p != "" {
+	if p := PlatMap[k.Plat]; p != "" {
 		k.Plat = p
 	}
 	if k.Terms == "" {
@@ -152,7 +186,8 @@ func (r *Rater) Lookup(k *RateKey) (v RateValue) {
 
 // Load method on EBSRater ...
 func (r *EBSRater) Load(rr io.Reader) (err error) {
-	res, b := []ebsRateInfo{}, []byte{}
+	var b []byte
+	res := []ebsRateInfo{}
 	if r == nil {
 		return fmt.Errorf("no rater specified")
 	} else if r.kRV = nil; rr != nil {
