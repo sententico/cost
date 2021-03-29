@@ -159,6 +159,31 @@ func (s *MonSettings) Load(loc string) (err error) {
 	return nil
 }
 
+// PromoteAZ method on MonSettings ...
+func (s *MonSettings) PromoteAZ(acct, az string) bool {
+	if s == nil {
+		return false
+	} else if acct == "" || az == "" {
+		if b, err := json.Marshal(s); err == nil {
+			s.JSON = string(append(b, '\n')) // TODO: protect with mutex
+		}
+		return false
+	} else if p := s.AWS.Profiles[s.AWS.Accounts[acct]["~profile"]]; p == nil {
+		return false
+	} else if r := func() string {
+		if len(az) > 1 && az[len(az)-1] > '9' {
+			return az[:len(az)-1]
+		}
+		return az
+	}(); p[r] == 1 {
+		return false
+	} else if p[r] > 0 {
+		p[r] = 1
+		return true
+	}
+	return false
+}
+
 // Update method on TagMap ...
 func (t TagMap) Update(u TagMap) TagMap {
 	if t == nil {

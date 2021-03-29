@@ -306,19 +306,19 @@ func curawsCost(m, k, l string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("%q metric cost alert: new/rare $%.0f hourly usage burst for %q", m, v[0], k)
-		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual AWS consumption.  A $%.0f hourly cost burst for %s %q has occurred.", m, v[0], l, k)
+		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual AWS consumption.  A $%.2f hourly cost burst for %s %q has occurred.", m, v[0], l, k)
 	case 2:
 		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f)", m, v[0], k, v[1])
-		a["long"] = fmt.Sprintf("The %q metric is recording elevated AWS consumption costing $%.0f per hour for %s %q.", m, v[0], l, k)
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour.", v[1])
+		a["long"] = fmt.Sprintf("The %q metric is recording elevated AWS consumption costing $%.2f per hour for %s %q.", m, v[0], l, k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour.", v[1])
 	case 3:
 		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f with bursts ranging to $%.0f)", m, v[0], k, v[1], v[2])
-		a["long"] = fmt.Sprintf("The %q metric is recording heavy AWS consumption costing $%.0f per hour for %s %q.", m, v[0], l, k)
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f.", v[1], v[2])
+		a["long"] = fmt.Sprintf("The %q metric is recording heavy AWS consumption costing $%.2f per hour for %s %q.", m, v[0], l, k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour, with bursts ranging to $%.2f.", v[1], v[2])
 	case 4:
 		a["short"] = fmt.Sprintf("%q metric cost alert: $%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)", m, v[0], k, v[1], v[2], v[3])
-		a["long"] = fmt.Sprintf("The %q metric is recording heavy AWS consumption costing $%.0f per hour for %s %q.", m, v[0], l, k)
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f or occasionally to as much as $%.0f.", v[1], v[2], v[3])
+		a["long"] = fmt.Sprintf("The %q metric is recording heavy AWS consumption costing $%.2f per hour for %s %q.", m, v[0], l, k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour, with bursts ranging to $%.2f or occasionally to as much as $%.2f.", v[1], v[2], v[3])
 	default:
 		return nil
 	}
@@ -327,10 +327,10 @@ func curawsCost(m, k, l string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", "AWS account", 4, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`acct~^` + k} }},
-		{"cur.aws/region", "service location", 8, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`region=` + k} }},
-		{"cur.aws/typ", "billing type", 8, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`typ=` + k} }},
-		{"cur.aws/svc", "service", 2, 1.08, 0.5, 24, curawsCost, func(k string) []string { return []string{`svc=` + k} }},
+		{"cur.aws/acct", "AWS account", 4, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`acct~^` + k} }},
+		{"cur.aws/region", "service location", 8, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`region=` + k} }},
+		{"cur.aws/typ", "billing type", 8, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`typ=` + k} }},
+		{"cur.aws/svc", "service", 2, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`svc=` + k} }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -364,22 +364,22 @@ func cdrtermFraud(m, k, l string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 64); len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f usage burst for %q", m, v[0], k)
-		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual outbound call activity. A billable $%.0f usage burst for %s %q is occurring.", m, v[0], l, k)
+		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual outbound call activity. A billable $%.2f usage burst for %s %q is occurring.", m, v[0], l, k)
 	case 2:
 		a["short"] = fmt.Sprintf("%q metric signaling fraud: new/rare $%.0f hourly usage burst for %q", m, v[1], k)
-		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual outbound call activity. A billable $%.0f hourly usage burst for %s %q is occurring.", m, v[1], l, k)
+		a["long"] = fmt.Sprintf("The %q metric is recording new or unusual outbound call activity. A billable $%.2f hourly usage burst for %s %q is occurring.", m, v[1], l, k)
 	case 3:
 		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f)", m, v[1], k, v[2])
-		a["long"] = fmt.Sprintf("The %q metric is recording heavy outbound call activity amounting to $%.0f of hourly billable usage for %s %q.", m, v[1], l, k)
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour.", v[2])
+		a["long"] = fmt.Sprintf("The %q metric is recording heavy outbound call activity amounting to $%.2f of hourly billable usage for %s %q.", m, v[1], l, k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour.", v[2])
 	case 4:
 		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f with bursts ranging to $%.0f)", m, v[1], k, v[2], v[3])
-		a["long"] = fmt.Sprintf("The %q metric is recording especially heavy outbound call activity amounting to $%.0f of hourly billable usage for %s %q.", m, v[1], l, k)
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f.", v[2], v[3])
+		a["long"] = fmt.Sprintf("The %q metric is recording especially heavy outbound call activity amounting to $%.2f of hourly billable usage for %s %q.", m, v[1], l, k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour, with bursts ranging to $%.2f.", v[2], v[3])
 	case 5:
 		a["short"] = fmt.Sprintf("%q metric signaling fraud: $%.0f hourly usage for %q (normally $%.0f bursting to $%.0f to as much as $%.0f)", m, v[1], k, v[2], v[3], v[4])
-		a["long"] = fmt.Sprintf("The %q metric is recording especially heavy outbound call activity amounting to $%.0f of hourly billable usage for %s %q.", m, v[1], l, k)
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f or occasionally to as much as $%.0f.", v[2], v[3], v[4])
+		a["long"] = fmt.Sprintf("The %q metric is recording especially heavy outbound call activity amounting to $%.2f of hourly billable usage for %s %q.", m, v[1], l, k)
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour, with bursts ranging to $%.2f or occasionally to as much as $%.2f.", v[2], v[3], v[4])
 	default:
 		return nil
 	}
@@ -393,30 +393,30 @@ func cdrtermcustFraud(m, k, l string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 64); len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: new/rare $%.0f usage burst", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
-		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing new or unusual outbound call activity. A billable $%.0f usage burst is occurring.", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
-		a["c.long"] = fmt.Sprintf("We're noticing a burst of new or unusual outbound call spending estimated at $%.0f on your %s account (%s).", v[0], settings.Alerts.Customers[a["cust"]]["name"], k)
+		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing new or unusual outbound call activity. A billable $%.2f usage burst is occurring.", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
+		a["c.long"] = fmt.Sprintf("We're noticing a burst of new or unusual outbound call spending estimated at $%.2f on your %s account (%s).", v[0], settings.Alerts.Customers[a["cust"]]["name"], k)
 	case 2:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: new/rare $%.0f hourly usage burst", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
-		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing new or unusual outbound call activity. A billable $%.0f hourly usage burst is occurring.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
-		a["c.long"] = fmt.Sprintf("We're noticing a burst of new or unusual outbound call spending at an estimated hourly rate of $%.0f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
+		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing new or unusual outbound call activity. A billable $%.2f hourly usage burst is occurring.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
+		a["c.long"] = fmt.Sprintf("We're noticing a burst of new or unusual outbound call spending at an estimated hourly rate of $%.2f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
 	case 3:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: $%.0f hourly usage (normally $%.0f)", k, settings.Alerts.Customers[a["cust"]]["name"], v[1], v[2])
-		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing heavy outbound call activity amounting to $%.0f of hourly billable usage.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour.", v[2])
-		a["c.long"] = fmt.Sprintf("We're noticing elevated outbound call spending at an estimated hourly rate of $%.0f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
-		a["c.long"] += fmt.Sprintf(" For comparison, your typical spending runs about $%.0f per hour.", v[2])
+		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing heavy outbound call activity amounting to $%.2f of hourly billable usage.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour.", v[2])
+		a["c.long"] = fmt.Sprintf("We're noticing elevated outbound call spending at an estimated hourly rate of $%.2f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
+		a["c.long"] += fmt.Sprintf(" For comparison, your typical spending runs about $%.2f per hour.", v[2])
 	case 4:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: $%.0f hourly usage (normally $%.0f with bursts ranging to $%.0f)", k, settings.Alerts.Customers[a["cust"]]["name"], v[1], v[2], v[3])
-		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing especially heavy outbound call activity amounting to $%.0f of hourly billable usage.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f.", v[2], v[3])
-		a["c.long"] = fmt.Sprintf("We're noticing especially elevated outbound call spending at an estimated hourly rate of $%.0f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
-		a["c.long"] += fmt.Sprintf(" For comparison, your typical spending runs about $%.0f per hour, with bursts ranging to $%.0f.", v[2], v[3])
+		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing especially heavy outbound call activity amounting to $%.2f of hourly billable usage.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.2f.", v[2], v[3])
+		a["c.long"] = fmt.Sprintf("We're noticing especially elevated outbound call spending at an estimated hourly rate of $%.2f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
+		a["c.long"] += fmt.Sprintf(" For comparison, your typical spending runs about $%.2f per hour, with bursts ranging to $%.2f.", v[2], v[3])
 	case 5:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: $%.0f hourly usage (normally $%.0f bursting to $%.0f to as much as $%.0f)", k, settings.Alerts.Customers[a["cust"]]["name"], v[1], v[2], v[3], v[4])
-		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing especially heavy outbound call activity amounting to $%.0f of hourly billable usage.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
-		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.0f per hour, with bursts ranging to $%.0f or occasionally to as much as $%.0f.", v[2], v[3], v[4])
-		a["c.long"] = fmt.Sprintf("We're noticing especially elevated outbound call spending at an estimated hourly rate of $%.0f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
-		a["c.long"] += fmt.Sprintf(" For comparison, your typical spending runs about $%.0f per hour, with bursts ranging to $%.0f or occasionally to as much as $%.0f.", v[2], v[3], v[4])
+		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing especially heavy outbound call activity amounting to $%.2f of hourly billable usage.", k, settings.Alerts.Customers[a["cust"]]["name"], v[1])
+		a["long"] += fmt.Sprintf(" For comparison, typical usage runs about $%.2f per hour, with bursts ranging to $%.2f or occasionally to as much as $%.2f.", v[2], v[3], v[4])
+		a["c.long"] = fmt.Sprintf("We're noticing especially elevated outbound call spending at an estimated hourly rate of $%.2f on your %s account (%s).", v[1], settings.Alerts.Customers[a["cust"]]["name"], k)
+		a["c.long"] += fmt.Sprintf(" For comparison, your typical spending runs about $%.2f per hour, with bursts ranging to $%.2f or occasionally to as much as $%.2f.", v[2], v[3], v[4])
 	default:
 		return nil
 	}
@@ -482,9 +482,9 @@ func cdrtermMargin(m, k, l string, v ...float64) (a map[string]string) {
 func cdrMargin() (alerts []map[string]string) {
 	const recent = 10
 	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo/p", "geographic zone", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to~ ` + k + `$`} }},
-		{"cdr.asp/term/cust/p", "account/app", 0.1, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`cust=` + k} }},
-		{"cdr.asp/term/sp/p", "service provider", -0.05, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`sp=` + k} }},
+		{"cdr.asp/term/geo/p", "geographic zone", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to~ ` + k + `$`} }},
+		{"cdr.asp/term/cust/p", "account/app", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`cust=` + k} }},
+		{"cdr.asp/term/sp/p", "service provider", -0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`sp=` + k} }},
 	} {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			n, sum := 0, 0.0
