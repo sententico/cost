@@ -218,7 +218,7 @@ func ec2Usage(m, k, l string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 2:
 		a["short"] = fmt.Sprintf("EC2 instance usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
-		a["long"] = fmt.Sprintf("EC2 instance usage is experiencing deviation from its norm. The hourly usage for %s %q, now at $%.2f, is diverging from its $%.2f baseline.", l, k, v[1], v[0])
+		a["long"] = fmt.Sprintf("EC2 instance usage is experiencing deviation from its norm. The hourly usage for %s %q, now at $%.2f, is diverging from its $%.2f baseline.", l, k, v[0], v[1])
 	default:
 		return nil
 	}
@@ -229,7 +229,7 @@ func ebsUsage(m, k, l string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 2:
 		a["short"] = fmt.Sprintf("EBS storage usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
-		a["long"] = fmt.Sprintf("EBS storage usage is experiencing deviation from its norm. The hourly usage for %s %q, now at $%.2f, is diverging from its $%.2f baseline.", l, k, v[1], v[0])
+		a["long"] = fmt.Sprintf("EBS storage usage is experiencing deviation from its norm. The hourly usage for %s %q, now at $%.2f, is diverging from its $%.2f baseline.", l, k, v[0], v[1])
 	default:
 		return nil
 	}
@@ -240,7 +240,7 @@ func rdsUsage(m, k, l string, v ...float64) (a map[string]string) {
 	switch a = make(map[string]string, 256); len(v) {
 	case 2:
 		a["short"] = fmt.Sprintf("RDS DB usage alert: $%.0f hourly usage deviating from $%.0f baseline for %q", v[0], v[1], k)
-		a["long"] = fmt.Sprintf("RDS database usage is experiencing deviation from its norm. The hourly usage for %s %q, now at $%.2f, is diverging from its $%.2f baseline.", l, k, v[1], v[0])
+		a["long"] = fmt.Sprintf("RDS database usage is experiencing deviation from its norm. The hourly usage for %s %q, now at $%.2f, is diverging from its $%.2f baseline.", l, k, v[0], v[1])
 	default:
 		return nil
 	}
@@ -262,7 +262,7 @@ func awsRising() (alerts []map[string]string) {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
 		} else if sx := <-c; sx != nil {
 			for k, se := range sx.Series {
-				_, rm, _ := coreStats(se[2:recent], true, 0)
+				_, rm, _ := coreStats(se[2:], true, 0)
 				if a := metric.alert(metric.name, k, metric.label, se[1], rm); alertEnabled(a, metric, k, "rising usage") {
 					alertDetail(a, append(metric.filter(k),
 						`act>1.5`,
@@ -289,7 +289,7 @@ func awsFalling() (alerts []map[string]string) {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
 		} else if sx := <-c; sx != nil {
 			for k, se := range sx.Series {
-				_, rm, _ := coreStats(se[2:recent], true, 0)
+				_, rm, _ := coreStats(se[2:], true, 0)
 				if a := metric.alert(metric.name, k, metric.label, se[1], rm); alertEnabled(a, metric, k, "falling usage") {
 					alertDetail(a, append(metric.filter(k),
 						`act<1.5`,
