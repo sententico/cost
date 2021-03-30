@@ -195,10 +195,15 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 			c := inst.Rate * float32(dur) / 3600
 			sum.Current = sum.ByAcct.add(now, int(dur), inst.Acct, dur, c)
 			sum.ByRegion.add(now, int(dur), reg, dur, c)
-			if inst.Spot == "" {
-				sum.BySKU.add(now, int(dur), reg+" "+k.Typ+" "+inst.Plat, dur, c)
-			} else {
+			switch {
+			case inst.Spot == "" && inst.Plat == "":
+				sum.BySKU.add(now, int(dur), reg+" "+k.Typ, dur, c)
+			case inst.Spot != "" && inst.Plat != "":
 				sum.BySKU.add(now, int(dur), reg+" sp."+k.Typ+" "+inst.Plat, dur, c)
+			case inst.Plat == "":
+				sum.BySKU.add(now, int(dur), reg+" sp."+k.Typ, dur, c)
+			default:
+				sum.BySKU.add(now, int(dur), reg+" "+k.Typ+" "+inst.Plat, dur, c)
 			}
 		}
 	default:
