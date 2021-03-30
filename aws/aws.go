@@ -161,6 +161,14 @@ func (r *Rater) Load(rr io.Reader, filter string) (err error) {
 	return nil
 }
 
+// Region returns an AWS region string from an availability zone string
+func Region(az string) string {
+	if len(az) > 1 && az[len(az)-1] > '9' {
+		return az[:len(az)-1]
+	}
+	return az
+}
+
 // Lookup method on Rater ...
 func (r *Rater) Lookup(k *RateKey) (v RateValue) {
 	if r == nil || k == nil || k.Typ == "" {

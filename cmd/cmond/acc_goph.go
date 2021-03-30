@@ -164,16 +164,16 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 		ec2awsHack(inst)
 	}
 
-	k := aws.RateKey{
-		Region: inst.AZ,
-		Typ:    inst.Typ,
-		Plat:   inst.Plat,
-		Terms:  "OD",
-	}
 	switch inst.State = item["state"]; inst.State {
 	case "running":
+		reg := aws.Region(inst.AZ)
+		k := aws.RateKey{
+			Region: reg,
+			Typ:    inst.Typ,
+			Plat:   inst.Plat,
+		}
 		if r := work.rates.Lookup(&k); r.Rate == 0 {
-			logE.Printf("no EC2 %v rate found for %v/%v in %v", k.Terms, k.Typ, k.Plat, inst.AZ)
+			logE.Printf("no EC2 %v rate found for %v/%v in %v", k.Terms, k.Typ, k.Plat, reg)
 			inst.Rate = inst.ORate * settings.AWS.UsageAdj
 		} else if inst.ORate != 0 {
 			inst.Rate = inst.ORate * settings.AWS.UsageAdj
@@ -194,11 +194,11 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 			dur := uint64(now - inst.Last)
 			c := inst.Rate * float32(dur) / 3600
 			sum.Current = sum.ByAcct.add(now, int(dur), inst.Acct, dur, c)
-			sum.ByRegion.add(now, int(dur), k.Region, dur, c)
+			sum.ByRegion.add(now, int(dur), reg, dur, c)
 			if inst.Spot == "" {
-				sum.BySKU.add(now, int(dur), k.Region+" "+k.Typ+" "+k.Plat, dur, c)
+				sum.BySKU.add(now, int(dur), reg+" "+k.Typ+" "+k.Plat, dur, c)
 			} else {
-				sum.BySKU.add(now, int(dur), k.Region+" sp."+k.Typ+" "+k.Plat, dur, c)
+				sum.BySKU.add(now, int(dur), reg+" sp."+k.Typ+" "+k.Plat, dur, c)
 			}
 		}
 	default:
@@ -246,13 +246,14 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 		vol.Tag = nil
 	}
 
+	reg := aws.Region(vol.AZ)
 	k, c := aws.EBSRateKey{
-		Region: vol.AZ,
+		Region: reg,
 		Typ:    vol.Typ,
 	}, float32(0)
 	r := work.rates.Lookup(&k)
 	if r.SZrate == 0 {
-		logE.Printf("no EBS rate found for %v in %v", k.Typ, vol.AZ)
+		logE.Printf("no EBS rate found for %v in %v", k.Typ, reg)
 	}
 	switch vol.State = item["state"]; vol.State {
 	case "in-use":
@@ -279,8 +280,8 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 	if c > 0 {
 		u := uint64(vol.Size * dur)
 		sum.Current = sum.ByAcct.add(now, dur, vol.Acct, u, c)
-		sum.ByRegion.add(now, dur, k.Region, u, c)
-		sum.BySKU.add(now, dur, k.Region+" "+k.Typ, u, c)
+		sum.ByRegion.add(now, dur, reg, u, c)
+		sum.BySKU.add(now, dur, reg+" "+k.Typ, u, c)
 	}
 	vol.Last = now
 }
@@ -328,18 +329,18 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 		db.Tag = nil
 	}
 
+	reg := aws.Region(db.AZ)
 	k := aws.RateKey{
-		Region: db.AZ,
+		Region: reg,
 		Typ:    db.Typ,
 		Plat:   db.Engine,
-		Terms:  "OD",
 	}
 	r, s, u, c := work.rates.Lookup(&k), work.srates.Lookup(&aws.EBSRateKey{
-		Region: db.AZ,
+		Region: reg,
 		Typ:    db.STyp,
 	}), uint64(0), float32(0)
 	if r.Rate == 0 || s.SZrate == 0 {
-		logE.Printf("no RDS %v rate found for %v/%v[%v] in %v", k.Terms, k.Typ, k.Plat, db.STyp, db.AZ)
+		logE.Printf("no RDS %v rate found for %v/%v[%v] in %v", k.Terms, k.Typ, k.Plat, db.STyp, reg)
 	}
 	switch db.State = item["state"]; db.State {
 	case "available", "backing-up":
@@ -357,8 +358,8 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	}
 	if c > 0 {
 		sum.Current = sum.ByAcct.add(now, dur, db.Acct, u, c)
-		sum.ByRegion.add(now, dur, k.Region, u, c)
-		sum.BySKU.add(now, dur, k.Region+" "+k.Typ+" "+k.Plat, u, c)
+		sum.ByRegion.add(now, dur, reg, u, c)
+		sum.BySKU.add(now, dur, reg+" "+k.Typ+" "+k.Plat, u, c)
 	}
 	db.Last = now
 }
