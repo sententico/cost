@@ -83,7 +83,7 @@ type (
 
 // requires maintenance updates (last Oct20)
 var (
-	PlatMap = map[string]string{
+	platMap = map[string]string{
 		"":              "Lin",
 		"windows":       "Win",
 		"rhel":          "RHEL",
@@ -97,20 +97,6 @@ var (
 		"sqlserver-se":  "SQLs",
 		"sqlserver-web": "SQLw",
 		"sqlserver-ex":  "SQLx",
-	}
-
-	PlatRMap = map[string]string{
-		"Lin":   "",
-		"Win":   "windows",
-		"RHEL":  "rhel",
-		"MSQL":  "mysql",
-		"PSQL":  "postgres",
-		"ORLs1": "oracle-se1",
-		"ORLs2": "oracle-se2",
-		"SQLe":  "sqlserver-ee",
-		"SQLs":  "sqlserver-se",
-		"SQLw":  "sqlserver-web",
-		"SQLx":  "sqlserver-ex",
 	}
 )
 
@@ -174,7 +160,7 @@ func (r *Rater) Lookup(k *RateKey) (v RateValue) {
 	if r == nil || k == nil || k.Typ == "" {
 		return
 	}
-	if p := PlatMap[k.Plat]; p != "" {
+	if p := platMap[k.Plat]; p != "" {
 		k.Plat = p
 	}
 	if k.Terms == "" {

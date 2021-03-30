@@ -196,9 +196,9 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 			sum.Current = sum.ByAcct.add(now, int(dur), inst.Acct, dur, c)
 			sum.ByRegion.add(now, int(dur), reg, dur, c)
 			if inst.Spot == "" {
-				sum.BySKU.add(now, int(dur), reg+" "+k.Typ+" "+k.Plat, dur, c)
+				sum.BySKU.add(now, int(dur), reg+" "+k.Typ+" "+inst.Plat, dur, c)
 			} else {
-				sum.BySKU.add(now, int(dur), reg+" sp."+k.Typ+" "+k.Plat, dur, c)
+				sum.BySKU.add(now, int(dur), reg+" sp."+k.Typ+" "+inst.Plat, dur, c)
 			}
 		}
 	default:
@@ -359,7 +359,7 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	if c > 0 {
 		sum.Current = sum.ByAcct.add(now, dur, db.Acct, u, c)
 		sum.ByRegion.add(now, dur, reg, u, c)
-		sum.BySKU.add(now, dur, reg+" "+k.Typ+" "+k.Plat, u, c)
+		sum.BySKU.add(now, dur, reg+" "+k.Typ+" "+db.Engine, u, c)
 	}
 	db.Last = now
 }

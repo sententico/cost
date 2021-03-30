@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/sententico/cost/aws"
 )
 
 const (
@@ -39,20 +37,23 @@ var (
 		{"ec2.aws/acct", "AWS account", 4, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`acct~^` + k} }},
 		{"ec2.aws/region", "service location", 12, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`az~^` + k} }},
 		{"ec2.aws/sku", "instance SKU", 6, 0.05, 5, 2, ec2Usage, func(k string) []string {
-			if s := strings.Split(k, " "); len(s) == 3 {
+			if s, p := strings.Split(k, " "), ""; len(s) > 1 {
+				if len(s) == 3 {
+					p = s[2]
+				}
 				if strings.HasPrefix(s[1], "sp.") {
 					return []string{
-						`az~^` + s[0],
+						`az[` + s[0],
 						`typ=` + s[1][3:],
 						`spot!`,
-						`plat=` + aws.PlatRMap[s[2]],
+						`plat=` + p,
 					}
 				}
 				return []string{
-					`az~^` + s[0],
+					`az[` + s[0],
 					`typ=` + s[1],
 					`spot=`,
-					`plat=` + aws.PlatRMap[s[2]],
+					`plat=` + p,
 				}
 			}
 			return nil
@@ -64,7 +65,7 @@ var (
 		{"ebs.aws/sku", "storage SKU", 6, 0.05, 5, 2, ebsUsage, func(k string) []string {
 			if s := strings.Split(k, " "); len(s) == 2 {
 				return []string{
-					`az~^` + s[0],
+					`az[` + s[0],
 					`typ=` + s[1],
 				}
 			}
@@ -77,9 +78,9 @@ var (
 		{"rds.aws/sku", "database SKU", 2, 0.05, 5, 2, rdsUsage, func(k string) []string {
 			if s := strings.Split(k, " "); len(s) == 3 {
 				return []string{
-					`az~^` + s[0],
+					`az[` + s[0],
 					`typ=` + s[1],
-					`eng=` + aws.PlatRMap[s[2]],
+					`eng=` + s[2],
 				}
 			}
 			return nil
@@ -331,7 +332,7 @@ func curawsCost(m, k, l string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", "AWS account", 6, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`acct~^` + k} }},
+		{"cur.aws/acct", "AWS account", 6, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`acct[` + k} }},
 		{"cur.aws/region", "service location", 12, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`region=` + k} }},
 		{"cur.aws/typ", "billing type", 12, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`typ=` + k} }},
 		{"cur.aws/svc", "service", 2, 1.1, 1.5, 24, curawsCost, func(k string) []string { return []string{`svc=` + k} }},
@@ -429,10 +430,10 @@ func cdrtermcustFraud(m, k, l string, v ...float64) (a map[string]string) {
 }
 func cdrFraud() (alerts []map[string]string) {
 	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo", "geographic zone", 600, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`to~ ` + k + `$`} }},
+		{"cdr.asp/term/geo", "geographic zone", 600, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`to] ` + k} }},
 		{"cdr.asp/term/cust", "account/app", 400, 1.2, 5.5, 0.5, cdrtermcustFraud, func(k string) []string { return []string{`cust=` + k} }},
 		{"cdr.asp/term/sp", "service provider", 1200, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`sp=` + k} }},
-		{"cdr.asp/term/to", "termination prefix", 200, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`to~^\` + k[:strings.LastIndexByte(k, ' ')+1]} }},
+		{"cdr.asp/term/to", "termination prefix", 200, 1.2, 5, 0.5, cdrtermFraud, func(k string) []string { return []string{`to[` + k[:strings.LastIndexByte(k, ' ')+1]} }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, 2, metric.thresh/1.2/2); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
@@ -486,7 +487,7 @@ func cdrtermMargin(m, k, l string, v ...float64) (a map[string]string) {
 func cdrMargin() (alerts []map[string]string) {
 	const recent = 10
 	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo/p", "geographic zone", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to~ ` + k + `$`} }},
+		{"cdr.asp/term/geo/p", "geographic zone", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to] ` + k} }},
 		{"cdr.asp/term/cust/p", "account/app", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`cust=` + k} }},
 		{"cdr.asp/term/sp/p", "service provider", -0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`sp=` + k} }},
 	} {

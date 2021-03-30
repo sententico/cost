@@ -27,7 +27,7 @@ var (
 		"~":     "weasel",      // command type
 	}
 	aspN = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
-	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w%]*?)\s*(?P<op>[=!<>~^])(?P<opd>.*)$`)
+	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w%]*?)\s*(?P<op>[=!<>[\]~^])(?P<opd>.*)$`)
 )
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
@@ -492,6 +492,16 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 		switch col {
 		case "Acct", "acct":
 			switch op {
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*ec2Item).Acct
+					return strings.HasPrefix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*ec2Item).Acct
+					return strings.HasSuffix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool {
@@ -517,6 +527,10 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Typ == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Typ != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*ec2Item).Typ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*ec2Item).Typ, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Typ) != "" })
@@ -536,6 +550,10 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Plat == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Plat != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*ec2Item).Plat, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*ec2Item).Plat, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).Plat) != "" })
@@ -570,6 +588,10 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AZ == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AZ != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*ec2Item).AZ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*ec2Item).AZ, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ec2Item).AZ) != "" })
@@ -603,6 +625,10 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[1].(cmon.TagMap)[col], opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[1].(cmon.TagMap)[col], opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
@@ -799,6 +825,16 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 		switch col {
 		case "Acct", "acct":
 			switch op {
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*ebsItem).Acct
+					return strings.HasPrefix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*ebsItem).Acct
+					return strings.HasSuffix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool {
@@ -824,6 +860,10 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Typ == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Typ != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*ebsItem).Typ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*ebsItem).Typ, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).Typ) != "" })
@@ -873,6 +913,10 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).AZ == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).AZ != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*ebsItem).AZ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*ebsItem).AZ, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).AZ) != "" })
@@ -888,6 +932,10 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 			}
 		case "Mount", "mount", "mnt":
 			switch op {
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*ebsItem).Mount, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*ebsItem).Mount, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*ebsItem).Mount) != "" })
@@ -907,6 +955,10 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[1].(cmon.TagMap)[col], opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[1].(cmon.TagMap)[col], opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
@@ -1110,6 +1162,16 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 		switch col {
 		case "Acct", "acct":
 			switch op {
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*rdsItem).Acct
+					return strings.HasPrefix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*rdsItem).Acct
+					return strings.HasSuffix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool {
@@ -1135,6 +1197,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Typ == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Typ != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*rdsItem).Typ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).Typ, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Typ) != "" })
@@ -1154,6 +1220,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).STyp == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).STyp != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*rdsItem).STyp, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).STyp, opd) })
 			}
 		case "Size", "size", "siz":
 			if n, err := strconv.Atoi(opd); err == nil {
@@ -1191,6 +1261,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Engine == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Engine != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*rdsItem).Engine, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).Engine, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Engine) != "" })
@@ -1210,6 +1284,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Ver == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Ver != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*rdsItem).Ver, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).Ver, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Ver) != "" })
@@ -1229,6 +1307,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Lic == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Lic != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*rdsItem).Lic, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).Lic, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*rdsItem).Lic) != "" })
@@ -1248,6 +1330,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(string) == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(string) != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*rdsItem).AZ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).AZ, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(string)) != "" })
@@ -1267,6 +1353,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[2].(cmon.TagMap)[col] == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[2].(cmon.TagMap)[col] != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[2].(cmon.TagMap)[col], opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[2].(cmon.TagMap)[col], opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[2].(cmon.TagMap)[col]) != "" })
@@ -1473,6 +1563,10 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).To.String() == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).To.String() != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*cdrItem).To.String(), opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*cdrItem).To.String(), opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).To.String()) != "" })
@@ -1492,6 +1586,10 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).From.String() == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).From.String() != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*cdrItem).From.String(), opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*cdrItem).From.String(), opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).From.String()) != "" })
@@ -1512,6 +1610,10 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				flt = append(flt, func(v ...interface{}) bool { return sp.Name(v[0].(*cdrItem).Info&spMask) == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return sp.Name(v[0].(*cdrItem).Info&spMask) != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(sp.Name(v[0].(*cdrItem).Info&spMask), opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(sp.Name(v[0].(*cdrItem).Info&spMask), opd) })
 			}
 		case "CustApp", "custapp", "cust":
 			switch op {
@@ -1519,6 +1621,10 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).Cust == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).Cust != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*cdrItem).Cust, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*cdrItem).Cust, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*cdrItem).Cust) != "" })
@@ -1718,6 +1824,16 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 		switch col {
 		case "AWS Account", "account", "acct":
 			switch op {
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*curItem).Acct
+					return strings.HasPrefix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*curItem).Acct
+					return strings.HasSuffix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool {
@@ -1743,6 +1859,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Typ == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Typ != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).Typ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).Typ, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Typ) != "" })
@@ -1762,6 +1882,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Svc == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Svc != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).Svc, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).Svc, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Svc) != "" })
@@ -1781,6 +1905,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UTyp == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UTyp != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).UTyp, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).UTyp, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).UTyp) != "" })
@@ -1800,6 +1928,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UOp == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UOp != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).UOp, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).UOp, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).UOp) != "" })
@@ -1819,6 +1951,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Reg == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Reg != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).Reg, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).Reg, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Reg) != "" })
@@ -1838,6 +1974,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).RID == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).RID != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).RID, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).RID, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).RID) != "" })
@@ -1857,6 +1997,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Desc == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Desc != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).Desc, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).Desc, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Desc) != "" })
@@ -1876,6 +2020,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Name == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Name != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).Name, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).Name, opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Name) != "" })
@@ -1895,6 +2043,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[1].(cmon.TagMap)[col], opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[1].(cmon.TagMap)[col], opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
