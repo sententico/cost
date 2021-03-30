@@ -35,10 +35,10 @@ type (
 var (
 	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( with SQL (SE|EE|Web|EX)| Spot)?|SQL (SE|EE|Web|EX))\b`)
 
-	awsAlerts = []alertMetric{
-		{"ec2.aws/acct", "AWS account", 10, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`acct~^` + k} }},
-		{"ec2.aws/region", "service location", 10, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`az~^` + k} }},
-		{"ec2.aws/sku", "instance SKU", 10, 0.05, 5, 2, ec2Usage, func(k string) []string {
+	ec2Metrics = []alertMetric{
+		{"ec2.aws/acct", "AWS account", 4, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`acct~^` + k} }},
+		{"ec2.aws/region", "service location", 12, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`az~^` + k} }},
+		{"ec2.aws/sku", "instance SKU", 6, 0.05, 5, 2, ec2Usage, func(k string) []string {
 			if s := strings.Split(k, " "); len(s) == 3 {
 				if strings.HasPrefix(s[1], "sp.") {
 					return []string{
@@ -57,9 +57,11 @@ var (
 			}
 			return nil
 		}},
-		{"ebs.aws/acct", "AWS account", 10, 0.05, 5, 2, ebsUsage, func(k string) []string { return []string{`acct~^` + k} }},
-		{"ebs.aws/region", "service location", 10, 0.05, 5, 2, ebsUsage, func(k string) []string { return []string{`az~^` + k} }},
-		{"ebs.aws/sku", "storage SKU", 10, 0.05, 5, 2, ebsUsage, func(k string) []string {
+	}
+	ebsMetrics = []alertMetric{
+		{"ebs.aws/acct", "AWS account", 6, 0.05, 5, 2, ebsUsage, func(k string) []string { return []string{`acct~^` + k} }},
+		{"ebs.aws/region", "service location", 12, 0.05, 5, 2, ebsUsage, func(k string) []string { return []string{`az~^` + k} }},
+		{"ebs.aws/sku", "storage SKU", 6, 0.05, 5, 2, ebsUsage, func(k string) []string {
 			if s := strings.Split(k, " "); len(s) == 2 {
 				return []string{
 					`az~^` + s[0],
@@ -68,9 +70,11 @@ var (
 			}
 			return nil
 		}},
-		{"rds.aws/acct", "AWS account", 10, 0.05, 5, 2, rdsUsage, func(k string) []string { return []string{`acct~^` + k} }},
-		{"rds.aws/region", "service location", 10, 0.05, 5, 2, rdsUsage, func(k string) []string { return []string{`az~^` + k} }},
-		{"rds.aws/sku", "database SKU", 10, 0.05, 5, 2, rdsUsage, func(k string) []string {
+	}
+	rdsMetrics = []alertMetric{
+		{"rds.aws/acct", "AWS account", 4, 0.05, 5, 2, rdsUsage, func(k string) []string { return []string{`acct~^` + k} }},
+		{"rds.aws/region", "service location", 12, 0.05, 5, 2, rdsUsage, func(k string) []string { return []string{`az~^` + k} }},
+		{"rds.aws/sku", "database SKU", 2, 0.05, 5, 2, rdsUsage, func(k string) []string {
 			if s := strings.Split(k, " "); len(s) == 3 {
 				return []string{
 					`az~^` + s[0],
@@ -247,9 +251,9 @@ func rdsUsage(m, k, l string, v ...float64) (a map[string]string) {
 	a["model"], a["cols"] = "rds.aws", "DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ,Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate"
 	return
 }
-func awsRising() (alerts []map[string]string) {
+func awsRising(metrics []alertMetric) (alerts []map[string]string) {
 	const recent = 20
-	for _, metric := range awsAlerts {
+	for _, metric := range metrics {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
@@ -274,9 +278,9 @@ func awsRising() (alerts []map[string]string) {
 	}
 	return
 }
-func awsFalling() (alerts []map[string]string) {
+func awsFalling(metrics []alertMetric) (alerts []map[string]string) {
 	const recent = 20
-	for _, metric := range awsAlerts {
+	for _, metric := range metrics {
 		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
@@ -517,9 +521,15 @@ func cdrMargin() (alerts []map[string]string) {
 func evtcmonHandler(m *model, event string) {
 	var alerts []map[string]string
 	switch event {
-	case "ec2.aws", "ebs.aws", "rds.aws":
-		alerts = append(alerts, awsRising()...)
-		alerts = append(alerts, awsFalling()...)
+	case "ec2.aws":
+		alerts = append(alerts, awsRising(ec2Metrics)...)
+		alerts = append(alerts, awsFalling(ec2Metrics)...)
+	case "ebs.aws":
+		alerts = append(alerts, awsRising(ebsMetrics)...)
+		alerts = append(alerts, awsFalling(ebsMetrics)...)
+	case "rds.aws":
+		alerts = append(alerts, awsRising(rdsMetrics)...)
+		alerts = append(alerts, awsFalling(rdsMetrics)...)
 	case "cur.aws":
 		alerts = append(alerts, curCost()...)
 	case "cdr.asp":
