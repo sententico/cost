@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	maxPctMargin = 10 // maximum magnitude of %margin for non-billed amounts
+	maxTableRows = 2e6 // maximum table extract rows allowed
+	maxPctMargin = 10  // maximum magnitude of %margin for non-billed amounts
 )
 
 var (
@@ -27,6 +28,11 @@ var (
 		"~":     "weasel",      // command type
 	}
 	aspN = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
+	// filter criteria operators...
+	//  = equals		! not equals
+	//  < less/before	> greater/after
+	//  [ prefix		] suffix
+	//  ~ regex match	^ regex non-match
 	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w%]*?)\s*(?P<op>[=!<>[\]~^])(?P<opd>.*)$`)
 )
 
@@ -1757,7 +1763,7 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 	var acc *modAcc
 	var cur int
 	var flt []func(...interface{}) bool
-	if rows++; rows < 0 || rows == 1 {
+	if rows++; rows < 0 || rows == 1 || rows > maxTableRows {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(n, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil || len(acc.m.data) < 2 {
 		return nil, fmt.Errorf("model not found")
@@ -2135,7 +2141,10 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 		} else if len(li.HUsg) > 1 {
 			copy(husg[int(li.HUsg[0]):], li.HUsg[1:])
 		} else {
-			husg[0] = li.Usg
+			f, t := li.Mu>>foffShift&foffMask, li.Mu&toffMask
+			for u := li.Usg / float32(t-f); f < t; f++ {
+				husg[f] = u
+			}
 		}
 	}
 	id = dts[:8] + id
@@ -2178,7 +2187,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				}
 			}
 		default: // monthly
-			if rec, usg, cost, from = li.Mu+1, li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
+			if rec, usg, cost, from = int16(li.Mu>>muShift+1), li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
 				return nil
 			}
 		}
@@ -2213,7 +2222,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 	var sum *curSum
 	var cur *curDetail
 	var flt, rflt []func(...interface{}) bool
-	if rows++; from > to || units < 1 || rows < 0 || rows == 1 || truncate < 0 {
+	if rows++; from > to || units < 1 || rows < 0 || rows == 1 || rows > maxTableRows || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")

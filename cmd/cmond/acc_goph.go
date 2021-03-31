@@ -14,14 +14,19 @@ import (
 )
 
 const (
-	curItemMin = 3.75e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
-	curItemDet = 0.05    // minimum CUR line item cost to keep hourly usage detail
+	curItemMin = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
+	curItemDet = 0.05   // minimum CUR line item cost to keep hourly usage detail
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
 	usgMask    = 0xfff   // CUR hour map usage reference (index/value)
 	usgIndex   = 743     // CUR hour map usage reference (<=index, >value+743)
 	baseMask   = 0x3ff   // CUR hour map range base (hour offset in month)
+
+	muShift   = 32 - 12 // CUR records map multiple (count - 1)
+	foffShift = 20 - 10 // CUR records map from (hour offset in month)
+	foffMask  = 0x3ff   // CUR records map from (hour offset in month)
+	toffMask  = 0x3ff   // CUR records map to (hour offset in month)
 
 	gwlocShift = 64 - 12            // CDR ID gateway loc (added to Ribbon ID for global uniqueness)
 	shelfShift = 52 - 4             // CDR ID shelf (GSX could have 6)
@@ -383,7 +388,17 @@ func curawsFinalize(acc *modAcc) {
 				tc += float64(line.Cost)
 				tl++
 			} else if line.Cost < curItemDet && -curItemDet < line.Cost {
-				line.HMap, line.HUsg = nil, nil
+				min, max := uint32(usgIndex), uint32(1)
+				for _, m := range line.HMap {
+					r, b := m>>rangeShift+1, m&baseMask
+					if b < min {
+						min = b
+					}
+					if b+r > max {
+						max = b + r
+					}
+				}
+				line.HMap, line.HUsg, line.Mu = nil, nil, (line.Mu-1)<<muShift|min<<foffShift|max
 			} else if len(line.HMap) > 0 { // size-optimize usage history
 				hu, min, max, ht, ut, mc := [usgIndex + 2]uint16{}, uint16(usgIndex), uint16(1), 0, uint16(0), 0
 				for _, m := range line.HMap { // expand/order map usage references
@@ -437,7 +452,7 @@ func curawsFinalize(acc *modAcc) {
 					husg = make([]float32, len(line.HUsg))
 					copy(husg, line.HUsg)
 				}
-				line.HUsg = husg
+				line.HUsg, line.Mu = husg, (line.Mu-1)<<muShift|uint32(min)<<foffShift|uint32(max)
 				if pg--; pg <= 0 { // paginate sustained model access
 					acc.rel()
 					pg = lgPage
@@ -523,7 +538,6 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 			Cust: item["cust"],
 			Team: item["team"],
 			Ver:  item["ver"],
-			Mu:   -1,
 		}
 		work.idetm[id] = line
 	}

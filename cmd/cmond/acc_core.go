@@ -159,7 +159,7 @@ type (
 		Ver  string    `json:"V,omitempty"`
 		HMap []uint32  `json:"H,omitempty"`  // range hrs (+base) | usage (index/value) | base (hr in month)
 		HUsg []float32 `json:"HU,omitempty"` // hourly usage (indexed by hr/offset in month or HMap)
-		Mu   int16     `json:"M,omitempty"`  // multiple CSV usage record count (+initial)
+		Mu   uint32    `json:"M,omitempty"`  // CUR record multiple (count-1) | from | to (hr in month)
 		Usg  float32   `json:"U,omitempty"`
 		Cost float32   `json:"C,omitempty"`
 	}

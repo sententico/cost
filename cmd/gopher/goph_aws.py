@@ -228,7 +228,9 @@ def gophCURAWS(model, settings, inputs, args):
                     svc,uop,az,rid,end,nm =\
                         col[head['product/ProductName']],   col[head['lineItem/Operation']],    col[head['product/region']],\
                         col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']], col[head['resourceTags/user:Name']]
-                    ivl = int(timedelta.total_seconds(datetime.fromisoformat(end[:-1])-datetime.fromisoformat(hour[:-1])))
+                    try:    ivl = int(timedelta.total_seconds(datetime.fromisoformat(end[:-1])-datetime.fromisoformat(hour[:-1])))
+                    except  ValueError: continue
+
                     rec.update({
                         'acct': col[head['lineItem/UsageAccountId']],   # usage, not billing account
                         'typ': {'AWS':                  '',
