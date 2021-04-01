@@ -346,7 +346,10 @@ func seriesExtract(metric string, span, recent int, truncate interface{}) (res c
 	var sum interface{}
 	var cur int32
 	var typ byte
-	if span <= 0 || span > 24*100 || recent <= 0 || recent > span {
+	if recent > span {
+		span = recent
+	}
+	if recent <= 0 || span > 24*100 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(metric, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil {
 		return nil, fmt.Errorf("model not found")

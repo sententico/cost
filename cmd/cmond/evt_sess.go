@@ -255,7 +255,7 @@ func rdsUsage(m, k, l string, v ...float64) (a map[string]string) {
 func awsRising(metrics []alertMetric) (alerts []map[string]string) {
 	const recent = 20
 	for _, metric := range metrics {
-		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
+		if c, err := seriesExtract(metric.name, 0, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
 			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || s[1] < metric.thresh {
@@ -282,7 +282,7 @@ func awsRising(metrics []alertMetric) (alerts []map[string]string) {
 func awsFalling(metrics []alertMetric) (alerts []map[string]string) {
 	const recent = 20
 	for _, metric := range metrics {
-		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
+		if c, err := seriesExtract(metric.name, 0, recent, func(s []float64) bool {
 			if len(s) < recent {
 				return true
 			} else if _, mean, sdev := coreStats(s[2:], true, 0); mean == 0 || sdev/mean > metric.ratio || mean < metric.thresh {
@@ -491,7 +491,7 @@ func cdrMargin() (alerts []map[string]string) {
 		{"cdr.asp/term/cust/p", "account/app", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`cust=` + k} }},
 		{"cdr.asp/term/sp/p", "service provider", -0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`sp=` + k} }},
 	} {
-		if c, err := seriesExtract(metric.name, recent, recent, func(s []float64) bool {
+		if c, err := seriesExtract(metric.name, 0, recent, func(s []float64) bool {
 			n, sum := 0, 0.0
 			for _, v := range s {
 				if v != 0 {
