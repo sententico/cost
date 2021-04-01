@@ -76,7 +76,7 @@ func init() {
 	}
 
 	args.tableSet = flag.NewFlagSet("table", flag.ExitOnError)
-	y, m, _ := time.Now().Date() // set default to prior month
+	y, m, _ := time.Now().AddDate(0, 0, -1).Date() // set default to prior month, compensating for CUR lag
 	t := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
 	args.tableSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to return, if applicable")
