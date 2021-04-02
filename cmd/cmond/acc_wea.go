@@ -2225,7 +2225,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 	var sum *curSum
 	var cur *curDetail
 	var flt, rflt []func(...interface{}) bool
-	if rows++; from > to || units < 1 || rows < 0 || rows == 1 || rows > maxTableRows || truncate < 0 {
+	if rows++; from > to || units < 1 || rows < 0 || rows == 1 || rows > maxTableRows+1 || truncate < 0 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod["cur.aws"].newAcc(); acc == nil {
 		return nil, fmt.Errorf("\"cur.aws\" model not found")
