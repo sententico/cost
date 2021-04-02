@@ -1766,7 +1766,7 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 	var acc *modAcc
 	var cur int
 	var flt []func(...interface{}) bool
-	if rows++; rows < 0 || rows == 1 || rows > maxTableRows {
+	if rows++; rows < 0 || rows == 1 || rows > maxTableRows+1 {
 		return nil, fmt.Errorf("invalid argument(s)")
 	} else if acc = mMod[strings.Join(strings.SplitN(strings.SplitN(n, "/", 2)[0], ".", 3)[:2], ".")].newAcc(); acc == nil || len(acc.m.data) < 2 {
 		return nil, fmt.Errorf("model not found")
