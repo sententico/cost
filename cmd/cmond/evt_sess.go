@@ -195,8 +195,8 @@ func alertDetail(alert map[string]string, filters []string, rows int) {
 	}
 }
 func alertCURDetail(alert map[string]string, from int32, filters []string, xrows, rows int) {
-	if c, err := curtabExtract(from, 0, 1, xrows, 0.25, filters); err == nil {
-		m := make(map[string][]string, xrows/8)
+	if c, err := curtabExtract(from, 0, 1, xrows, 0.01, filters); err == nil {
+		m := make(map[string][]string, xrows/2)
 		for row := range c {
 			m[row[0]] = row
 		}
@@ -356,7 +356,7 @@ func curCost() (alerts []map[string]string) {
 				}
 				if alertEnabled(a, metric, k, "cloud cost") {
 					a["cols"] = "Invoice Item,Hour,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description,Name,env,dc,product,app,cust,team,version,~,Usage,Billed"
-					alertCURDetail(a, -recent, metric.filter(k), 12000, 240)
+					alertCURDetail(a, -recent, metric.filter(k), 24000, 240)
 					alerts = append(alerts, a)
 				}
 			}

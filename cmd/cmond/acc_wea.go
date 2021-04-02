@@ -2131,22 +2131,26 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 	if un < 720 {
 		if rate = li.Cost / li.Usg; len(li.HMap) > 0 {
 			for _, m := range li.HMap {
+				r, b := m>>rangeShift, m&baseMask
+				if r += b; b > uint32(to) || r < uint32(from) {
+					continue
+				}
 				if ur := m >> usgShift & usgMask; ur > usgIndex {
 					u = float32(ur - usgIndex)
 				} else {
 					u = li.HUsg[ur]
 				}
-				r, b := m>>rangeShift, m&baseMask
-				for r += b; b <= r; b++ {
+				// TODO: consider stage 2 optimization - copy only from/to overlap
+				for ; b <= r; b++ {
 					husg[b] = u
 				}
 			}
 		} else if len(li.HUsg) > 1 {
+			// TODO: consider stage 2 optimization - copy only from/to overlap
 			copy(husg[int(li.HUsg[0]):], li.HUsg[1:])
 		} else {
-			f, t := li.Mu>>foffShift&foffMask, li.Mu&toffMask
-			for u := li.Usg / float32(t-f); f < t; f++ {
-				husg[f] = u
+			for i, u := from, li.Usg/float32(li.Mu&toffMask-li.Mu>>foffShift&foffMask); i <= to; i++ {
+				husg[i] = u
 			}
 		}
 	}
@@ -2175,8 +2179,11 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				}
 			}
 		case 24: // daily
-			for ; ; rec, usg = 0, 0 {
-				for day := from + 23; from <= day; from++ {
+			for day := from - from%24; ; rec, usg = 0, 0 {
+				if day += 23; day > to {
+					day = to
+				}
+				for ; from <= day; from++ {
 					if husg[from] != 0 {
 						rec++
 						usg += husg[from]
@@ -2302,11 +2309,22 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 					mto = hrs[1]
 				}
 				mto -= hrs[0]
+				ifr, ito := mfr, mto
 				for id, li := range cur.Line[mo] {
+					if units < 720 {
+						if ifr = int32(li.Mu >> foffShift & foffMask); mfr > ifr {
+							ifr = mfr
+						}
+						if ito := int32(li.Mu&toffMask - 1); mto < ito {
+							ito = mto
+						}
+						if ifr > ito {
+							continue
+						}
+					}
 					if li.Cost <= trunc && -trunc <= li.Cost {
 						continue
-					}
-					if tag := (cmon.TagMap{
+					} else if tag := (cmon.TagMap{
 						"env":     li.Env,
 						"dc":      li.DC,
 						"product": li.Prod,
@@ -2317,7 +2335,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 					}).Update(nTags(li.Name)).Update(nTags(li.RID)).Update(itags[vinst[li.RID]]).Update(
 						settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg]); skip(flt, li, tag) {
 						continue
-					} else if item := cur.table(li, mfr, mto, units, trunc, id, tag, dts, rflt); item != nil {
+					} else if item := cur.table(li, ifr, ito, units, trunc, id, tag, dts, rflt); item != nil {
 						for row := item(); row != nil; row = item() {
 							if rows--; rows == 0 {
 								break outerLoop
