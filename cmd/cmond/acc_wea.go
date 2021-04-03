@@ -2317,7 +2317,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 						if ifr = int32(li.Mu >> foffShift & foffMask); mfr > ifr {
 							ifr = mfr
 						}
-						if ito := int32(li.Mu&toffMask - 1); mto < ito {
+						if ito = int32(li.Mu&toffMask - 1); mto < ito {
 							ito = mto
 						}
 						if ifr > ito {
