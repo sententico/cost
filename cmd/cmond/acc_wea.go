@@ -2179,8 +2179,8 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				}
 			}
 		case 24: // daily
-			for day := from - from%24; ; rec, usg = 0, 0 {
-				if day += 23; day > to {
+			for day := from - from%24 + 23; ; day, rec, usg = day+24, 0, 0 {
+				if day > to {
 					day = to
 				}
 				for ; from <= day; from++ {
