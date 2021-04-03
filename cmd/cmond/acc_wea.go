@@ -2311,7 +2311,9 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				mto -= hrs[0]
 				ifr, ito := mfr, mto
 				for id, li := range cur.Line[mo] {
-					if units < 720 {
+					if li.Cost <= trunc && -trunc <= li.Cost {
+						continue
+					} else if units < 720 {
 						if ifr = int32(li.Mu >> foffShift & foffMask); mfr > ifr {
 							ifr = mfr
 						}
@@ -2322,9 +2324,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 							continue
 						}
 					}
-					if li.Cost <= trunc && -trunc <= li.Cost {
-						continue
-					} else if tag := (cmon.TagMap{
+					if tag := (cmon.TagMap{
 						"env":     li.Env,
 						"dc":      li.DC,
 						"product": li.Prod,
