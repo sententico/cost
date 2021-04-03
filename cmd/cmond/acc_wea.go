@@ -2190,7 +2190,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 					}
 				}
 				if cost = usg * rate; (cost > tr || -tr > cost) && !skip(flt, rec, usg) {
-					dts = dts[:8] + fmt.Sprintf("%02d", from/24)
+					dts = dts[:8] + fmt.Sprintf("%02d", day/24+1)
 					break
 				} else if from > to {
 					return nil
