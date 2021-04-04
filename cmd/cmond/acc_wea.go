@@ -2126,12 +2126,13 @@ func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, er
 }
 
 func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id string, tag cmon.TagMap, dts string, flt []func(...interface{}) bool) func() []string {
-	var husg [usgIndex + 1]float32
-	var rate, u float32
+	var husg func(int32) float32
+	var rate float32
 	if un < 720 {
 		if rate = li.Cost / li.Usg; len(li.HMap) > 0 {
+			var hu [usgIndex + 1]float32
 			for _, m := range li.HMap {
-				r, b := m>>rangeShift, m&baseMask
+				r, b, u := m>>rangeShift, m&baseMask, float32(0)
 				if r += b; b > uint32(to) || r < uint32(from) {
 					continue
 				}
@@ -2140,17 +2141,23 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				} else {
 					u = li.HUsg[ur]
 				}
-				// TODO: consider stage 3 optimization - copy only from/to overlap
+				// TODO: consider stage 4 optimization - copy only from/to overlap
 				for ; b <= r; b++ {
-					husg[b] = u
+					hu[b] = u
 				}
 			}
+			husg = func(h int32) float32 {
+				return hu[h]
+			}
 		} else if len(li.HUsg) > 1 {
-			// TODO: consider stage 3 optimization - copy only from/to overlap
-			copy(husg[li.Mu>>foffShift&foffMask:], li.HUsg)
+			off := int32(li.Mu >> foffShift & foffMask)
+			husg = func(h int32) float32 {
+				return li.HUsg[h-off]
+			}
 		} else {
-			for i, u := from, li.Usg/float32(li.Mu&toffMask-li.Mu>>foffShift&foffMask); i <= to; i++ {
-				husg[i] = u
+			u := li.Usg / float32(li.Mu&toffMask-li.Mu>>foffShift&foffMask)
+			husg = func(h int32) float32 {
+				return u
 			}
 		}
 	}
@@ -2165,9 +2172,8 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 		}
 		switch un {
 		case 1: // hourly
-			for {
-				if husg[from] != 0 {
-					rec, usg = 1, husg[from]
+			for rec = 1; ; {
+				if usg = husg(from); usg != 0 {
 					if cost = usg * rate; (cost > tr || -tr > cost) && !skip(flt, rec, usg) {
 						dts = dts[:8] + fmt.Sprintf("%02d %02d:00", from/24+1, from%24)
 						from++
@@ -2184,9 +2190,9 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 					day = to
 				}
 				for ; from <= day; from++ {
-					if husg[from] != 0 {
+					if u := husg(from); u != 0 {
 						rec++
-						usg += husg[from]
+						usg += u
 					}
 				}
 				if cost = usg * rate; (cost > tr || -tr > cost) && !skip(flt, rec, usg) {
