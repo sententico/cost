@@ -16,8 +16,8 @@ import (
 const (
 	curItemMin   = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
 	curItemDet   = 0.10   // minimum CUR line item cost to retain hourly usage detail
-	curItemDetX  = 0.25   // expanded minimum CUR line item cost to retain usage detail...
-	curItemDetXR = 3      // ...when entire usage within this range of hours
+	curItemDetX  = 0.60   // expanded minimum CUR line item cost to retain usage detail...
+	curItemDetXR = 4      // ...when entire usage within this range of hours
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -415,7 +415,7 @@ func curawsFinalize(acc *modAcc) {
 						}
 					}
 				}
-				for _, u := range hu[to : fr+1] { // count optimal (minimum) usage-grouped range maps
+				for _, u := range hu[fr : to+1] { // count optimal (minimum) usage-grouped range maps
 					if u == ut {
 						continue
 					} else if ut != 0 {
