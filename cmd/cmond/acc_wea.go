@@ -2140,14 +2140,14 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				} else {
 					u = li.HUsg[ur]
 				}
-				// TODO: consider stage 2 optimization - copy only from/to overlap
+				// TODO: consider stage 3 optimization - copy only from/to overlap
 				for ; b <= r; b++ {
 					husg[b] = u
 				}
 			}
 		} else if len(li.HUsg) > 1 {
-			// TODO: consider stage 2 optimization - copy only from/to overlap
-			copy(husg[int(li.HUsg[0]):], li.HUsg[1:])
+			// TODO: consider stage 3 optimization - copy only from/to overlap
+			copy(husg[li.Mu>>foffShift&foffMask:], li.HUsg)
 		} else {
 			for i, u := from, li.Usg/float32(li.Mu&toffMask-li.Mu>>foffShift&foffMask); i <= to; i++ {
 				husg[i] = u

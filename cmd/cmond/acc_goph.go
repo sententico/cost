@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	curItemMin = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
-	curItemDet = 0.10   // minimum CUR line item cost to keep hourly usage detail
+	curItemMin   = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
+	curItemDet   = 0.10   // minimum CUR line item cost to retain hourly usage detail
+	curItemDetX  = 0.25   // expanded minimum CUR line item cost to retain usage detail...
+	curItemDetXR = 3      // ...when entire usage within this range of hours
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -383,39 +385,37 @@ func curawsFinalize(acc *modAcc) {
 		bh, eh, pm, tc, tl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0.0, 0
 
 		for id, line := range wm {
-			if line.Cost <= curItemMin && -curItemMin <= line.Cost {
+			if line.Cost <= curItemMin && -curItemMin <= line.Cost || line.Usg == 0 || len(line.HMap) == 0 {
 				delete(wm, id)
 				tc += float64(line.Cost)
 				tl++
-			} else if line.Cost < curItemDet && -curItemDet < line.Cost {
-				min, max := uint32(usgIndex), uint32(1)
+			} else if fr, to := func() (f, t uint32) {
+				f, t = usgIndex, 1
 				for _, m := range line.HMap {
 					r, b := m>>rangeShift+1, m&baseMask
-					if b < min {
-						min = b
+					if b < f {
+						f = b
 					}
-					if b+r > max {
-						max = b + r
+					if b+r > t {
+						t = b + r
 					}
 				}
-				line.HMap, line.HUsg, line.Mu = nil, nil, (line.Mu-1)<<muShift|min<<foffShift|max
-			} else if len(line.HMap) > 0 { // size-optimize usage history
-				hu, min, max, ht, ut, mc := [usgIndex + 2]uint16{}, uint16(usgIndex), uint16(1), 0, uint16(0), 0
+				line.Mu = (line.Mu-1)<<muShift | f<<foffShift | t
+				return
+			}(); to-fr == 1 || line.Cost < curItemDet && -curItemDet < line.Cost ||
+				to-fr <= curItemDetXR && line.Cost < curItemDetX && -curItemDetX < line.Cost {
+				line.HMap, line.HUsg = nil, nil
+			} else { // size-optimize usage history
+				hu, ut, mc := [usgIndex + 2]uint16{}, uint16(0), 0
 				for _, m := range line.HMap { // expand/order map usage references
-					r, u, b := uint16(m>>rangeShift), uint16(m>>usgShift&usgMask+1), uint16(m&baseMask)
-					if b < min {
-						min = b
-					}
+					r, u, b := m>>rangeShift, uint16(m>>usgShift&usgMask+1), m&baseMask
 					for r += b; b <= r; b++ {
 						if hu[b] == 0 {
 							hu[b] = u // +1 to distinguish from nil usage reference
 						}
 					}
-					if b > max {
-						max = b
-					}
 				}
-				for _, u := range hu[min : max+1] { // count optimal (minimum) usage-grouped range maps
+				for _, u := range hu[to : fr+1] { // count optimal (minimum) usage-grouped range maps
 					if u == ut {
 						continue
 					} else if ut != 0 {
@@ -424,11 +424,10 @@ func curawsFinalize(acc *modAcc) {
 					ut = u
 				}
 				var husg []float32 // build optimal usage representation (un/mapped)
-				if int(max-min+1) <= mc+len(line.HUsg) {
-					line.HMap, husg = nil, make([]float32, int(max-min+1))
-					husg[0] = float32(min)
-					for h := uint16(1); h <= max-min; h++ {
-						if u := hu[min+h-1]; u > usgIndex+1 {
+				if int(to-fr) <= mc+len(line.HUsg) {
+					line.HMap, husg = nil, make([]float32, int(to-fr))
+					for h := 0; h < len(husg); h++ {
+						if u := hu[int(fr)+h]; u > usgIndex+1 {
 							husg[h] = float32(u - usgIndex - 1)
 						} else if u > 0 {
 							husg[h] = line.HUsg[u-1]
@@ -436,11 +435,12 @@ func curawsFinalize(acc *modAcc) {
 					}
 				} else if mbuild := func() {
 					line.HMap, ut = make([]uint32, 0, mc), 0
-					for h, u := range hu[min : max+1] {
+					var ht int
+					for h, u := range hu[fr : to+1] {
 						if u == ut {
 							continue
 						} else if ut != 0 {
-							line.HMap = append(line.HMap, uint32((h-ht-1)<<rangeShift|int(ut-1)<<usgShift|int(min)+ht))
+							line.HMap = append(line.HMap, uint32(h-ht-1)<<rangeShift|uint32(ut-1)<<usgShift|fr+uint32(ht))
 						}
 						ht, ut = h, u
 					}
@@ -452,7 +452,7 @@ func curawsFinalize(acc *modAcc) {
 					husg = make([]float32, len(line.HUsg))
 					copy(husg, line.HUsg)
 				}
-				line.HUsg, line.Mu = husg, (line.Mu-1)<<muShift|uint32(min)<<foffShift|uint32(max)
+				line.HUsg = husg
 				if pg--; pg <= 0 { // paginate sustained model access
 					acc.rel()
 					pg = lgPage
