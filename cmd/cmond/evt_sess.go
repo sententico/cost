@@ -485,7 +485,7 @@ func cdrtermMargin(m, k, l string, v ...float64) (a map[string]string) {
 	return
 }
 func cdrMargin() (alerts []map[string]string) {
-	const recent = 10
+	const recent = 40
 	for _, metric := range []alertMetric{
 		{"cdr.asp/term/geo/p", "geographic zone", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to] ` + k} }},
 		{"cdr.asp/term/cust/p", "account/app", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`cust=` + k} }},
@@ -499,7 +499,7 @@ func cdrMargin() (alerts []map[string]string) {
 					sum += v
 				}
 			}
-			return n < 3 || sum/float64(n) > metric.thresh
+			return n < 8 || sum/float64(n) > metric.thresh
 		}); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
 		} else if sx, now := <-c, time.Now().Unix(); sx != nil {
