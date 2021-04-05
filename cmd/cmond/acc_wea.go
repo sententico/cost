@@ -2133,10 +2133,10 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 			var hu [usgIndex + 1]float32
 			for _, m := range li.HMap {
 				r, b, u := m>>rangeShift, m&baseMask, float32(0)
-				if b < uint32(from) {
+				if r += b; b < uint32(from) {
 					b = uint32(from)
 				}
-				if r += b; r > uint32(to) {
+				if r > uint32(to) {
 					r = uint32(to)
 				}
 				if b > r {
