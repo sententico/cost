@@ -2133,29 +2133,36 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 			var hu [usgIndex + 1]float32
 			for _, m := range li.HMap {
 				r, b, u := m>>rangeShift, m&baseMask, float32(0)
-				if r += b; b > uint32(to) || r < uint32(from) {
-					continue
+				if b < uint32(from) {
+					b = uint32(from)
 				}
-				if ur := m >> usgShift & usgMask; ur > usgIndex {
+				if r += b; r > uint32(to) {
+					r = uint32(to)
+				}
+				if b > r {
+					continue
+				} else if ur := m >> usgShift & usgMask; ur > usgIndex {
 					u = float32(ur - usgIndex)
 				} else {
 					u = li.HUsg[ur]
 				}
-				// TODO: consider stage 4 optimization - copy only from/to overlap
-				for ; b <= r; b++ {
+				for {
 					hu[b] = u
+					if b++; b > r {
+						break
+					}
 				}
 			}
 			husg = func(h int32) float32 {
 				return hu[h]
 			}
 		} else if len(li.HUsg) > 1 {
-			off := int32(li.Mu >> foffShift & foffMask)
+			off := int32(li.Recs >> foffShift & foffMask)
 			husg = func(h int32) float32 {
 				return li.HUsg[h-off]
 			}
 		} else {
-			u := li.Usg / float32(li.Mu&toffMask-li.Mu>>foffShift&foffMask)
+			u := li.Usg / float32(li.Recs&toffMask-li.Recs>>foffShift&foffMask)
 			husg = func(h int32) float32 {
 				return u
 			}
@@ -2203,7 +2210,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				}
 			}
 		default: // monthly
-			if rec, usg, cost, from = int16(li.Mu>>muShift+1), li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
+			if rec, usg, cost, from = int16(li.Recs>>muShift+1), li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
 				return nil
 			}
 		}
@@ -2320,10 +2327,10 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 					if li.Cost <= trunc && -trunc <= li.Cost {
 						continue
 					} else if units < 720 {
-						if ifr = int32(li.Mu >> foffShift & foffMask); mfr > ifr {
+						if ifr = int32(li.Recs >> foffShift & foffMask); mfr > ifr {
 							ifr = mfr
 						}
-						if ito = int32(li.Mu&toffMask - 1); mto < ito {
+						if ito = int32(li.Recs&toffMask - 1); mto < ito {
 							ito = mto
 						}
 						if ifr > ito {

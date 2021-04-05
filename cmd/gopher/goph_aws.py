@@ -257,6 +257,9 @@ def gophCURAWS(model, settings, inputs, args):
                                 'Repstance Advanced Edition':           'Repstance AE',
                                 'Contact Center Telecommunications (service sold by AMCS, LLC) ':'Amazon Connect telecom',
                                }.get(svc,svc.replace(
+                                'with support by',      'by'    ).replace(
+                                ' supported by',        'by'    ).replace(
+                                'Enterprise Linux',     'Linux' ).replace(
                                 'Amazon ',              ''      ).replace(
                                 'AWS ',                 ''      )),     # service name
                         'utyp': col[head['lineItem/UsageType']],        # usage detail
@@ -272,8 +275,9 @@ def gophCURAWS(model, settings, inputs, args):
                                  'eu-central-1':        'EUC1', 'ap-south-1':           'APS3',
                                  'eu-north-1':          'EUN1',
                                  'eu-west-1':           'EUW1', 'ca-central-1':         'CAN1',
-                                 'eu-west-2':           'EUW2', 'me-south-1':           'MES1',
-                                 'eu-west-3':           'EUW3', 'sa-east-1':            'SAE1',
+                                 'eu-west-2':           'EUW2', 'sa-east-1':            'SAE1',
+                                 'eu-west-3':           'EUW3', 'af-south-1':           'CPT',
+                                                                'me-south-1':           'MES1',
                                 }.get(az,az),                           # service region
                         'rid':  rid.rsplit(':',1)[-1] if rid.startswith('arn:')
                                                       else rid,         # resource ID (i-, vol-, ...)
@@ -327,6 +331,9 @@ def gophCURAWS(model, settings, inputs, args):
                                 '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
                                 'thereafter',           'after' ).replace(
+                                'us-east-1',            'USE1'  ).replace(
+                                'eu-west-1',            'EUW1'  ).replace(
+                                'eu-west-2',            'EUW2'  ).replace(
                                 'Virginia',             'VA'    ).replace(
                                 'Ohio',                 'OH'    ).replace(
                                 'Oregon',               'OR'    ).replace(

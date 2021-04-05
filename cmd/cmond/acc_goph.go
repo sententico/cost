@@ -15,9 +15,9 @@ import (
 
 const (
 	curItemMin   = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
-	curItemDet   = 0.10   // minimum CUR line item cost to retain hourly usage detail
-	curItemDetX  = 0.60   // expanded minimum CUR line item cost to retain usage detail...
-	curItemDetXR = 4      // ...when entire usage within this range of hours
+	curItemDet   = 0.12   // minimum CUR line item cost to retain hourly usage detail
+	curItemDetX  = 1.20   // expanded minimum CUR line item cost to retain usage detail...
+	curItemDetXR = 12     // ...when entire usage lies within this range of hours
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -400,7 +400,7 @@ func curawsFinalize(acc *modAcc) {
 						t = b + r
 					}
 				}
-				line.Mu = (line.Mu-1)<<muShift | f<<foffShift | t
+				line.Recs = (line.Recs-1)<<muShift | f<<foffShift | t
 				return
 			}(); to-fr == 1 || line.Cost < curItemDet && -curItemDet < line.Cost ||
 				to-fr <= curItemDetXR && line.Cost < curItemDetX && -curItemDetX < line.Cost {
@@ -562,7 +562,7 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 
 	line.Usg += us
 	line.Cost += co
-	line.Mu++
+	line.Recs++
 	work.isum.ByAcct.add(hr, line.Acct, c)
 	work.isum.ByRegion.add(hr, line.Reg, c)
 	work.isum.ByTyp.add(hr, line.Typ, c)
