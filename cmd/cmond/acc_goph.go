@@ -14,10 +14,8 @@ import (
 )
 
 const (
-	curItemMin   = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
-	curItemDet   = 0.12   // minimum CUR line item cost to retain hourly usage detail
-	curItemDetX  = 1.20   // expanded minimum CUR line item cost to retain usage detail...
-	curItemDetXR = 12     // ...when entire usage lies within this range of hours
+	curItemMin = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
+	curItemDev = 0.10   // maximum cost deviation from item average over which hourly detail is retained
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -389,10 +387,25 @@ func curawsFinalize(acc *modAcc) {
 				delete(wm, id)
 				tc += float64(line.Cost)
 				tl++
-			} else if fr, to := func() (f, t uint32) {
+			} else if line.Recs == 1 {
+				line.HMap, line.HUsg, line.Recs = nil, nil, line.HMap[0]&baseMask<<foffShift|line.HMap[0]&baseMask+1
+			} else if fr, to, dev := func() (f, t uint32, d float32) {
 				f, t = usgIndex, 1
+				var min, avg, max float32
 				for _, m := range line.HMap {
-					r, b := m>>rangeShift+1, m&baseMask
+					r, u, b := m>>rangeShift+1, m>>usgShift&usgMask, m&baseMask
+					if u > usgIndex {
+						d = float32(u - usgIndex)
+					} else {
+						d = line.HUsg[u]
+					}
+					if max == 0 {
+						min, max = d, d
+					} else if d < min {
+						min = d
+					} else if d > max {
+						max = d
+					}
 					if b < f {
 						f = b
 					}
@@ -400,12 +413,19 @@ func curawsFinalize(acc *modAcc) {
 						t = b + r
 					}
 				}
-				line.Recs = (line.Recs-1)<<recsShift | f<<foffShift | t
+				if avg = line.Usg / float32(t-f); line.Recs < t-f {
+					d = avg
+				} else {
+					d = avg - min
+				}
+				if max-avg > d {
+					d = max - avg
+				}
+				line.Recs, d = (line.Recs-1)<<recsShift|f<<foffShift|t, d*line.Cost/line.Usg
 				return
-			}(); to-fr == 1 || line.Cost < curItemDet && -curItemDet < line.Cost ||
-				to-fr <= curItemDetXR && line.Cost < curItemDetX && -curItemDetX < line.Cost {
+			}(); dev <= curItemDev && -curItemDev <= dev {
 				line.HMap, line.HUsg = nil, nil
-			} else { // size-optimize usage history
+			} else { // size-optimize higher-deviation usage history
 				hu, ut, mc := [usgIndex + 2]uint16{}, uint16(0), 0
 				for _, m := range line.HMap { // expand/order map usage references
 					r, u, b := m>>rangeShift, uint16(m>>usgShift&usgMask+1), m&baseMask
