@@ -2146,7 +2146,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				} else {
 					u = li.HUsg[ur]
 				}
-				for hu[b], b = u, b+1; b < r; hu[b], b = u, b+1 {
+				for hu[b], b = u, b+1; b <= r; hu[b], b = u, b+1 {
 				}
 			}
 			husg = func(h int32) float32 {
