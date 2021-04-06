@@ -2146,11 +2146,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				} else {
 					u = li.HUsg[ur]
 				}
-				for {
-					hu[b] = u
-					if b++; b > r {
-						break
-					}
+				for hu[b], b = u, b+1; b > r; hu[b], b = u, b+1 {
 				}
 			}
 			husg = func(h int32) float32 {
@@ -2210,7 +2206,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				}
 			}
 		default: // monthly
-			if rec, usg, cost, from = int16(li.Recs>>muShift+1), li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
+			if rec, usg, cost, from = int16(li.Recs>>recsShift+1), li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
 				return nil
 			}
 		}

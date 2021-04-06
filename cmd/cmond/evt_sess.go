@@ -487,7 +487,7 @@ func cdrtermMargin(m, k, l string, v ...float64) (a map[string]string) {
 func cdrMargin() (alerts []map[string]string) {
 	const recent = 40
 	for _, metric := range []alertMetric{
-		{"cdr.asp/term/geo/p", "geographic zone", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to] ` + k} }},
+		{"cdr.asp/term/geo/p", "geographic zone", 0, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`to] ` + k} }},
 		{"cdr.asp/term/cust/p", "account/app", 0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`cust=` + k} }},
 		{"cdr.asp/term/sp/p", "service provider", -0.06, 0, 0, 24 * 7, cdrtermMargin, func(k string) []string { return []string{`sp=` + k} }},
 	} {

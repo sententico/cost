@@ -25,7 +25,7 @@ const (
 	usgIndex   = 743     // CUR hour map usage reference (<=index, >value+743)
 	baseMask   = 0x3ff   // CUR hour map range base (hour offset in month)
 
-	muShift   = 32 - 12 // CUR records map multiple (count - 1)
+	recsShift = 32 - 12 // CUR records map multiple (count - 1)
 	foffShift = 20 - 10 // CUR records map from (hour offset in month)
 	foffMask  = 0x3ff   // CUR records map from (hour offset in month)
 	toffMask  = 0x3ff   // CUR records map to (hour offset in month)
@@ -400,7 +400,7 @@ func curawsFinalize(acc *modAcc) {
 						t = b + r
 					}
 				}
-				line.Recs = (line.Recs-1)<<muShift | f<<foffShift | t
+				line.Recs = (line.Recs-1)<<recsShift | f<<foffShift | t
 				return
 			}(); to-fr == 1 || line.Cost < curItemDet && -curItemDet < line.Cost ||
 				to-fr <= curItemDetXR && line.Cost < curItemDetX && -curItemDetX < line.Cost {
