@@ -81,8 +81,8 @@ func init() {
 	args.interval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
 	args.tableSet.Var(&args.interval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to return, if applicable")
 	args.tableSet.StringVar(&args.model, "model", "cur.aws", "table object model `name`")
-	args.tableSet.IntVar(&args.rows, "rows", 2e5, "`maximum` table rows to return")
-	args.tableSet.Float64Var(&args.taTrunc, "truncate", 0.002, "row `cost` filter threshold, if applicable")
+	args.tableSet.IntVar(&args.rows, "rows", 1e6, "`maximum` table rows to return")
+	args.tableSet.Float64Var(&args.taTrunc, "truncate", 0.001, "row `cost` filter threshold, if applicable")
 	args.tableSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"table\" subcommand returns filtered -model detail in table/CSV form. Column criteria are specified"+
