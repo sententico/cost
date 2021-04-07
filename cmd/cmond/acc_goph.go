@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	curItemMin = 3.7e-7 // minimum CUR line item cost for retention (0<curItemMin<curItemDet)
-	curItemDev = 0.10   // maximum cost deviation from item average over which hourly detail is retained
+	curItemMin = 3.7e-7 // minimum CUR line item cost threshold for retention
+	curItemDev = 0.05   // maximum cost deviation from item average over which hourly detail is retained
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -381,8 +381,13 @@ func curawsFinalize(acc *modAcc) {
 	for mo, wm := range work.idet.Line {
 		bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
 		bh, eh, pm, tc, tl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0.0, 0
-
 		for id, line := range wm {
+			if pg--; pg <= 0 { // paginate sustained model access
+				acc.rel()
+				pg = lgPage
+				acc.reqW()
+			}
+
 			if line.Cost <= curItemMin && -curItemMin <= line.Cost || line.Usg == 0 || len(line.HMap) == 0 {
 				delete(wm, id)
 				tc += float64(line.Cost)
@@ -472,11 +477,6 @@ func curawsFinalize(acc *modAcc) {
 					copy(husg, line.HUsg)
 				}
 				line.HUsg, line.Recs = husg, (line.Recs-1)<<recsShift|fr<<foffShift|to
-				if pg--; pg <= 0 { // paginate sustained model access
-					acc.rel()
-					pg = lgPage
-					acc.reqW()
-				}
 			}
 		}
 
