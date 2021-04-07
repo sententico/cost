@@ -389,22 +389,22 @@ func curawsFinalize(acc *modAcc) {
 				tl++
 			} else if line.Recs == 1 {
 				line.HMap, line.HUsg, line.Recs = nil, nil, line.HMap[0]&baseMask<<foffShift|line.HMap[0]&baseMask+1
-			} else if fr, to, dev := func() (f, t uint32, d float32) {
-				f, t = usgIndex, 1
-				var min, avg, max float32
+			} else if fr, to, dev := func() (uint32, uint32, float32) {
+				var f, t uint32 = usgIndex, 1
+				var min, avg, max, uv float32
 				for _, m := range line.HMap {
-					r, u, b := m>>rangeShift+1, m>>usgShift&usgMask, m&baseMask
-					if u > usgIndex {
-						d = float32(u - usgIndex)
+					r, ur, b := m>>rangeShift+1, m>>usgShift&usgMask, m&baseMask
+					if ur > usgIndex {
+						uv = float32(ur - usgIndex)
 					} else {
-						d = line.HUsg[u]
+						uv = line.HUsg[ur]
 					}
 					if max == 0 {
-						min, max = d, d
-					} else if d < min {
-						min = d
-					} else if d > max {
-						max = d
+						min, max = uv, uv
+					} else if uv < min {
+						min = uv
+					} else if uv > max {
+						max = uv
 					}
 					if b < f {
 						f = b
@@ -414,18 +414,17 @@ func curawsFinalize(acc *modAcc) {
 					}
 				}
 				if avg = line.Usg / float32(t-f); line.Recs < t-f {
-					d = avg
+					uv = avg
 				} else {
-					d = avg - min
+					uv = avg - min
 				}
-				if max-avg > d {
-					d = max - avg
+				if max-avg > uv {
+					uv = max - avg
 				}
-				line.Recs, d = (line.Recs-1)<<recsShift|f<<foffShift|t, d*line.Cost/line.Usg
-				return
-			}(); dev <= curItemDev && -curItemDev <= dev {
-				line.HMap, line.HUsg = nil, nil
-			} else { // size-optimize higher-deviation usage history
+				return f, t, uv * line.Cost / line.Usg
+			}(); to-fr-line.Recs == 0 && dev <= curItemDev && -curItemDev <= dev {
+				line.HMap, line.HUsg, line.Recs = nil, nil, (line.Recs-1)<<recsShift|fr<<foffShift|to
+			} else { // size-optimize retained usage history
 				hu, ut, mc := [usgIndex + 2]uint16{}, uint16(0), 0
 				for _, m := range line.HMap { // expand/order map usage references
 					r, u, b := m>>rangeShift, uint16(m>>usgShift&usgMask+1), m&baseMask
@@ -472,7 +471,7 @@ func curawsFinalize(acc *modAcc) {
 					husg = make([]float32, len(line.HUsg))
 					copy(husg, line.HUsg)
 				}
-				line.HUsg = husg
+				line.HUsg, line.Recs = husg, (line.Recs-1)<<recsShift|fr<<foffShift|to
 				if pg--; pg <= 0 { // paginate sustained model access
 					acc.rel()
 					pg = lgPage
