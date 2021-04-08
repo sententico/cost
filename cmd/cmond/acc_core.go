@@ -157,9 +157,9 @@ type (
 		Cust string    `json:"Cu,omitempty"`
 		Team string    `json:"Te,omitempty"`
 		Ver  string    `json:"V,omitempty"`
-		HMap []uint32  `json:"H,omitempty"`  // range hrs (+base) | usage (index/value) | base (mo hr offset)
-		HUsg []float32 `json:"HU,omitempty"` // hourly usage (indexed by mo hr from offset or by HMap)
-		Recs uint32    `json:"Re,omitempty"` // CUR records (count-1) | from | to (mo hr offsets)
+		HMap []uint32  `json:"H,omitempty"`  // range hrs (+base) | usage (index/value) | base (mo-hr offset) [alt: 0b110 | Recs-offset bit-map]
+		HUsg []float32 `json:"HU,omitempty"` // hourly usage (offset by Recs from mo-hr or indexed or by HMap)
+		Recs uint32    `json:"Re,omitempty"` // CUR records (count-1) | from | to (mo-hr offsets)
 		Usg  float32   `json:"U,omitempty"`
 		Cost float32   `json:"C,omitempty"`
 	}

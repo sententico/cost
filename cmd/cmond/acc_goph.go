@@ -22,6 +22,8 @@ const (
 	usgMask    = 0xfff   // CUR hour map usage reference (index/value)
 	usgIndex   = 743     // CUR hour map usage reference (<=index, >value+743)
 	baseMask   = 0x3ff   // CUR hour map range base (hour offset in month)
+	hrBitmap   = 0b110   // offset bitmap of mo-hr usage (alt CUR hour map; alt ID)
+	hrBMShift  = 32 - 3  // offset bitmap of mo-hr usage (alt CUR hour map; map bits in [0] map entry)
 
 	recsShift = 32 - 12 // CUR records map multiple (count - 1)
 	foffShift = 20 - 10 // CUR records map from (hour offset in month)
@@ -388,7 +390,7 @@ func curawsFinalize(acc *modAcc) {
 				acc.reqW()
 			}
 
-			if line.Cost <= curItemMin && -curItemMin <= line.Cost || line.Usg == 0 || len(line.HMap) == 0 {
+			if line.Cost <= curItemMin && -curItemMin <= line.Cost || line.Recs == 0 || line.Usg == 0 || len(line.HMap) == 0 {
 				delete(wm, id)
 				tc += float64(line.Cost)
 				tl++
@@ -418,17 +420,23 @@ func curawsFinalize(acc *modAcc) {
 						t = b + r
 					}
 				}
-				if avg = line.Usg / float32(t-f); line.Recs < t-f {
-					uv = avg
-				} else {
-					uv = avg - min
-				}
-				if max-avg > uv {
+				avg = line.Usg / float32(line.Recs)
+				if uv = avg - min; max-avg > uv {
 					uv = max - avg
 				}
 				return f, t, uv * line.Cost / line.Usg
-			}(); to-fr-line.Recs == 0 && dev <= curItemDev && -curItemDev <= dev {
+			}(); to-fr == line.Recs && dev <= curItemDev && -curItemDev <= dev {
 				line.HMap, line.HUsg, line.Recs = nil, nil, (line.Recs-1)<<recsShift|fr<<foffShift|to
+			} else if dev <= curItemDev && -curItemDev <= dev {
+				hmap, off := make([]uint32, int(to-fr+31+32-hrBMShift)>>5), int32(fr)-32+hrBMShift
+				hmap[0] = hrBitmap << hrBMShift
+				for _, m := range line.HMap {
+					r, b := int32(m>>rangeShift), int32(m&baseMask)-off
+					for r += b; b <= r; b++ {
+						hmap[b>>5] |= 1 << (31 - b&31)
+					}
+				}
+				line.HMap, line.HUsg, line.Recs = hmap, nil, (line.Recs-1)<<recsShift|fr<<foffShift|to
 			} else { // size-optimize retained usage history
 				hu, ut, mc := [usgIndex + 2]uint16{}, uint16(0), 0
 				for _, m := range line.HMap { // expand/order map usage references

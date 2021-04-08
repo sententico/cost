@@ -2129,7 +2129,17 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 	var husg func(int32) float32
 	var rate float32
 	if un < 720 {
-		if rate = li.Cost / li.Usg; len(li.HMap) > 0 {
+		switch rate = li.Cost / li.Usg; {
+		case len(li.HMap) > 0 && li.HMap[0]>>hrBMShift == hrBitmap:
+			off := int32(li.Recs>>foffShift&foffMask) - 32 + hrBMShift
+			u := li.Usg / float32(li.Recs>>recsShift+1)
+			husg = func(h int32) float32 {
+				if i := h - off; li.HMap[i>>5]>>(31-i&31)&1 == 0 {
+					return 0
+				}
+				return u
+			}
+		case len(li.HMap) > 0:
 			var hu [usgIndex + 1]float32
 			for _, m := range li.HMap {
 				r, b, u := m>>rangeShift, m&baseMask, float32(0)
@@ -2152,13 +2162,13 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 			husg = func(h int32) float32 {
 				return hu[h]
 			}
-		} else if len(li.HUsg) > 1 {
+		case len(li.HUsg) > 0:
 			off := int32(li.Recs >> foffShift & foffMask)
 			husg = func(h int32) float32 {
 				return li.HUsg[h-off]
 			}
-		} else {
-			u := li.Usg / float32(li.Recs&toffMask-li.Recs>>foffShift&foffMask)
+		default:
+			u := li.Usg / float32(li.Recs>>recsShift+1)
 			husg = func(h int32) float32 {
 				return u
 			}
