@@ -14,16 +14,16 @@ import (
 )
 
 const (
-	curItemMin = 3.7e-7 // minimum CUR line item cost threshold for retention
-	curItemDev = 0.05   // maximum cost deviation from item average over which hourly detail is retained
+	curItemMin = 3.7e-7 // minimum CUR line item cost to avoid truncation
+	curItemDev = 0.02   // deviation limit from mean hourly line item cost to elide usage detail
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
 	usgMask    = 0xfff   // CUR hour map usage reference (index/value)
 	usgIndex   = 743     // CUR hour map usage reference (<=index, >value+743)
 	baseMask   = 0x3ff   // CUR hour map range base (hour offset in month)
-	hrBitmap   = 0b110   // offset bitmap of mo-hr usage (alt CUR hour map; alt ID)
-	hrBMShift  = 32 - 3  // offset bitmap of mo-hr usage (alt CUR hour map; map bits in [0] map entry)
+	hrBitmap   = 0b110   // offset bitmap of mo-hr usage (alt CUR hour map ID; 0b1110,... reserved)
+	hrBMShift  = 32 - 3  // offset bitmap of mo-hr usage (initial alt CUR hour map entry non-ID bits)
 
 	recsShift = 32 - 12 // CUR records map multiple (count - 1)
 	foffShift = 20 - 10 // CUR records map from (hour offset in month)

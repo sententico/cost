@@ -86,9 +86,9 @@ func rdsawsLookupX(m *model, v url.Values, res chan<- interface{}) {
 
 func (sum hsU) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
 	ser = make(map[string][]float64)
+	var s []float64
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			var s []float64
 			if s = ser[n]; s == nil {
 				s = make([]float64, 0, span)
 			}
@@ -123,7 +123,7 @@ func (sum hsU) series(typ byte, cur int32, span, recent int, truncate interface{
 	if len(ser) > 0 {
 		for h := recent; h < span; h++ {
 			for n, i := range sum[cur-int32(h)] {
-				if s := ser[n]; s != nil {
+				if s = ser[n]; s != nil {
 					switch s = s[:h+1]; typ {
 					case 'n':
 						s[h] = float64(i.Usage) / 3600
@@ -140,9 +140,9 @@ func (sum hsU) series(typ byte, cur int32, span, recent int, truncate interface{
 
 func (sum hsA) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
 	ser = make(map[string][]float64)
+	var s []float64
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			var s []float64
 			if s = ser[n]; s == nil {
 				s = make([]float64, 0, span)
 			}
@@ -172,7 +172,7 @@ func (sum hsA) series(typ byte, cur int32, span, recent int, truncate interface{
 	if len(ser) > 0 {
 		for h := recent; h < span; h++ {
 			for n, i := range sum[cur-int32(h)] {
-				if s := ser[n]; s != nil {
+				if s = ser[n]; s != nil {
 					s = s[:h+1]
 					s[h], ser[n] = i, s
 				}
@@ -184,9 +184,9 @@ func (sum hsA) series(typ byte, cur int32, span, recent int, truncate interface{
 
 func (sum hsC) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
 	ser = make(map[string][]float64)
+	var s []float64
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			var s []float64
 			if s = ser[n]; s == nil {
 				s = make([]float64, 0, span)
 			}
@@ -233,7 +233,7 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, truncate interface{
 	if len(ser) > 0 {
 		for h := recent; h < span; h++ {
 			for n, i := range sum[cur-int32(h)] {
-				if s := ser[n]; s != nil {
+				if s = ser[n]; s != nil {
 					switch s = s[:h+1]; typ {
 					case 'm':
 						s[h] = i.Marg
@@ -261,10 +261,10 @@ func (sum hsC) series(typ byte, cur int32, span, recent int, truncate interface{
 }
 
 func (sum hnC) series(typ byte, cur int32, span, recent int, truncate interface{}) (ser map[string][]float64) {
-	nser, ser := make(map[tel.E164digest][]float64), make(map[string][]float64)
+	nser := make(map[tel.E164digest][]float64, 65535)
+	var s []float64
 	for h := 0; h < recent; h++ {
 		for n, i := range sum[cur-int32(h)] {
-			var s []float64
 			if s = nser[n]; s == nil {
 				s = make([]float64, 0, span)
 			}
@@ -308,10 +308,10 @@ func (sum hnC) series(typ byte, cur int32, span, recent int, truncate interface{
 			}
 		}
 	}
-	if len(nser) > 0 {
+	if ser = make(map[string][]float64, len(nser)); len(nser) > 0 {
 		for h := recent; h < span; h++ {
 			for n, i := range sum[cur-int32(h)] {
-				if s := nser[n]; s != nil {
+				if s = nser[n]; s != nil {
 					switch s = s[:h+1]; typ {
 					case 'm':
 						s[h] = i.Marg
