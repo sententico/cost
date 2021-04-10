@@ -380,6 +380,7 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 //
 func curawsFinalize(acc *modAcc) {
 	psum, pdet, work, pg := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail), acc.m.data[2].(*curWork), lgPage
+	var husg []float32
 	for mo, wm := range work.idet.Line {
 		bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
 		bh, eh, pm, tc, tl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0.0, 0
@@ -396,9 +397,10 @@ func curawsFinalize(acc *modAcc) {
 				tl++
 			} else if line.Recs == 1 {
 				line.HMap, line.HUsg, line.Recs = nil, nil, line.HMap[0]&baseMask<<foffShift|line.HMap[0]&baseMask+1
-			} else if fr, to, dev := func() (uint32, uint32, float32) {
-				var f, t uint32 = usgIndex, 1
-				var min, avg, max, uv float32
+			} else if hu := [usgIndex + 2]uint16{}; false {
+			} else if fr, to, rw, dev := func() (uint32, uint32, int, float32) {
+				var min, max, uv float32
+				var f, t uint32
 				for _, m := range line.HMap {
 					r, ur, b := m>>rangeShift+1, m>>usgShift&usgMask, m&baseMask
 					if ur > usgIndex {
@@ -406,30 +408,42 @@ func curawsFinalize(acc *modAcc) {
 					} else {
 						uv = line.HUsg[ur]
 					}
-					if max == 0 {
-						min, max = uv, uv
-					} else if uv < min {
-						min = uv
-					} else if uv > max {
-						max = uv
+					if r += b; max == 0 {
+						min, max, f, t = uv, uv, b, r
+					} else {
+						if uv < min {
+							min = uv
+						} else if uv > max {
+							max = uv
+						}
+						if b < f {
+							f = b
+						} else if r > t {
+							t = r
+						}
 					}
-					if b < f {
-						f = b
-					}
-					if b+r > t {
-						t = b + r
+					for u := uint16(ur) + 1; b < r; b++ { // expand/order map usage references
+						hu[b] = u // +1 to reserve 0 as nil usage reference
 					}
 				}
-				avg = line.Usg / float32(line.Recs)
+				avg, ut, r := line.Usg/float32(line.Recs), uint16(0), 0
+				for _, u := range hu[f : t+1] { // count optimal (minimum) usage-grouped ranges
+					if u == ut {
+						continue
+					} else if ut != 0 {
+						r++
+					}
+					ut = u
+				}
 				if uv = avg - min; max-avg > uv {
 					uv = max - avg
 				}
-				return f, t, uv * line.Cost / line.Usg
+				return f, t, r, uv * line.Cost / line.Usg
 			}(); to-fr == line.Recs && dev <= curItemDev && -curItemDev <= dev {
 				line.HMap, line.HUsg, line.Recs = nil, nil, (line.Recs-1)<<recsShift|fr<<foffShift|to
-			} else if dev <= curItemDev && -curItemDev <= dev {
-				hmap, off := make([]uint32, int(to-fr+31+32-hrBMShift)>>5), int32(fr)-32+hrBMShift
-				hmap[0] = hrBitmap << hrBMShift
+			} else if bw := int(to-fr+31+32-hrBMShift) >> 5; bw < rw+len(line.HUsg) && dev <= curItemDev && -curItemDev <= dev {
+				hmap, off := make([]uint32, bw), int32(fr)-32+hrBMShift
+				hmap[0] = hrBitmap << hrBMShift // build bit-mapped usage representation
 				for _, m := range line.HMap {
 					r, b := int32(m>>rangeShift), int32(m&baseMask)-off
 					for r += b; b <= r; b++ {
@@ -437,54 +451,32 @@ func curawsFinalize(acc *modAcc) {
 					}
 				}
 				line.HMap, line.HUsg, line.Recs = hmap, nil, (line.Recs-1)<<recsShift|fr<<foffShift|to
-			} else { // size-optimize retained usage history
-				hu, ut, mc := [usgIndex + 2]uint16{}, uint16(0), 0
-				for _, m := range line.HMap { // expand/order map usage references
-					r, u, b := m>>rangeShift, uint16(m>>usgShift&usgMask+1), m&baseMask
-					for r += b; b <= r; b++ {
-						if hu[b] == 0 {
-							hu[b] = u // +1 to distinguish from nil usage reference
-						}
+			} else if int(to-fr) <= rw+len(line.HUsg) {
+				husg = make([]float32, int(to-fr)) // build unmapped full usage representation
+				for h := 0; h < len(husg); h++ {
+					if u := hu[int(fr)+h]; u > usgIndex+1 {
+						husg[h] = float32(u - usgIndex - 1)
+					} else if u > 0 {
+						husg[h] = line.HUsg[u-1]
 					}
 				}
-				for _, u := range hu[fr : to+1] { // count optimal (minimum) usage-grouped range maps
+				line.HMap, line.HUsg, line.Recs = nil, husg, (line.Recs-1)<<recsShift|fr<<foffShift|to
+			} else {
+				line.HMap, line.Recs = make([]uint32, 0, rw), (line.Recs-1)<<recsShift|fr<<foffShift|to
+				ht, ut := 0, uint16(0)
+				for h, u := range hu[fr : to+1] { // build range-mapped full usage representation
 					if u == ut {
 						continue
 					} else if ut != 0 {
-						mc++
+						line.HMap = append(line.HMap, uint32(h-ht-1)<<rangeShift|uint32(ut-1)<<usgShift|fr+uint32(ht))
 					}
-					ut = u
+					ht, ut = h, u
 				}
-				var husg []float32 // build optimal usage representation (un/mapped)
-				if int(to-fr) <= mc+len(line.HUsg) {
-					line.HMap, husg = nil, make([]float32, int(to-fr))
-					for h := 0; h < len(husg); h++ {
-						if u := hu[int(fr)+h]; u > usgIndex+1 {
-							husg[h] = float32(u - usgIndex - 1)
-						} else if u > 0 {
-							husg[h] = line.HUsg[u-1]
-						}
-					}
-				} else if mbuild := func() {
-					line.HMap, ut = make([]uint32, 0, mc), 0
-					var ht int
-					for h, u := range hu[fr : to+1] {
-						if u == ut {
-							continue
-						} else if ut != 0 {
-							line.HMap = append(line.HMap, uint32(h-ht-1)<<rangeShift|uint32(ut-1)<<usgShift|fr+uint32(ht))
-						}
-						ht, ut = h, u
-					}
-				}; len(line.HUsg) == cap(line.HUsg) {
-					mbuild()
-					husg = line.HUsg
-				} else {
-					mbuild()
+				if len(line.HUsg) != cap(line.HUsg) {
 					husg = make([]float32, len(line.HUsg))
 					copy(husg, line.HUsg)
+					line.HUsg = husg
 				}
-				line.HUsg, line.Recs = husg, (line.Recs-1)<<recsShift|fr<<foffShift|to
 			}
 		}
 
