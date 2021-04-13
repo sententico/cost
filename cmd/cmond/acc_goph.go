@@ -684,9 +684,8 @@ func cdraspInsert(acc *modAcc, item map[string]string, now int) {
 			} else if len(etg) > 4 { // BYOC/PBXC
 				sp = work.sp.Name(work.sp.Code(etg[:4]))
 			}
-			if e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), sp,
-				err); !strings.Contains(e, "customer] prefix [0") &&
-				!strings.Contains(e, "customer] invalid E.164 filtered") {
+			if sp != "customer" {
+				e := fmt.Sprintf("[%v/%v] %v", work.sl.Name(lc), sp, err)
 				if work.dexcept[e]++; work.dexcept[e] == 1 {
 					logE.Printf("%016X%v", id, e)
 				}

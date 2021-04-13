@@ -332,10 +332,10 @@ func curawsCost(m, k, l string, v ...float64) (a map[string]string) {
 func curCost() (alerts []map[string]string) {
 	const recent = 12
 	for _, metric := range []alertMetric{
-		{"cur.aws/acct", "AWS account", 6, 1.1, 2, 24, curawsCost, func(k string) []string { return []string{`acct[` + k} }},
-		{"cur.aws/region", "service location", 12, 1.1, 2, 24, curawsCost, func(k string) []string { return []string{`region=` + k} }},
-		{"cur.aws/typ", "billing type", 12, 1.1, 2, 24, curawsCost, func(k string) []string { return []string{`typ=` + k} }},
-		{"cur.aws/svc", "service", 2, 1.1, 2, 24, curawsCost, func(k string) []string { return []string{`svc=` + k} }},
+		{"cur.aws/acct", "AWS account", 6, 1.1, 2.5, 24, curawsCost, func(k string) []string { return []string{`acct[` + k} }},
+		{"cur.aws/region", "service location", 12, 1.1, 2.5, 24, curawsCost, func(k string) []string { return []string{`region=` + k} }},
+		{"cur.aws/typ", "billing type", 12, 1.1, 2.5, 24, curawsCost, func(k string) []string { return []string{`typ=` + k} }},
+		{"cur.aws/svc", "service", 2, 1.1, 2.5, 24, curawsCost, func(k string) []string { return []string{`svc=` + k} }},
 	} {
 		if c, err := seriesExtract(metric.name, 24*100, recent, metric.thresh); err != nil {
 			logE.Printf("problem accessing %q metric: %v", metric.name, err)
