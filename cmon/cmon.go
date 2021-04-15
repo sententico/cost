@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // Cloud Monitor settings types
@@ -105,6 +106,10 @@ type (
 	}
 )
 
+var (
+	mutex sync.Mutex
+)
+
 // Getarg is a helper function ...
 func Getarg(v []string) string {
 	for _, arg := range v {
@@ -140,33 +145,49 @@ func resolveSettings(n string) string {
 	return n
 }
 
-// Load method on MonSettings ...
-func (s *MonSettings) Load(loc string) (err error) {
+// Reload ...
+func Reload(cur **MonSettings, source interface{}) (err error) {
+	new := &MonSettings{}
 	var b []byte
-	var bb bytes.Buffer
-	if s == nil || loc == "" {
-		return fmt.Errorf("no settings specified")
-	} else if b, err = ioutil.ReadFile(resolveSettings(loc)); err != nil {
-		return fmt.Errorf("cannot access settings %q: %v", loc, err)
-	} else if err = json.Unmarshal(b, s); err != nil {
-		return fmt.Errorf("%q settings format problem: %v", loc, err)
-	} else if err = json.Compact(&bb, b); err != nil {
-		return fmt.Errorf("%q settings format problem: %v", loc, err)
-	} else {
+	switch s := source.(type) {
+	case string: // (re)load settings from location (file, ...) source
+		var bb bytes.Buffer
+		if cur == nil || s == "" {
+			return fmt.Errorf("no settings specified")
+		} else if b, err = ioutil.ReadFile(resolveSettings(s)); err != nil {
+			return fmt.Errorf("cannot access settings %q: %v", s, err)
+		} else if err = json.Unmarshal(b, new); err != nil {
+			return fmt.Errorf("%q settings format problem: %v", s, err)
+		} else if err = json.Compact(&bb, b); err != nil {
+			return fmt.Errorf("%q settings format problem: %v", s, err)
+		}
 		bb.WriteByte('\n')
-		s.JSON = bb.String()
+		new.JSON = bb.String()
+
+	case func(*MonSettings) bool: // reload settings via update function source
+		mutex.Lock()
+		defer mutex.Unlock()
+		if cur == nil || *cur == nil || (**cur).JSON == "" {
+			return fmt.Errorf("no settings specified")
+		} else if err = json.Unmarshal([]byte((**cur).JSON), new); err != nil {
+			return fmt.Errorf("settings corrupted: %v", err)
+		} else if s == nil || !s(new) {
+			return
+		} else if b, err = json.Marshal(new); err != nil {
+			return fmt.Errorf("cannot save updated settings: %v", err)
+		}
+		new.JSON = string(append(b, '\n'))
+
+	default:
+		return fmt.Errorf("unknown settings source")
 	}
-	return nil
+	*cur = new
+	return
 }
 
 // PromoteAZ method on MonSettings ...
 func (s *MonSettings) PromoteAZ(acct, az string) bool {
 	if s == nil {
-		return false
-	} else if acct == "" || az == "" {
-		if b, err := json.Marshal(s); err == nil {
-			s.JSON = string(append(b, '\n')) // TODO: protect with mutex
-		}
 		return false
 	} else if p := s.AWS.Profiles[s.AWS.Accounts[acct]["~profile"]]; p == nil {
 		return false

@@ -40,10 +40,10 @@ var (
 		rows     int      // maximum table rows
 		taTrunc  float64  // row cost truncation filter
 	}
-	address  string           // cmon server address (args override settings file)
-	settings cmon.MonSettings // settings
-	command  string           // cmon subcommand
-	wg       sync.WaitGroup   // thread synchronization
+	address  string            // cmon server address (args override settings file)
+	settings *cmon.MonSettings // settings
+	command  string            // cmon subcommand
+	wg       sync.WaitGroup    // thread synchronization
 )
 
 func init() {
@@ -287,7 +287,7 @@ func main() {
 	}
 
 	args.settings = cmon.Getarg([]string{args.settings, "CMON_SETTINGS", ".cmon_settings.json"})
-	if err := settings.Load(args.settings); err != nil {
+	if err := cmon.Reload(&settings, args.settings); err != nil {
 		fatal(1, "%v", err)
 	}
 	address = cmon.Getarg([]string{args.address, settings.Address, "CMON_ADDRESS", ":4404"})

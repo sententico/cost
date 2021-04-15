@@ -72,7 +72,7 @@ var (
 	logD, logI, logW, logE *log.Logger       // ...
 	seOpen, exit           int               // ...
 	seInit, seSeq          int64             // ...
-	settings               cmon.MonSettings  // monitor settings
+	settings               *cmon.MonSettings // monitor settings
 )
 
 func init() {
@@ -93,7 +93,7 @@ func init() {
 		"cur.aws":  {boot: curawsBoot, maint: curawsMaint, term: curawsTerm},
 		"cdr.asp":  {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
 	}, cmon.Getarg([]string{"CMON_SETTINGS", ".cmon_settings.json"})
-	if err := settings.Load(sfile); err != nil {
+	if err := cmon.Reload(&settings, sfile); err != nil {
 		logE.Fatalf("%v", err)
 	}
 	for n, m := range mMod {
