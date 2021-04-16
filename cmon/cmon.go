@@ -46,6 +46,7 @@ type (
 
 	// MonSettings are composite settings for Cloud Monitor
 	MonSettings struct {
+		Autoload        bool
 		Options         string
 		Unit, Address   string
 		WorkDir, BinDir string
@@ -150,8 +151,11 @@ func resolveLoc(n string) string {
 
 // Reload Cloud Monitor settings from source file or function ...
 func Reload(cur **MonSettings, source interface{}) (err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
 	new := &MonSettings{}
 	var b []byte
+
 	switch s := source.(type) {
 	case string: // (re)load settings from location (file, ...) source
 		var bb bytes.Buffer
@@ -178,6 +182,9 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 			return err
 		} else if err = json.Unmarshal(b, new); err != nil {
 			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
+		} else if s == "" && !new.Autoload {
+			(**cur).ltime = new.ltime // advance to treat skipped updates as loaded
+			return fmt.Errorf("skipped update for %q", new.loc)
 		} else if err = json.Compact(&bb, b); err != nil {
 			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		}
@@ -185,8 +192,6 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		new.JSON = bb.String()
 
 	case func(*MonSettings) bool: // reload settings via modifier function source
-		mutex.Lock()
-		defer mutex.Unlock()
 		if cur == nil || *cur == nil || (**cur).JSON == "" || s == nil {
 			return fmt.Errorf("no settings specified")
 		} else if err = json.Unmarshal([]byte((**cur).JSON), new); err != nil {
