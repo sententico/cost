@@ -145,7 +145,7 @@ func resolveSettings(n string) string {
 	return n
 }
 
-// Reload ...
+// Reload Cloud Monitor settings from source file or function ...
 func Reload(cur **MonSettings, source interface{}) (err error) {
 	new := &MonSettings{}
 	var b []byte
@@ -167,14 +167,14 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 	case func(*MonSettings) bool: // reload settings via update function source
 		mutex.Lock()
 		defer mutex.Unlock()
-		if cur == nil || *cur == nil || (**cur).JSON == "" {
+		if cur == nil || *cur == nil || (**cur).JSON == "" || s == nil {
 			return fmt.Errorf("no settings specified")
 		} else if err = json.Unmarshal([]byte((**cur).JSON), new); err != nil {
 			return fmt.Errorf("settings corrupted: %v", err)
-		} else if s == nil || !s(new) {
+		} else if !s(new) {
 			return
 		} else if b, err = json.Marshal(new); err != nil {
-			return fmt.Errorf("cannot save updated settings: %v", err)
+			return fmt.Errorf("cannot cache updated settings: %v", err)
 		}
 		new.JSON = string(append(b, '\n'))
 
