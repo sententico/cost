@@ -296,7 +296,11 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 			}
 
 		case <-sec.C:
-			go cmon.Reload(&settings, "")
+			go func() {
+				if err := cmon.Reload(&settings, ""); err != nil {
+					logI.Print(err)
+				}
+			}()
 		case <-min.C:
 			if nc := seSeq - seInit - int64(len(seID)); nc > lc {
 				if sh := nc - lc; sh > 12 {

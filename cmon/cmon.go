@@ -163,12 +163,12 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 			return fmt.Errorf("no settings specified")
 		} else if err = func() (err error) {
 			if new.ltime = time.Now(); s == "" {
-				if fi, err := os.Stat((**cur).loc); err != nil {
-					return fmt.Errorf("cannot access settings %q: %v", (**cur).loc, err)
+				if fi, e := os.Stat((**cur).loc); e != nil {
+					return fmt.Errorf("cannot access settings %q: %v", (**cur).loc, e)
 				} else if fi.ModTime().Before((**cur).ltime) {
-					return fmt.Errorf("no update for %q available", (**cur).loc)
-				} else if b, err = ioutil.ReadFile((**cur).loc); err != nil {
-					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, err)
+					return // or fmt.Errorf("no update for %q available", (**cur).loc)
+				} else if b, e = ioutil.ReadFile((**cur).loc); e != nil {
+					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, e)
 				}
 				new.loc = (**cur).loc
 			} else {
