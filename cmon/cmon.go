@@ -163,12 +163,11 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 			return fmt.Errorf("no settings specified")
 		} else if err = func() (err error) {
 			if new.ltime = time.Now(); s == "" {
-				if fi, e := os.Stat((**cur).loc); e != nil {
-					return fmt.Errorf("cannot access settings %q: %v", (**cur).loc, e)
-				} else if fi.ModTime().Before((**cur).ltime) {
-					return // or fmt.Errorf("no update for %q available", (**cur).loc)
-				} else if b, e = ioutil.ReadFile((**cur).loc); e != nil {
-					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, e)
+				if fi, _ := os.Stat((**cur).loc); fi.ModTime().Before((**cur).ltime) {
+					return // no reloadable update available
+				} else if (**cur).ltime = new.ltime; false { // advance to treat as if loaded
+				} else if b, err = ioutil.ReadFile((**cur).loc); err != nil {
+					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, err)
 				}
 				new.loc = (**cur).loc
 			} else {
@@ -183,7 +182,6 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		} else if err = json.Unmarshal(b, new); err != nil {
 			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		} else if s == "" && !new.Autoload {
-			(**cur).ltime = new.ltime // advance to treat skipped updates as loaded
 			return fmt.Errorf("skipped update for %q", new.loc)
 		} else if err = json.Compact(&bb, b); err != nil {
 			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
