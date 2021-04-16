@@ -1,4 +1,5 @@
 {
+	"Autoload":	true,
 	"Options":	"<placeholder>",
 	"Unit":		"cmon-aspect",
 	"Address":	":4404",
@@ -16,28 +17,32 @@
 		"Options":	"<placeholder>",
 		"Profiles": {
 			"default": {
+			}, "rising usage": {
+			}, "falling usage": {
 			}, "cloud cost": {
 			}, "telecom margin": {
 			}, "telecom fraud": {
-				"from":"xxx",
-				"to":"xxx",
-				"cc":"xxx",
-				"subject":"xxx",
-				"heading":"xxx",
-				"c.action":"xxx",
-				"action":"xxx",
-				"slack":"#telecom-fraud"
+				"from":		"xxx",
+				"to":		"xxx",
+				"cc":		"xxx",
+				"subject":	"xxx",
+				"heading":	"xxx",
+				"c.action":	"xxx",
+				"action":	"xxx",
+				"slack":	"#telecom-fraud"
 			}
 		},
 		"Customers": {
 			"202xxx":	{"name":"xxx", "to":"xxx", "cc":"xxx"},
-			"206xxx":	{"name":"xxx", "to":"xxx"}
+			"206xxx":	{"name":"xxx", "to":"xxx"},
+			"any":		{"name":"unidentified group"}
 		}
 	},
 	"Slack": {
 		"Options":	"<placeholder>",
 		"Webhooks": {
 			"#telecom-fraud":	"https://hooks.slack.com/services/T0xxx/B0xxx/xxx",
+			"#cloud-monitor":	"https://hooks.slack.com/services/T0xxx/B0xxx/xxx",
 			"default":			"https://hooks.slack.com/services/T0xxx/B0xxx/xxx"
 		}
 	},
@@ -57,6 +62,7 @@
 			"from":		"xxx"
 		},
 		"Regions": {
+			"USE2": {"dc":"cmh"},"us-east-2": {"dc":"cmh"},
 			"USW1": {"dc":"sfo"},"us-west-1": {"dc":"sfo"},
 			"USW2": {"dc":"eug"},"us-west-2": {"dc":"eug"},
 			"EUW1": {"dc":"dub"},"eu-west-1": {"dc":"dub"},
@@ -66,38 +72,33 @@
 		"Profiles": {
 			"minimum": {
 				"us-east-1":0.0001,"us-east-2":0.0001,"us-west-1":0.0001,"us-west-2":0.0001,
-				"eu-central-1":0.0001,"eu-west-1":0.0001,"eu-west-2":0.0001,"eu-west-3":0.0001,"eu-north-1":0.0001,
-				"ap-south-1":0.0001,"ap-northeast-1":0.0001,"ap-northeast-2":0.0001,"ap-southeast-1":0.0001,"ap-southeast-2":0.0001,
+				"eu-central-1":0.0001,"eu-west-1":0.0001,"eu-west-2":0.0001,
+				"ap-southeast-1":0.0001,"ap-southeast-2":0.0001,
 				"ca-central-1":0.0001,"sa-east-1":0.0001
 			},"us": {
-				"us-east-1":1.0,"us-east-2":0.01,"us-west-1":1.0,"us-west-2":1.0,
-				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2": 0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"us-east-1":1.0,"us-east-2":1.0,"us-west-1":1.0,"us-west-2":1.0,
+				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,
+				"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"us east": {
-				"us-east-1":1.0,"us-east-2":1.0,"us-west-1":0.001,"us-west-2":0.001,
-				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"us-east-1":1.0,"us-east-2":1.0,"us-west-1":0.1,"us-west-2":0.1,
+				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,
+				"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"us east 1": {
-				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
-				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"us-east-1":1.0,"us-east-2":0.1,"us-west-1":0.1,"us-west-2":0.1,
+				"eu-central-1":0.001,"eu-west-1":0.01,"eu-west-2":0.01,
+				"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"eu west": {
 				"us-east-1":0.01,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":0.001,
-				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":0.01,"eu-west-3":0.001,"eu-north-1":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.001,
+				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":1.0,
+				"ap-southeast-1":0.001,"ap-southeast-2":0.001,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			},"global": {
-				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.01,"us-west-2":0.001,
-				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":1.0,"eu-west-3":0.001,"eu-north-1":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.001,"ap-southeast-2":0.01,
-				"ca-central-1":0.001,"sa-east-1":0.001
-			},"global alt": {
-				"us-east-1":1.0,"us-east-2":0.001,"us-west-1":0.001,"us-west-2":1.0,
-				"eu-central-1":0.1,"eu-west-1":0.1,"eu-west-2":1.0,"eu-west-3":0.001,"eu-north-1":0.001,
-				"ap-south-1":0.001,"ap-northeast-1":0.001,"ap-northeast-2":0.001,"ap-southeast-1":0.1,"ap-southeast-2":0.001,
+				"us-east-1":1.0,"us-east-2":0.1,"us-west-1":0.1,"us-west-2":1.0,
+				"eu-central-1":0.001,"eu-west-1":1.0,"eu-west-2":1.0,
+				"ap-southeast-1":0.1,"ap-southeast-2":0.1,
 				"ca-central-1":0.001,"sa-east-1":0.001
 			}
 		},
@@ -105,100 +106,100 @@
 			"default": {
 				"env":"corp",
 				"~name":"master corp","~profile":"minimum"
-			},"601180688311": {
+			},"60118068xxxx": {
 				"env":"corp",
 				"~name":"master corp"
-			},"518369941250": {
+			},"51836994xxxx": {
 				"env":"dev","prod":"via","team":"apsdevops",
 				"~name":"APS EMEA dev"
-			},"542603770289": {
+			},"54260377xxxx": {
 				"env":"dev","prod":"via","team":"via",
-				"~name":"Brooklyn dev","~profile":"us east"
-			},"673138677489": {
+				"~name":"Brooklyn dev","~profile":"us"
+			},"67313867xxxx": {
 				"env":"dev","prod":"via",
 				"~name":"Brooklyn DR dev","~profile":"minimum"
-			},"927185244192": {
+			},"92718524xxxx": {
 				"env":"dev","prod":"via.core",
-				"~name":"Cloudcore dev","~profile":"us east"
-			},"484878871463": {
+				"~name":"Cloudcore dev","~profile":"us"
+			},"48487887xxxx": {
 				"env":"dev","prod":"via.cxp","team":"cxp",
 				"~name":"Brooklyn CXP dev","~profile":"us east 1"
-			},"606721501982": {
+			},"60672150xxxx": {
 				"env":"dev",
 				"~name":"infrastr dev","~profile":"global"
-			},"211656475552": {
+			},"21165647xxxx": {
 				"env":"dev","prod":"via.core","team":"mmd",
 				"~name":"Manhattan dev","~profile":"us east 1"
-			},"007925789654": {
+			},"00792578xxxx": {
 				"env":"dev",
 				"~name":"arch dev","~profile":"us east 1"
-			},"931353328580": {
+			},"93135332xxxx": {
 				"env":"dev","prod":"pes","team":"pes",
 				"~name":"PES dev","~profile":"us east 1"
-			},"213446661952": {
+			},"21344666xxxx": {
 				"env":"dev",
 				"~name":"QA dev","~profile":"us east 1"
-			},"018805767579": {
+			},"01880576xxxx": {
 				"env":"dev","team":"scrm",
 				"~name":"SCRM dev","~profile":"us east 1"
-			},"271773505756": {
+			},"27177350xxxx": {
 				"env":"dev","prod":"wfm",
 				"~name":"WFM dev","~profile":"minimum"
-			},"991879500211": {
+			},"99187950xxxx": {
 				"env":"dev","prod":"zipwire","team":"zipwire",
 				"~name":"Zipwire dev","~profile":"minimum"
-			},"093999772290": {
+			},"09399977xxxx": {
 				"env":"corp",
 				"~name":"demo corp","~profile":"us east"
-			},"922837348894": {
+			},"92283734xxxx": {
 				"env":"prod","prod":"via.cec","team":"apsdevops",
 				"~name":"APS","~profile":"global"
-			},"236630710668": {
+			},"23663071xxxx": {
 				"env":"dev","prod":"via","team":"apsdevops",
 				"~name":"APS dev","~profile":"us east 1"
-			},"175907869967": {
+			},"17590786xxxx": {
 				"env":"prod","prod":"via","team":"via",
 				"~name":"Brooklyn","~profile":"global"
-			},"637527135380": {
+			},"63752713xxxx": {
 				"env":"prod","prod":"via.cxp","team":"cxp",
 				"~name":"Brooklyn CXP","~profile":"global"
-			},"726215107746": {
+			},"72621510xxxx": {
 				"env":"prod","prod":"cxp",
 				"~name":"CXP storage"
-			},"492780541286": {
+			},"49278054xxxx": {
 				"env":"prod","prod":"cxp",
-				"~name":"CXP","~profile":"global alt"
-			},"501424725652": {
+				"~name":"CXP","~profile":"global"
+			},"50142472xxxx": {
 				"env":"prod","prod":"cxp",
 				"~name":"CXP staging","~profile":"global"
-			},"127403002470": {
+			},"12740300xxxx": {
 				"env":"prod","prod":"via.core",
 				"~name":"Cloudcore","~profile":"global"
-			},"634901471063": {
+			},"63490147xxxx": {
 				"env":"prod","prod":"uip",
 				"~name":"AQM","~profile":"minimum"
-			},"896971561935": {
+			},"89697156xxxx": {
 				"env":"prod","prod":"via.core",
 				"~name":"Manhattan","~profile":"global"
-			},"537601688677": {
+			},"53760168xxxx": {
 				"env":"prod","prod":"zipwire",
 				"~name":"Zipwire","~profile":"global"
-			},"990744926661": {
+			},"99074492xxxx": {
 				"env":"prod","prod":"cxp",
 				"~name":"CXP ops"
-			},"162790430163": {
+			},"16279043xxxx": {
 				"env":"sandbox","prod":"via.core",
 				"~name":"tools dev","~profile":"us"
-			},"042050835575": {
+			},"04205083xxxx": {
 				"env":"prod","prod":"pes","team":"pes",
 				"~name":"PES","~profile":"eu west"
-			},"768575443820": {
+			},"76857544xxxx": {
 				"env":"prod","prod":"via",
-				"~name":"Transit VPC","~profile":"global alt"
-			},"841478974408": {
+				"~name":"Transit VPC","~profile":"global"
+			},"84147897xxxx": {
 				"env":"prod","prod":"cxp","team":"cxp",
-				"~name":"VoD","~profile":"global alt"
-			},"286334278062": {
+				"~name":"VoD","~profile":"global"
+			},"28633427xxxx": {
 				"env":"prod","prod":"wfm",
 				"~name":"WFM","~profile":"global"
 			}
