@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Cloud Monitor settings types
@@ -54,6 +56,8 @@ type (
 		Datadog         datadogService
 		Slack           slackService
 		JSON            string `json:"-"`
+		loc             string
+		ltime           time.Time
 	}
 )
 
@@ -123,8 +127,8 @@ func Getarg(v []string) string {
 	return ""
 }
 
-// resolveSettings is a helper function that resolves settings resource names (pathnames, ...)
-func resolveSettings(n string) string {
+// resolveLoc is a helper function that resolves resource location names (pathnames, ...)
+func resolveLoc(n string) string {
 	if strings.HasPrefix(n, "~/") {
 		if u, err := user.Current(); err == nil {
 			if p, err := filepath.Abs(u.HomeDir + n[1:]); err == nil {
@@ -152,19 +156,37 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 	switch s := source.(type) {
 	case string: // (re)load settings from location (file, ...) source
 		var bb bytes.Buffer
-		if cur == nil || s == "" {
+		if cur == nil || *cur == nil && s == "" {
 			return fmt.Errorf("no settings specified")
-		} else if b, err = ioutil.ReadFile(resolveSettings(s)); err != nil {
-			return fmt.Errorf("cannot access settings %q: %v", s, err)
+		} else if err = func() (err error) {
+			if new.ltime = time.Now(); s == "" {
+				var fi fs.FileInfo
+				if fi, err = os.Stat((**cur).loc); err != nil {
+					return fmt.Errorf("cannot access settings %q: %v", (**cur).loc, err)
+				} else if fi.ModTime().Before((**cur).ltime) {
+					return fmt.Errorf("no update for %q available", (**cur).loc)
+				} else if b, err = ioutil.ReadFile((**cur).loc); err != nil {
+					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, err)
+				}
+				new.loc = (**cur).loc
+			} else {
+				new.loc = resolveLoc(s)
+				if b, err = ioutil.ReadFile(new.loc); err != nil {
+					return fmt.Errorf("cannot access settings %q: %v", s, err)
+				}
+			}
+			return
+		}(); err != nil {
+			return err
 		} else if err = json.Unmarshal(b, new); err != nil {
-			return fmt.Errorf("%q settings format problem: %v", s, err)
+			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		} else if err = json.Compact(&bb, b); err != nil {
-			return fmt.Errorf("%q settings format problem: %v", s, err)
+			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		}
 		bb.WriteByte('\n')
 		new.JSON = bb.String()
 
-	case func(*MonSettings) bool: // reload settings via update function source
+	case func(*MonSettings) bool: // reload settings via modifier function source
 		mutex.Lock()
 		defer mutex.Unlock()
 		if cur == nil || *cur == nil || (**cur).JSON == "" || s == nil {
@@ -174,9 +196,9 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		} else if !s(new) {
 			return
 		} else if b, err = json.Marshal(new); err != nil {
-			return fmt.Errorf("cannot cache updated settings: %v", err)
+			return fmt.Errorf("cannot cache modified settings: %v", err)
 		}
-		new.JSON = string(append(b, '\n'))
+		new.JSON, new.loc, new.ltime = string(append(b, '\n')), (**cur).loc, (**cur).ltime
 
 	default:
 		return fmt.Errorf("unknown settings source")

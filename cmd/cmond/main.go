@@ -271,7 +271,7 @@ func (acc *modAcc) rel() bool {
 
 func seManager(quit <-chan bool, ok chan<- bool) {
 	var to <-chan time.Time
-	min, id, lc := time.NewTicker(60*time.Second), seID, int64(0)
+	sec, min, id, lc := time.NewTicker(time.Second), time.NewTicker(60*time.Second), seID, int64(0)
 
 	for {
 		select {
@@ -295,6 +295,8 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 				}
 			}
 
+		case <-sec.C:
+			go cmon.Reload(&settings, "")
 		case <-min.C:
 			if nc := seSeq - seInit - int64(len(seID)); nc > lc {
 				if sh := nc - lc; sh > 12 {
@@ -312,6 +314,7 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 			} else {
 				ok <- true
 			}
+			sec.Stop()
 			min.Stop()
 			seSeq -= int64(len(id))
 		}

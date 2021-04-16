@@ -524,11 +524,11 @@ func ec2awsClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
-	if err := cmon.Reload(&settings, func(new *cmon.MonSettings) (update bool) {
+	if err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
 		for id, inst := range detail.Inst {
 			if deep && new.PromoteAZ(inst.Acct, inst.AZ) {
 				logW.Printf("%s AZ access promoted for account %s", inst.AZ, inst.Acct)
-				update = true
+				modify = true
 			}
 			if x := detail.Current - inst.Last; inst.State == "terminated" && inst.Last-inst.Since < 3600*12 &&
 				x > 0 || x > 3600*72 {
@@ -611,11 +611,11 @@ func ebsawsClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
-	if err := cmon.Reload(&settings, func(new *cmon.MonSettings) (update bool) {
+	if err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
 		for id, vol := range detail.Vol {
 			if deep && new.PromoteAZ(vol.Acct, vol.AZ) {
 				logW.Printf("%s AZ access promoted for account %s", vol.AZ, vol.Acct)
-				update = true
+				modify = true
 			}
 			if x := detail.Current - vol.Last; vol.Last-vol.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
 				delete(detail.Vol, id)
@@ -697,11 +697,11 @@ func rdsawsClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
-	if err := cmon.Reload(&settings, func(new *cmon.MonSettings) (update bool) {
+	if err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
 		for id, db := range detail.DB {
 			if deep && new.PromoteAZ(db.Acct, db.AZ) {
 				logW.Printf("%s AZ access promoted for account %s", db.AZ, db.Acct)
-				update = true
+				modify = true
 			}
 			if x := detail.Current - db.Last; db.Last-db.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
 				delete(detail.DB, id)
