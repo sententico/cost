@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -160,8 +159,7 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 			return fmt.Errorf("no settings specified")
 		} else if err = func() (err error) {
 			if new.ltime = time.Now(); s == "" {
-				var fi fs.FileInfo
-				if fi, err = os.Stat((**cur).loc); err != nil {
+				if fi, err := os.Stat((**cur).loc); err != nil {
 					return fmt.Errorf("cannot access settings %q: %v", (**cur).loc, err)
 				} else if fi.ModTime().Before((**cur).ltime) {
 					return fmt.Errorf("no update for %q available", (**cur).loc)
