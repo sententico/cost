@@ -182,7 +182,7 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		} else if err = json.Unmarshal(b, new); err != nil {
 			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		} else if s == "" && !new.Autoload {
-			return fmt.Errorf("skipped update for %q", new.loc)
+			return fmt.Errorf("skipped update to %q", new.loc)
 		} else if err = json.Compact(&bb, b); err != nil {
 			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		}

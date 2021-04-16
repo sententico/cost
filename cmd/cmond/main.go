@@ -94,7 +94,7 @@ func init() {
 		"cdr.asp":  {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
 	}, cmon.Getarg([]string{"CMON_SETTINGS", ".cmon_settings.json"})
 	if err := cmon.Reload(&settings, sfile); err != nil {
-		logE.Fatalf("%v", err)
+		logE.Fatal(err)
 	}
 	for n, m := range mMod {
 		if _, found := settings.Models[n]; found {
