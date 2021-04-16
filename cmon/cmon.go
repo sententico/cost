@@ -178,8 +178,8 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 				}
 			}
 			return
-		}(); err != nil {
-			return err
+		}(); err != nil || b == nil {
+			return
 		} else if err = json.Unmarshal(b, new); err != nil {
 			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		} else if s == "" && !new.Autoload {
