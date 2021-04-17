@@ -162,7 +162,7 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 			return fmt.Errorf("no settings specified")
 		} else if err = func() (err error) {
 			if new.ltime = time.Now(); s == "" {
-				if fi, _ := os.Stat((**cur).loc); fi.ModTime().Before((**cur).ltime) {
+				if fi, _ := os.Stat((**cur).loc); fi == nil || fi.ModTime().Before((**cur).ltime) {
 					return // no reloadable update available
 				} else if (**cur).ltime = new.ltime; false { // advance to treat as if loaded
 				} else if b, err = os.ReadFile((**cur).loc); err != nil {
