@@ -148,32 +148,32 @@ func resolveLoc(n string) string {
 	return n
 }
 
-// Reload Cloud Monitor settings from source file or function ...
+// Reload Cloud Monitor settings from location or function source
 func Reload(cur **MonSettings, source interface{}) (err error) {
+	var new *MonSettings
+	var b []byte
 	mutex.Lock()
 	defer mutex.Unlock()
-	new := &MonSettings{}
-	var b []byte
 
 	switch s := source.(type) {
 	case string: // (re)load settings from location (file, ...) source
 		var bb bytes.Buffer
 		if cur == nil || *cur == nil && s == "" {
 			return fmt.Errorf("no settings specified")
-		} else if err = func() (err error) {
-			if new.ltime = time.Now(); s == "" {
+		} else if err = func() (e error) {
+			if s == "" {
 				if fi, _ := os.Stat((**cur).loc); fi == nil || fi.ModTime().Before((**cur).ltime) {
 					return // no reloadable update available
-				} else if (**cur).ltime = new.ltime; false { // advance to treat as if loaded
-				} else if b, err = os.ReadFile((**cur).loc); err != nil {
-					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, err)
+				} else if (**cur).ltime = time.Now(); false { // treat as if loaded
+				} else if b, e = os.ReadFile((**cur).loc); e != nil {
+					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, e)
 				}
-				new.loc = (**cur).loc
-			} else {
-				new.loc = resolveLoc(s)
-				if b, err = os.ReadFile(new.loc); err != nil {
-					return fmt.Errorf("cannot access settings %q: %v", s, err)
-				}
+				new = &MonSettings{loc: (**cur).loc, ltime: (**cur).ltime}
+				return
+			}
+			new = &MonSettings{loc: resolveLoc(s), ltime: time.Now()}
+			if b, e = os.ReadFile(new.loc); e != nil {
+				return fmt.Errorf("cannot access settings %q: %v", new.loc, e)
 			}
 			return
 		}(); err != nil || b == nil {
@@ -188,9 +188,10 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		bb.WriteByte('\n')
 		new.JSON = bb.String()
 
-	case func(*MonSettings) bool: // reload settings via modifier function source
+	case func(*MonSettings) bool: // modify settings via function source
 		if cur == nil || *cur == nil || (**cur).JSON == "" || s == nil {
 			return fmt.Errorf("no settings specified")
+		} else if new = (&MonSettings{loc: (**cur).loc, ltime: (**cur).ltime}); false {
 		} else if err = json.Unmarshal([]byte((**cur).JSON), new); err != nil {
 			return fmt.Errorf("settings corrupted: %v", err)
 		} else if !s(new) {
@@ -198,7 +199,7 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		} else if b, err = json.Marshal(new); err != nil {
 			return fmt.Errorf("cannot cache modified settings: %v", err)
 		}
-		new.JSON, new.loc, new.ltime = string(append(b, '\n')), (**cur).loc, (**cur).ltime
+		new.JSON = string(append(b, '\n'))
 
 	default:
 		return fmt.Errorf("unknown settings source")
