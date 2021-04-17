@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -67,9 +67,9 @@ func (r *Rater) Load(rr io.Reader) (err error) {
 	if r == nil {
 		return fmt.Errorf("no rater specified")
 	} else if r.ccR = nil; rr != nil {
-		b, err = ioutil.ReadAll(rr)
+		b, err = io.ReadAll(rr)
 	} else if r.Location != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(r.Location))
+		b, err = os.ReadFile(iio.ResolveName(r.Location))
 	} else if r.Default != "" {
 		b = []byte(r.Default)
 	} else {
@@ -120,9 +120,9 @@ func (d *Decoder) Load(dr io.Reader) (err error) {
 	if d == nil {
 		return fmt.Errorf("no decoder specified")
 	} else if d.ccI = nil; dr != nil {
-		b, err = ioutil.ReadAll(dr)
+		b, err = io.ReadAll(dr)
 	} else if d.Location != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(d.Location))
+		b, err = os.ReadFile(iio.ResolveName(d.Location))
 	} else {
 		b = []byte(defaultEncodings)
 	}
@@ -253,9 +253,9 @@ func (sp *SPmap) Load(r io.Reader) (err error) {
 	if sp == nil {
 		return fmt.Errorf("no service provider map specified")
 	} else if sp.alCo, sp.coNa = nil, nil; r != nil {
-		b, err = ioutil.ReadAll(r)
+		b, err = io.ReadAll(r)
 	} else if sp.Location != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(sp.Location))
+		b, err = os.ReadFile(iio.ResolveName(sp.Location))
 	} else {
 		b = []byte(defaultProviders)
 	}
@@ -291,9 +291,9 @@ func (sl *SLmap) Load(r io.Reader) (err error) {
 	if sl == nil {
 		return fmt.Errorf("no service location map specified")
 	} else if sl.alCo, sl.coNa = nil, nil; r != nil {
-		b, err = ioutil.ReadAll(r)
+		b, err = io.ReadAll(r)
 	} else if sl.Location != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(sl.Location))
+		b, err = os.ReadFile(iio.ResolveName(sl.Location))
 	} else {
 		b = []byte(defaultLocations)
 	}

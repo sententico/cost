@@ -192,7 +192,7 @@ func (set *Settings) Cache(r io.Reader) {
 		}
 	}
 
-	switch b, err := ioutil.ReadAll(r); err {
+	switch b, err := io.ReadAll(r); err {
 	case nil:
 		if err = json.Unmarshal(b, &set.cache); err != nil {
 			set.cache = make(map[string]SettingsItem)

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -166,13 +165,13 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 				if fi, _ := os.Stat((**cur).loc); fi.ModTime().Before((**cur).ltime) {
 					return // no reloadable update available
 				} else if (**cur).ltime = new.ltime; false { // advance to treat as if loaded
-				} else if b, err = ioutil.ReadFile((**cur).loc); err != nil {
+				} else if b, err = os.ReadFile((**cur).loc); err != nil {
 					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, err)
 				}
 				new.loc = (**cur).loc
 			} else {
 				new.loc = resolveLoc(s)
-				if b, err = ioutil.ReadFile(new.loc); err != nil {
+				if b, err = os.ReadFile(new.loc); err != nil {
 					return fmt.Errorf("cannot access settings %q: %v", s, err)
 				}
 			}

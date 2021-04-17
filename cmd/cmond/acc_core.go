@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -354,7 +353,7 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 		go func() {
 			var em string
 			// wait for command to complete; invoking thread must close cin/cout
-			if eb, _ := ioutil.ReadAll(cerr); len(eb) > 0 {
+			if eb, _ := io.ReadAll(cerr); len(eb) > 0 {
 				el := bytes.Split(bytes.Trim(eb, "\n\t "), []byte("\n"))
 				em = fmt.Sprintf(" [%s]", bytes.TrimLeft(el[len(el)-1], "\t "))
 			} else {

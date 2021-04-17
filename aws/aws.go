@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	iio "github.com/sententico/cost/internal/io"
@@ -107,9 +107,9 @@ func (r *Rater) Load(rr io.Reader, filter string) (err error) {
 	if r == nil {
 		return fmt.Errorf("no rater specified")
 	} else if r.kRV = nil; rr != nil {
-		b, err = ioutil.ReadAll(rr)
+		b, err = io.ReadAll(rr)
 	} else if r.Location != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(r.Location))
+		b, err = os.ReadFile(iio.ResolveName(r.Location))
 	} else if r.Default != "" {
 		b = []byte(r.Default)
 	} else {
@@ -185,9 +185,9 @@ func (r *EBSRater) Load(rr io.Reader) (err error) {
 	if r == nil {
 		return fmt.Errorf("no rater specified")
 	} else if r.kRV = nil; rr != nil {
-		b, err = ioutil.ReadAll(rr)
+		b, err = io.ReadAll(rr)
 	} else if r.Location != "" {
-		b, err = ioutil.ReadFile(iio.ResolveName(r.Location))
+		b, err = os.ReadFile(iio.ResolveName(r.Location))
 	} else if r.Default != "" {
 		b = []byte(r.Default)
 	} else {
