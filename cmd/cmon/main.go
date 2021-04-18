@@ -287,7 +287,7 @@ func main() {
 	}
 
 	args.settings = cmon.Getarg([]string{args.settings, "CMON_SETTINGS", ".cmon_settings.json"})
-	if err := cmon.Reload(&settings, args.settings); err != nil {
+	if _, err := cmon.Reload(&settings, args.settings); err != nil {
 		fatal(1, "%v", err)
 	}
 	address = cmon.Getarg([]string{args.address, settings.Address, "CMON_ADDRESS", ":4404"})

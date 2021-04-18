@@ -150,17 +150,15 @@ func resolveLoc(n string) string {
 }
 
 // Reload Cloud Monitor settings from location or function source
-func Reload(cur **MonSettings, source interface{}) (err error) {
+func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 	var new *MonSettings
 	var b []byte
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	switch s := source.(type) {
 	case string: // (re)load settings from location (file, ...) source
 		var bb bytes.Buffer
 		if cur == nil || *cur == nil && s == "" {
-			return fmt.Errorf("no settings specified")
+			return false, fmt.Errorf("no settings specified")
 		} else if err = func() (e error) {
 			var fi fs.FileInfo
 			if s == "" {
@@ -170,7 +168,7 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 				} else if b, e = os.ReadFile((**cur).loc); e != nil {
 					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, e)
 				}
-				new = &MonSettings{loc: (**cur).loc, ltime: (**cur).ltime}
+				new = &MonSettings{loc: (**cur).loc, ltime: fi.ModTime()}
 				return
 			}
 			s = resolveLoc(s)
@@ -184,32 +182,34 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		}(); err != nil || b == nil {
 			return
 		} else if err = json.Unmarshal(b, new); err != nil {
-			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
+			return false, fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		} else if s == "" && !new.Autoload {
-			return fmt.Errorf("skipped update to %q", new.loc)
+			return false, fmt.Errorf("skipped update to %q", new.loc)
 		} else if err = json.Compact(&bb, b); err != nil {
-			return fmt.Errorf("%q settings format problem: %v", new.loc, err)
+			return false, fmt.Errorf("%q settings format problem: %v", new.loc, err)
 		}
 		bb.WriteByte('\n')
 		new.JSON = bb.String()
 
 	case func(*MonSettings) bool: // modify settings via function source
+		mutex.Lock()
+		defer mutex.Unlock()
 		if cur == nil || *cur == nil || (**cur).JSON == "" || s == nil {
-			return fmt.Errorf("no settings specified")
+			return false, fmt.Errorf("no settings specified")
 		} else if new = (&MonSettings{loc: (**cur).loc, ltime: (**cur).ltime}); false {
 		} else if err = json.Unmarshal([]byte((**cur).JSON), new); err != nil {
-			return fmt.Errorf("settings corrupted: %v", err)
+			return false, fmt.Errorf("settings corrupted: %v", err)
 		} else if !s(new) {
 			return
 		} else if b, err = json.Marshal(new); err != nil {
-			return fmt.Errorf("cannot cache modified settings: %v", err)
+			return false, fmt.Errorf("cannot cache modified settings: %v", err)
 		}
 		new.JSON = string(append(b, '\n'))
 
 	default:
-		return fmt.Errorf("unknown settings source")
+		return false, fmt.Errorf("unknown settings source")
 	}
-	*cur = new
+	*cur, loaded = new, true
 	return
 }
 

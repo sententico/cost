@@ -93,7 +93,7 @@ func init() {
 		"cur.aws":  {boot: curawsBoot, maint: curawsMaint, term: curawsTerm},
 		"cdr.asp":  {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
 	}, cmon.Getarg([]string{"CMON_SETTINGS", ".cmon_settings.json"})
-	if err := cmon.Reload(&settings, sfile); err != nil {
+	if _, err := cmon.Reload(&settings, sfile); err != nil {
 		logE.Fatal(err)
 	}
 	for n, m := range mMod {
@@ -297,8 +297,10 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 
 		case <-sec.C:
 			go func() {
-				if err := cmon.Reload(&settings, ""); err != nil {
+				if loaded, err := cmon.Reload(&settings, ""); err != nil {
 					logI.Print(err)
+				} else if loaded {
+					logI.Print("updated settings")
 				}
 			}()
 		case <-min.C:
