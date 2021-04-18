@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -161,20 +162,24 @@ func Reload(cur **MonSettings, source interface{}) (err error) {
 		if cur == nil || *cur == nil && s == "" {
 			return fmt.Errorf("no settings specified")
 		} else if err = func() (e error) {
+			var fi fs.FileInfo
 			if s == "" {
-				if fi, _ := os.Stat((**cur).loc); fi == nil || fi.ModTime().Before((**cur).ltime) {
+				if fi, _ = os.Stat((**cur).loc); fi == nil || fi.ModTime() == (**cur).ltime {
 					return // no reloadable update available
-				} else if (**cur).ltime = time.Now(); false { // treat as if loaded
+				} else if (**cur).ltime = fi.ModTime(); false { // treat as if loaded
 				} else if b, e = os.ReadFile((**cur).loc); e != nil {
 					return fmt.Errorf("cannot read settings %q: %v", (**cur).loc, e)
 				}
 				new = &MonSettings{loc: (**cur).loc, ltime: (**cur).ltime}
 				return
 			}
-			new = &MonSettings{loc: resolveLoc(s), ltime: time.Now()}
-			if b, e = os.ReadFile(new.loc); e != nil {
-				return fmt.Errorf("cannot access settings %q: %v", new.loc, e)
+			s = resolveLoc(s)
+			if fi, e = os.Stat(s); e != nil {
+				return fmt.Errorf("cannot access settings %q: %v", s, e)
+			} else if b, e = os.ReadFile(s); e != nil {
+				return fmt.Errorf("cannot read settings %q: %v", s, e)
 			}
+			new = &MonSettings{loc: s, ltime: fi.ModTime()}
 			return
 		}(); err != nil || b == nil {
 			return
