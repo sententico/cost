@@ -392,10 +392,10 @@ func cdrtermFraud(m, k, l string, v ...float64) (a map[string]string) {
 	return
 }
 func cdrtermcustFraud(m, k, l string, v ...float64) (a map[string]string) {
-	if k == "" {
+	if a = make(map[string]string, 64); k == "" {
 		k = "any/any"
 	}
-	switch a = make(map[string]string, 64); len(v) {
+	switch a["cust"], a["model"] = strings.Split(k, "/")[0], "cdr.asp/term"; len(v) {
 	case 1:
 		a["short"] = fmt.Sprintf("Account %q (%s) signaling fraud: new/rare $%.0f usage burst", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
 		a["long"] = fmt.Sprintf("Account/application %q (%s) is seeing new or unusual outbound call activity. A billable $%.2f usage burst is occurring.", k, settings.Alerts.Customers[a["cust"]]["name"], v[0])
@@ -425,7 +425,6 @@ func cdrtermcustFraud(m, k, l string, v ...float64) (a map[string]string) {
 	default:
 		return nil
 	}
-	a["cust"], a["model"] = strings.Split(k, "/")[0], "cdr.asp/term"
 	return
 }
 func cdrFraud() (alerts []map[string]string) {
