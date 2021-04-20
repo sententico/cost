@@ -1340,9 +1340,9 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(string) != opd })
 			case "[":
-				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*rdsItem).AZ, opd) })
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[1].(string), opd) })
 			case "]":
-				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).AZ, opd) })
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[1].(string), opd) })
 			case "~":
 				if re, err := regexp.Compile(opd); err == nil {
 					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(string)) != "" })
