@@ -537,7 +537,7 @@ func ec2awsClean(m *model, deep bool) {
 	acc.rel()
 }
 func ec2awsMaint(m *model) {
-	refreshSettings := func() {
+	modifySettings := func() {
 		acc := m.newAcc()
 		acc.reqR()
 		defer acc.rel()
@@ -554,8 +554,9 @@ func ec2awsMaint(m *model) {
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
-		if refreshSettings(); fetch(m.newAcc(), ec2awsInsert, false) > 0 {
+		if modifySettings(); fetch(m.newAcc(), ec2awsInsert, false) > 0 {
 			ec2awsClean(m, true)
+			modifySettings()
 			evt <- m.name
 		}
 	})
@@ -567,7 +568,8 @@ func ec2awsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if refreshSettings(); fetch(m.newAcc(), ec2awsInsert, false) > 0 {
+				if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
+					modifySettings()
 					evt <- m.name
 				}
 			})
@@ -580,6 +582,8 @@ func ec2awsMaint(m *model) {
 
 		case event := <-m.evt:
 			switch event {
+			case "settings":
+				modifySettings()
 			case "cur.aws":
 				goaftSession(0, 0, func() { ec2awsFeedback(m, event); evt <- m.name })
 			}
@@ -630,7 +634,7 @@ func ebsawsClean(m *model, deep bool) {
 	acc.rel()
 }
 func ebsawsMaint(m *model) {
-	refreshSettings := func() {
+	modifySettings := func() {
 		acc := m.newAcc()
 		acc.reqR()
 		defer acc.rel()
@@ -647,8 +651,9 @@ func ebsawsMaint(m *model) {
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
-		if refreshSettings(); fetch(m.newAcc(), ebsawsInsert, false) > 0 {
+		if modifySettings(); fetch(m.newAcc(), ebsawsInsert, false) > 0 {
 			ebsawsClean(m, true)
+			modifySettings()
 			evt <- m.name
 		}
 	})
@@ -660,7 +665,8 @@ func ebsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if refreshSettings(); fetch(m.newAcc(), ebsawsInsert, false) > 0 {
+				if fetch(m.newAcc(), ebsawsInsert, false) > 0 {
+					modifySettings()
 					evt <- m.name
 				}
 			})
@@ -671,8 +677,11 @@ func ebsawsMaint(m *model) {
 		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-		case <-m.evt:
-			// TODO: process event notifications
+		case event := <-m.evt:
+			switch event {
+			case "settings":
+				modifySettings()
+			}
 		}
 	}
 }
@@ -723,7 +732,7 @@ func rdsawsClean(m *model, deep bool) {
 	acc.rel()
 }
 func rdsawsMaint(m *model) {
-	refreshSettings := func() {
+	modifySettings := func() {
 		acc := m.newAcc()
 		acc.reqR()
 		defer acc.rel()
@@ -740,8 +749,9 @@ func rdsawsMaint(m *model) {
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
-		if refreshSettings(); fetch(m.newAcc(), rdsawsInsert, false) > 0 {
+		if modifySettings(); fetch(m.newAcc(), rdsawsInsert, false) > 0 {
 			rdsawsClean(m, true)
+			modifySettings()
 			evt <- m.name
 		}
 	})
@@ -753,7 +763,8 @@ func rdsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if refreshSettings(); fetch(m.newAcc(), rdsawsInsert, false) > 0 {
+				if fetch(m.newAcc(), rdsawsInsert, false) > 0 {
+					modifySettings()
 					evt <- m.name
 				}
 			})
@@ -764,8 +775,11 @@ func rdsawsMaint(m *model) {
 		case <-st.C:
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-		case <-m.evt:
-			// TODO: process event notifications
+		case event := <-m.evt:
+			switch event {
+			case "settings":
+				modifySettings()
+			}
 		}
 	}
 }
