@@ -300,8 +300,8 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 				if loaded, err := cmon.Reload(&settings, ""); err != nil {
 					logI.Print(err)
 				} else if loaded {
-					evt <- "settings"
 					logI.Print("updated settings")
+					evt <- "settings"
 				}
 			}()
 		case <-min.C:

@@ -583,7 +583,7 @@ func ec2awsMaint(m *model) {
 		case event := <-m.evt:
 			switch event {
 			case "settings":
-				modifySettings()
+				goaftSession(0, 0, func() { modifySettings() })
 			case "cur.aws":
 				goaftSession(0, 0, func() { ec2awsFeedback(m, event); evt <- m.name })
 			}
@@ -680,7 +680,7 @@ func ebsawsMaint(m *model) {
 		case event := <-m.evt:
 			switch event {
 			case "settings":
-				modifySettings()
+				goaftSession(0, 0, func() { modifySettings() })
 			}
 		}
 	}
@@ -778,7 +778,7 @@ func rdsawsMaint(m *model) {
 		case event := <-m.evt:
 			switch event {
 			case "settings":
-				modifySettings()
+				goaftSession(0, 0, func() { modifySettings() })
 			}
 		}
 	}
