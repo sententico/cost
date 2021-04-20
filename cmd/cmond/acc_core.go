@@ -537,8 +537,24 @@ func ec2awsClean(m *model, deep bool) {
 	acc.rel()
 }
 func ec2awsMaint(m *model) {
+	refreshSettings := func() {
+		acc := m.newAcc()
+		acc.reqR()
+		defer acc.rel()
+		if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
+			for _, inst := range m.data[1].(*ec2Detail).Inst {
+				if new.PromoteAZ(inst.Acct, inst.AZ) {
+					logW.Printf("%s AZ access promoted for account %s", inst.AZ, inst.Acct)
+					modify = true
+				}
+			}
+			return
+		}); err != nil {
+			logE.Printf("cannot update %q settings: %v", m.name, err)
+		}
+	}
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
+		if refreshSettings(); fetch(m.newAcc(), ec2awsInsert, false) > 0 {
 			ec2awsClean(m, true)
 			evt <- m.name
 		}
@@ -551,20 +567,7 @@ func ec2awsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				acc := m.newAcc()
-				acc.reqR()
-				if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
-					for _, inst := range m.data[1].(*ec2Detail).Inst {
-						if new.PromoteAZ(inst.Acct, inst.AZ) {
-							logW.Printf("%s AZ access promoted for account %s", inst.AZ, inst.Acct)
-							modify = true
-						}
-					}
-					return
-				}); err != nil {
-					logE.Printf("cannot update %q settings: %v", m.name, err)
-				}
-				if acc.rel(); fetch(acc, ec2awsInsert, false) > 0 {
+				if refreshSettings(); fetch(m.newAcc(), ec2awsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
@@ -627,8 +630,24 @@ func ebsawsClean(m *model, deep bool) {
 	acc.rel()
 }
 func ebsawsMaint(m *model) {
+	refreshSettings := func() {
+		acc := m.newAcc()
+		acc.reqR()
+		defer acc.rel()
+		if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
+			for _, vol := range m.data[1].(*ebsDetail).Vol {
+				if new.PromoteAZ(vol.Acct, vol.AZ) {
+					logW.Printf("%s AZ access promoted for account %s", vol.AZ, vol.Acct)
+					modify = true
+				}
+			}
+			return
+		}); err != nil {
+			logE.Printf("cannot update %q settings: %v", m.name, err)
+		}
+	}
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.newAcc(), ebsawsInsert, false) > 0 {
+		if refreshSettings(); fetch(m.newAcc(), ebsawsInsert, false) > 0 {
 			ebsawsClean(m, true)
 			evt <- m.name
 		}
@@ -641,20 +660,7 @@ func ebsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				acc := m.newAcc()
-				acc.reqR()
-				if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
-					for _, vol := range m.data[1].(*ebsDetail).Vol {
-						if new.PromoteAZ(vol.Acct, vol.AZ) {
-							logW.Printf("%s AZ access promoted for account %s", vol.AZ, vol.Acct)
-							modify = true
-						}
-					}
-					return
-				}); err != nil {
-					logE.Printf("cannot update %q settings: %v", m.name, err)
-				}
-				if acc.rel(); fetch(acc, ebsawsInsert, false) > 0 {
+				if refreshSettings(); fetch(m.newAcc(), ebsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
@@ -717,8 +723,24 @@ func rdsawsClean(m *model, deep bool) {
 	acc.rel()
 }
 func rdsawsMaint(m *model) {
+	refreshSettings := func() {
+		acc := m.newAcc()
+		acc.reqR()
+		defer acc.rel()
+		if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
+			for _, db := range m.data[1].(*rdsDetail).DB {
+				if new.PromoteAZ(db.Acct, db.AZ) {
+					logW.Printf("%s AZ access promoted for account %s", db.AZ, db.Acct)
+					modify = true
+				}
+			}
+			return
+		}); err != nil {
+			logE.Printf("cannot update %q settings: %v", m.name, err)
+		}
+	}
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.newAcc(), rdsawsInsert, false) > 0 {
+		if refreshSettings(); fetch(m.newAcc(), rdsawsInsert, false) > 0 {
 			rdsawsClean(m, true)
 			evt <- m.name
 		}
@@ -731,20 +753,7 @@ func rdsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				acc := m.newAcc()
-				acc.reqR()
-				if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
-					for _, db := range m.data[1].(*rdsDetail).DB {
-						if new.PromoteAZ(db.Acct, db.AZ) {
-							logW.Printf("%s AZ access promoted for account %s", db.AZ, db.Acct)
-							modify = true
-						}
-					}
-					return
-				}); err != nil {
-					logE.Printf("cannot update %q settings: %v", m.name, err)
-				}
-				if acc.rel(); fetch(acc, rdsawsInsert, false) > 0 {
+				if refreshSettings(); fetch(m.newAcc(), rdsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
