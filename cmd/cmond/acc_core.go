@@ -523,20 +523,11 @@ func ec2awsClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
-	if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
-		for id, inst := range detail.Inst {
-			if deep && new.PromoteAZ(inst.Acct, inst.AZ) {
-				logW.Printf("%s AZ access promoted for account %s", inst.AZ, inst.Acct)
-				modify = true
-			}
-			if x := detail.Current - inst.Last; inst.State == "terminated" && inst.Last-inst.Since < 3600*12 &&
-				x > 0 || x > 3600*72 {
-				delete(detail.Inst, id)
-			}
+	for id, inst := range detail.Inst {
+		if x := detail.Current - inst.Last; inst.State == "terminated" && inst.Last-inst.Since < 3600*12 &&
+			x > 0 || x > 3600*72 {
+			delete(detail.Inst, id)
 		}
-		return
-	}); err != nil {
-		logE.Printf("cannot update %q settings: %v", m.name, err)
 	}
 	exp := sum.Current - 24*100
 	sum.ByAcct.clean(exp)
@@ -560,7 +551,20 @@ func ec2awsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
+				acc := m.newAcc()
+				acc.reqR()
+				if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
+					for _, inst := range m.data[1].(*ec2Detail).Inst {
+						if new.PromoteAZ(inst.Acct, inst.AZ) {
+							logW.Printf("%s AZ access promoted for account %s", inst.AZ, inst.Acct)
+							modify = true
+						}
+					}
+					return
+				}); err != nil {
+					logE.Printf("cannot update %q settings: %v", m.name, err)
+				}
+				if acc.rel(); fetch(acc, ec2awsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
@@ -610,19 +614,10 @@ func ebsawsClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
-	if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
-		for id, vol := range detail.Vol {
-			if deep && new.PromoteAZ(vol.Acct, vol.AZ) {
-				logW.Printf("%s AZ access promoted for account %s", vol.AZ, vol.Acct)
-				modify = true
-			}
-			if x := detail.Current - vol.Last; vol.Last-vol.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
-				delete(detail.Vol, id)
-			}
+	for id, vol := range detail.Vol {
+		if x := detail.Current - vol.Last; vol.Last-vol.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
+			delete(detail.Vol, id)
 		}
-		return
-	}); err != nil {
-		logE.Printf("cannot update %q settings: %v", m.name, err)
 	}
 	exp := sum.Current - 24*100
 	sum.ByAcct.clean(exp)
@@ -646,7 +641,20 @@ func ebsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.newAcc(), ebsawsInsert, false) > 0 {
+				acc := m.newAcc()
+				acc.reqR()
+				if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
+					for _, vol := range m.data[1].(*ebsDetail).Vol {
+						if new.PromoteAZ(vol.Acct, vol.AZ) {
+							logW.Printf("%s AZ access promoted for account %s", vol.AZ, vol.Acct)
+							modify = true
+						}
+					}
+					return
+				}); err != nil {
+					logE.Printf("cannot update %q settings: %v", m.name, err)
+				}
+				if acc.rel(); fetch(acc, ebsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})
@@ -696,19 +704,10 @@ func rdsawsClean(m *model, deep bool) {
 
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
-	if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
-		for id, db := range detail.DB {
-			if deep && new.PromoteAZ(db.Acct, db.AZ) {
-				logW.Printf("%s AZ access promoted for account %s", db.AZ, db.Acct)
-				modify = true
-			}
-			if x := detail.Current - db.Last; db.Last-db.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
-				delete(detail.DB, id)
-			}
+	for id, db := range detail.DB {
+		if x := detail.Current - db.Last; db.Last-db.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
+			delete(detail.DB, id)
 		}
-		return
-	}); err != nil {
-		logE.Printf("cannot update %q settings: %v", m.name, err)
 	}
 	exp := sum.Current - 24*100
 	sum.ByAcct.clean(exp)
@@ -732,7 +731,20 @@ func rdsawsMaint(m *model) {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.newAcc(), rdsawsInsert, false) > 0 {
+				acc := m.newAcc()
+				acc.reqR()
+				if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
+					for _, db := range m.data[1].(*rdsDetail).DB {
+						if new.PromoteAZ(db.Acct, db.AZ) {
+							logW.Printf("%s AZ access promoted for account %s", db.AZ, db.Acct)
+							modify = true
+						}
+					}
+					return
+				}); err != nil {
+					logE.Printf("cannot update %q settings: %v", m.name, err)
+				}
+				if acc.rel(); fetch(acc, rdsawsInsert, false) > 0 {
 					evt <- m.name
 				}
 			})

@@ -385,7 +385,7 @@ func curawsFinalize(acc *modAcc) {
 		bt, _ := time.Parse(time.RFC3339, mo[:4]+"-"+mo[4:]+"-01T00:00:00Z")
 		bh, eh, pm, tc, tl := int32(bt.Unix())/3600, int32(bt.AddDate(0, 1, 0).Unix()-1)/3600, pdet.Line[mo], 0.0, 0
 		for id, line := range wm {
-			if pg--; pg <= 0 { // paginate sustained model access
+			if pg--; pg <= 0 { // pagination provides cooperative access and avoids write token expiration
 				acc.rel()
 				pg = lgPage
 				acc.reqW()

@@ -149,7 +149,7 @@ func resolveLoc(n string) string {
 	return n
 }
 
-// Reload Cloud Monitor settings from location or function source
+// Reload Cloud Monitor settings from location or non-blocking function source
 func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 	var new *MonSettings
 	var b []byte
@@ -191,7 +191,7 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		bb.WriteByte('\n')
 		new.JSON = bb.String()
 
-	case func(*MonSettings) bool: // modify settings via function source
+	case func(*MonSettings) bool: // modify settings via non-blocking function source
 		mutex.Lock()
 		defer mutex.Unlock()
 		if cur == nil || *cur == nil || (**cur).JSON == "" || s == nil {
