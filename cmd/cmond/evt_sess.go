@@ -163,7 +163,7 @@ func alertEnabled(a map[string]string, metric alertMetric, k, p string) bool {
 		return true // TODO: may consider false as code evolves
 	} else {
 		acc.reqW()
-		defer func() { acc.rel() }()
+		defer acc.rel()
 
 		evt, id := acc.m.data[0].(*evtModel), strings.Join([]string{metric.name, k, p}, "~")
 		rst, _ := time.Parse(time.RFC3339, evt.Alert[id]["reset"])
@@ -173,7 +173,7 @@ func alertEnabled(a map[string]string, metric alertMetric, k, p string) bool {
 		a["reset"] = time.Now().Add(time.Second * time.Duration(metric.reset*3600)).Format(time.RFC3339)
 		a["profile"] = p
 		h := sha256.New()
-		h.Write([]byte(id + "sa!tyGophers"))
+		h.Write([]byte(id + "sa!tyWease1s"))
 		a["hash"] = fmt.Sprintf("%x", h.Sum(nil))
 		copy := make(map[string]string, len(a))
 		for ak, av := range a {
@@ -559,24 +559,26 @@ func ec2awsFeedback(m *model, event string) {
 			logE.Printf("error looping in %q feedback for %q: %v", event, m.name, r)
 		}
 	}()
+
 	switch event {
 	case "cur.aws":
+		type feedback struct {
+			plat        string
+			spot        bool
+			usage, cost float32
+		}
+		ec2, det, active := m.newAcc(), m.data[1].(*ec2Detail), make(map[string]*feedback, 4096)
 		func() {
-			type feedback struct {
-				plat        string
-				spot        bool
-				usage, cost float32
-			}
-			ec2, det, active := m.newAcc(), m.data[1].(*ec2Detail), make(map[string]*feedback, 4096)
 			ec2.reqR()
-			defer func() { ec2.rel() }()
+			defer ec2.rel()
 			for id, inst := range det.Inst {
 				switch inst.State {
 				case "running", "pending", "stopped":
 					active[id] = nil
 				}
 			}
-			ec2.rel()
+		}()
+		func() {
 			cur, now, pmap := mMod[event].newAcc(), "", map[string]string{
 				"RHEL":                 "rhel",
 				"Windows":              "windows",
@@ -591,7 +593,7 @@ func ec2awsFeedback(m *model, event string) {
 				"SQL EX":               "sqlserver-ex",
 			}
 			cur.reqR()
-			defer func() { cur.rel() }()
+			defer cur.rel()
 			for mo := range cur.m.data[1].(*curDetail).Line {
 				if mo > now {
 					now = mo
@@ -613,19 +615,20 @@ func ec2awsFeedback(m *model, event string) {
 					}
 				}
 			}
-			cur.rel()
+		}()
+		func() {
 			ec2.reqW()
+			defer ec2.rel()
 			for id, f := range active {
 				if f == nil || f.usage == 0 {
 				} else if inst := det.Inst[id]; inst != nil {
 					inst.Plat = f.plat
 					inst.ORate = f.cost / f.usage
 					if f.spot && inst.Spot == "" {
-						inst.Spot = "unknown SIR" // TODO: verify this even happens
+						inst.Spot = "unknown SIR" // TODO: not known to occur in practice
 					}
 				}
 			}
-			ec2.rel()
 		}()
 	}
 }

@@ -424,7 +424,7 @@ func seriesExtract(metric string, span, recent int, truncate interface{}) (res c
 			acc.rel()
 			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
 				logE.Printf("error while accessing %q: %v", acc.m.name, e)
-				defer func() { recover() }()
+				defer recover()
 				close(res)
 			}
 		}()
@@ -1098,7 +1098,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		acc.rel()
 		func() {
 			ec2.reqR()
-			defer func() { recover(); ec2.rel() }()
+			defer ec2.rel()
 			for id := range itags {
 				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
 					itags[id] = cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
@@ -1797,7 +1797,7 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 			acc.rel()
 			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
 				logE.Printf("error while accessing %q: %v", acc.m.name, e)
-				defer func() { recover() }()
+				defer recover()
 				close(res)
 			}
 		}()
@@ -2273,7 +2273,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 			acc.rel()
 			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
 				logE.Printf("error while accessing %q: %v", acc.m.name, e)
-				defer func() { recover() }()
+				defer recover()
 				close(res)
 			}
 		}()
@@ -2294,7 +2294,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 			acc.rel()
 			func() {
 				ebs.reqR()
-				defer func() { recover(); ebs.rel() }()
+				defer ebs.rel()
 				var inst string
 				for id := range vinst {
 					if vol := ebs.m.data[1].(*ebsDetail).Vol[id]; vol != nil {
@@ -2307,7 +2307,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 			}()
 			func() {
 				ec2.reqR()
-				defer func() { recover(); ec2.rel() }()
+				defer ec2.rel()
 				for id := range itags {
 					if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
 						itags[id] = cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
