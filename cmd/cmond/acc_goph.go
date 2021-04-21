@@ -72,7 +72,12 @@ func fetch(acc *modAcc, insert func(*modAcc, map[string]string, int), meta bool)
 		}
 		if items > 0 {
 			if !meta {
-				defer func() { recover(); acc.rel() }()
+				defer func() {
+					acc.rel()
+					if r := recover(); r != nil {
+						logE.Printf("gopher error finalizing %q fetch: %v", acc.m.name, r)
+					}
+				}()
 				acc.reqW()
 				insert(acc, nil, start)
 			}

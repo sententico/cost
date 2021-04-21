@@ -540,7 +540,12 @@ func ec2awsMaint(m *model) {
 	modifySettings := func() {
 		acc := m.newAcc()
 		acc.reqR()
-		defer acc.rel()
+		defer func() {
+			acc.rel()
+			if r := recover(); r != nil {
+				logE.Printf("cannot update %q settings: %v", m.name, r)
+			}
+		}()
 		if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
 			for _, inst := range m.data[1].(*ec2Detail).Inst {
 				if new.PromoteAZ(inst.Acct, inst.AZ) {
@@ -550,7 +555,7 @@ func ec2awsMaint(m *model) {
 			}
 			return
 		}); err != nil {
-			logE.Printf("cannot update %q settings: %v", m.name, err)
+			panic(err)
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
@@ -637,7 +642,12 @@ func ebsawsMaint(m *model) {
 	modifySettings := func() {
 		acc := m.newAcc()
 		acc.reqR()
-		defer acc.rel()
+		defer func() {
+			acc.rel()
+			if r := recover(); r != nil {
+				logE.Printf("cannot update %q settings: %v", m.name, r)
+			}
+		}()
 		if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
 			for _, vol := range m.data[1].(*ebsDetail).Vol {
 				if new.PromoteAZ(vol.Acct, vol.AZ) {
@@ -647,7 +657,7 @@ func ebsawsMaint(m *model) {
 			}
 			return
 		}); err != nil {
-			logE.Printf("cannot update %q settings: %v", m.name, err)
+			panic(err)
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
@@ -735,7 +745,12 @@ func rdsawsMaint(m *model) {
 	modifySettings := func() {
 		acc := m.newAcc()
 		acc.reqR()
-		defer acc.rel()
+		defer func() {
+			acc.rel()
+			if r := recover(); r != nil {
+				logE.Printf("cannot update %q settings: %v", m.name, r)
+			}
+		}()
 		if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
 			for _, db := range m.data[1].(*rdsDetail).DB {
 				if new.PromoteAZ(db.Acct, db.AZ) {
@@ -745,7 +760,7 @@ func rdsawsMaint(m *model) {
 			}
 			return
 		}); err != nil {
-			logE.Printf("cannot update %q settings: %v", m.name, err)
+			panic(err)
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
