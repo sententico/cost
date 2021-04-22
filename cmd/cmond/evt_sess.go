@@ -518,9 +518,9 @@ func cdrMargin() (alerts []map[string]string) {
 	return
 }
 
-func evtcmonHandler(m *model, event string) {
+func evtcmonHandler(m *model, event *modEvt) {
 	var alerts []map[string]string
-	switch event {
+	switch event.name {
 	case "ec2.aws":
 		alerts = append(alerts, awsRising(ec2Metrics)...)
 		alerts = append(alerts, awsFalling(ec2Metrics)...)
@@ -553,14 +553,14 @@ func evtcmonHandler(m *model, event string) {
 	}
 }
 
-func ec2awsFeedback(m *model, event string) {
+func ec2awsFeedback(m *model, event *modEvt) {
 	defer func() {
 		if r := recover(); r != nil {
-			logE.Printf("error looping in %q feedback for %q: %v", event, m.name, r)
+			logE.Printf("error looping in %q feedback for %q: %v", event.name, m.name, r)
 		}
 	}()
 
-	switch event {
+	switch event.name {
 	case "cur.aws":
 		type feedback struct {
 			plat        string
@@ -579,7 +579,7 @@ func ec2awsFeedback(m *model, event string) {
 			}
 		}()
 		func() {
-			cur, now, pmap := mMod[event].newAcc(), "", map[string]string{
+			cur, now, pmap := mMod[event.name].newAcc(), "", map[string]string{
 				"RHEL":                 "rhel",
 				"Windows":              "windows",
 				"Windows Spot":         "windows",

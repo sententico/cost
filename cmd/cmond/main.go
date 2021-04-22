@@ -24,15 +24,19 @@ type (
 		immed             bool             // immediate maintenance accessor start
 		reqP, reqR, reqW  chan chan accTok // priority/read/write access channels
 		rel               chan accTok      // access release channel
-		evt               chan string      // event notification channel
+		evt               chan *modEvt     // event notification channel
 		boot, term, maint func(*model)     // boot/termination/maintenance accessors
 		persist           int              // slice of persisted data blocks [:persist]
 		data              []interface{}    // super slice of model data blocks (references to these stable after boot)
 	}
-	modAcc struct {
-		m   *model
-		tc  chan accTok
-		tok accTok
+	modAcc struct { // model accessor type
+		m   *model      // model to access
+		tc  chan accTok // token channel
+		tok accTok      // access token
+	}
+	modEvt struct { // model event type
+		name   string  // event name
+		parent *modEvt // parent event (useful for detecting loops)
 	}
 )
 
@@ -63,7 +67,7 @@ var (
 	// cloud monitor globals
 	sig                    chan os.Signal    // termination signal channel
 	ctl                    chan string       // model control channel
-	evt                    chan string       // event broadcast channel
+	evt                    chan *modEvt      // event broadcast channel
 	seID, seB, seE         chan int64        // session counters
 	sfile, port            string            // ...
 	srv                    *http.Server      // HTTP/REST server
@@ -108,7 +112,7 @@ func init() {
 		port = addr[len(addr)-1]
 	}
 
-	ctl, evt = make(chan string, 4), make(chan string, 4)
+	ctl, evt = make(chan string, 4), make(chan *modEvt, 4)
 	seID, seB, seE = make(chan int64, 16), make(chan int64, 16), make(chan int64, 16)
 	seInit = time.Now().UnixNano()
 	seSeq = seInit
@@ -145,7 +149,7 @@ func init() {
 func modManager(m *model) {
 	m.reqP, m.reqR, m.reqW = make(chan chan accTok, 16), make(chan chan accTok, 16), make(chan chan accTok, 16)
 	m.rel = make(chan accTok, 16)
-	m.evt = make(chan string, 4)
+	m.evt = make(chan *modEvt, 4)
 	m.boot(m)
 	ctl <- m.name // signal boot complete; enter model access manager loop
 
@@ -269,6 +273,31 @@ func (acc *modAcc) rel() bool {
 	return false
 }
 
+func (e *modEvt) append(n string) *modEvt {
+	if n == "" {
+		return e
+	} else if e == nil {
+		return &modEvt{name: n}
+	} else if e.name == "" {
+		e.name = n
+		return e
+	}
+	return &modEvt{name: n, parent: e}
+}
+func (e *modEvt) loop(n string) (c int) {
+	if e == nil {
+		return
+	} else if n == "" {
+		e, n = e.parent, e.name
+	}
+	for ; e != nil; e = e.parent {
+		if e.name == n {
+			c++
+		}
+	}
+	return
+}
+
 func seManager(quit <-chan bool, ok chan<- bool) {
 	var to <-chan time.Time
 	sec, min, id, lc := time.NewTicker(time.Second), time.NewTicker(60*time.Second), seID, int64(0)
@@ -286,8 +315,12 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 			}
 
 		case e := <-evt:
+			if e.loop("") > 0 { // TODO: may relax threshold as code matures
+				logE.Printf("%q event loop stopped", e.name)
+				continue
+			}
 			for n, m := range mMod {
-				if n != e { // broadcast model events to all other models
+				if n != e.name { // broadcast model events to all other models
 					select {
 					case m.evt <- e:
 					default:
@@ -301,7 +334,7 @@ func seManager(quit <-chan bool, ok chan<- bool) {
 					logI.Print(err)
 				} else if loaded {
 					logI.Print("updated settings")
-					evt <- "settings"
+					evt <- new(modEvt).append("settings")
 				}
 			}()
 		case <-min.C:

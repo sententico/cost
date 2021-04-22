@@ -562,7 +562,7 @@ func ec2awsMaint(m *model) {
 		if modifySettings(); fetch(m.newAcc(), ec2awsInsert, false) > 0 {
 			ec2awsClean(m, true)
 			modifySettings()
-			evt <- m.name
+			evt <- new(modEvt).append(m.name)
 		}
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
@@ -575,7 +575,7 @@ func ec2awsMaint(m *model) {
 			goaftSession(0, 18*time.Second, func() {
 				if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
 					modifySettings()
-					evt <- m.name
+					evt <- new(modEvt).append(m.name)
 				}
 			})
 		case <-sf.C:
@@ -586,11 +586,11 @@ func ec2awsMaint(m *model) {
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
-			switch event {
+			switch event.name {
 			case "settings":
 				goaftSession(0, 0, func() { modifySettings() })
 			case "cur.aws":
-				goaftSession(0, 0, func() { ec2awsFeedback(m, event); evt <- m.name })
+				goaftSession(0, 0, func() { ec2awsFeedback(m, event); evt <- event.append(m.name) })
 			}
 		}
 	}
@@ -664,7 +664,7 @@ func ebsawsMaint(m *model) {
 		if modifySettings(); fetch(m.newAcc(), ebsawsInsert, false) > 0 {
 			ebsawsClean(m, true)
 			modifySettings()
-			evt <- m.name
+			evt <- new(modEvt).append(m.name)
 		}
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
@@ -677,7 +677,7 @@ func ebsawsMaint(m *model) {
 			goaftSession(0, 18*time.Second, func() {
 				if fetch(m.newAcc(), ebsawsInsert, false) > 0 {
 					modifySettings()
-					evt <- m.name
+					evt <- new(modEvt).append(m.name)
 				}
 			})
 		case <-sf.C:
@@ -688,7 +688,7 @@ func ebsawsMaint(m *model) {
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
-			switch event {
+			switch event.name {
 			case "settings":
 				goaftSession(0, 0, func() { modifySettings() })
 			}
@@ -767,7 +767,7 @@ func rdsawsMaint(m *model) {
 		if modifySettings(); fetch(m.newAcc(), rdsawsInsert, false) > 0 {
 			rdsawsClean(m, true)
 			modifySettings()
-			evt <- m.name
+			evt <- new(modEvt).append(m.name)
 		}
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
@@ -780,7 +780,7 @@ func rdsawsMaint(m *model) {
 			goaftSession(0, 18*time.Second, func() {
 				if fetch(m.newAcc(), rdsawsInsert, false) > 0 {
 					modifySettings()
-					evt <- m.name
+					evt <- new(modEvt).append(m.name)
 				}
 			})
 		case <-sf.C:
@@ -791,7 +791,7 @@ func rdsawsMaint(m *model) {
 			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
-			switch event {
+			switch event.name {
 			case "settings":
 				goaftSession(0, 0, func() { modifySettings() })
 			}
@@ -863,7 +863,7 @@ func curawsMaint(m *model) {
 		if fetch(m.newAcc(), curawsInsert, true) > 0 {
 			curawsClean(m, true)
 			m.store(false)
-			evt <- m.name
+			evt <- new(modEvt).append(m.name)
 		}
 		goGo <- true
 	})
@@ -877,7 +877,7 @@ func curawsMaint(m *model) {
 					if fetch(m.newAcc(), curawsInsert, true) > 0 {
 						curawsClean(m, true)
 						m.store(false)
-						evt <- m.name
+						evt <- new(modEvt).append(m.name)
 					}
 					goGo <- true
 				default:
@@ -1099,7 +1099,7 @@ func cdraspMaint(m *model) {
 	goaftSession(0, 18*time.Second, func() {
 		if fetch(m.newAcc(), cdraspInsert, false) > 0 {
 			cdraspClean(m, true)
-			evt <- m.name
+			evt <- new(modEvt).append(m.name)
 		}
 		goGo <- true
 	})
@@ -1114,7 +1114,7 @@ func cdraspMaint(m *model) {
 				select {
 				case <-goGo: // serialize cdr.asp gophers
 					if fetch(m.newAcc(), cdraspInsert, false) > 0 {
-						evt <- m.name
+						evt <- new(modEvt).append(m.name)
 					}
 					goGo <- true
 				default:
