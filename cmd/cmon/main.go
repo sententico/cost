@@ -55,7 +55,7 @@ var (
 
 func init() {
 	flag.StringVar(&args.address, "a", "", "cmond server location `address:port`")
-	flag.BoolVar(&args.debug, "d", false, fmt.Sprintf("specify debug output"))
+	flag.BoolVar(&args.debug, "d", false, "specify debug output")
 	flag.StringVar(&args.settings, "s", "", "settings `file`")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
@@ -100,7 +100,9 @@ func init() {
 	}
 
 	args.optimizeSet = flag.NewFlagSet("optimize", flag.ExitOnError)
-	args.opInterval = intHours{0, -168, 24}
+	y, m, d := time.Now().AddDate(0, 0, -7).Date() // set default to week ending yesterday
+	h := int32(time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Unix() / 3600)
+	args.opInterval = intHours{h, h + 167, 24}
 	args.optimizeSet.Var(&args.opInterval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range usage optimization sample")
 	args.optimizeSet.StringVar(&args.opMetric, "metric", "ec2.aws/sku/n", "optimization `usage` metric")
 	args.optimizeSet.Float64Var(&args.commit, "commit", 30, "computed `hourly` commit-range surrounding optimum")
@@ -303,18 +305,25 @@ func optimizeCmd() {
 	if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:    "placeholder_access_token",
 		Metric:   args.opMetric,
-		Span:     -168, // TODO: parameterize
-		Recent:   -168, // TODO: parameterize
+		Recent:   int(int32(time.Now().Unix()/3600) - args.opInterval.from + 1),
 		Truncate: 0,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	client.Close()
-	fmt.Printf("%v-item usage series returned for optimization", len(r.Series))
-	// build sku map from r.Series
-	// locate args.opRange surrounding cost inflection point
-	// range over inflection point in op.step increments, calculating cost
-	// output cost/commit graph...
+	for k, ser := range r.Series {
+		if f, alt := fmt.Sprintf("%.2f", ser), fmt.Sprintf("%.6g", ser); len(alt) < len(f) {
+			fmt.Printf("%v: %s\n", k, alt)
+		} else {
+			fmt.Printf("%v: %s\n", k, f)
+		}
+	}
+	fmt.Printf("...%v-item usage series returned for optimization\n", len(r.Series))
+	// build sku map and hour slice from r.Series
+	// locate optimum cost
+	// iterate commit through range in op.step increments around optimum, calculating cost
+	// output undiscounted, optimum, range begin/end graph data
+	// output commit/cost graph data
 }
 
 func main() {
