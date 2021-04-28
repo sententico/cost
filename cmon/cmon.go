@@ -209,7 +209,7 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 	default:
 		return false, fmt.Errorf("unknown settings source")
 	}
-	*cur, loaded = new, true
+	*cur, loaded = new, true // TODO: assumes atomicity of pointer assignment; consider using atomic.Value()
 	return
 }
 
