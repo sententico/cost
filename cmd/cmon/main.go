@@ -29,10 +29,10 @@ var (
 		more     []string // unparsed arguments
 
 		seriesSet *flag.FlagSet
-		seMetric  string  // series metric
+		seMetric  string  // series metric type
 		recent    int     // series recent/active hours
 		span      int     // series total hours
-		seTrunc   float64 // series recent sum truncation filter
+		seTrunc   float64 // recent hours truncation filter
 
 		tableSet   *flag.FlagSet
 		taInterval intHours // from/to/units hours
@@ -41,11 +41,11 @@ var (
 		taTrunc    float64  // row cost truncation filter
 
 		optimizeSet *flag.FlagSet
-		opInterval  intHours // from/to usage hours
-		opMetric    string   // optimize usage metric
-		commit      float64  // optimize computed commit-range
-		step        float64  // optimize commit-range increment
-		plan        string   // optimize savings plan
+		opInterval  intHours // usage hours baseline
+		opMetric    string   // usage series metric type
+		bracket     float64  // hourly commit bracket computed around optimum
+		step        float64  // hourly commit increment computed within bracket
+		plan        string   // savings plan type ("3nc", "1ns", ...)
 	}
 	address  string            // cmon server address (args override settings file)
 	settings *cmon.MonSettings // settings
@@ -103,14 +103,14 @@ func init() {
 	y, m, d := time.Now().AddDate(0, 0, -7).Date() // set default to week ending yesterday
 	h := int32(time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Unix() / 3600)
 	args.opInterval = intHours{h, h + 167, 24}
-	args.optimizeSet.Var(&args.opInterval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range usage optimization sample")
-	args.optimizeSet.StringVar(&args.opMetric, "metric", "ec2.aws/sku/n", "optimization `usage` metric")
-	args.optimizeSet.Float64Var(&args.commit, "commit", 30, "computed `hourly` commit-range surrounding optimum")
-	args.optimizeSet.Float64Var(&args.step, "step", 0.1, "`hourly` commit-range increment")
+	args.optimizeSet.Var(&args.opInterval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range usage baseline")
+	args.optimizeSet.StringVar(&args.opMetric, "metric", "ec2.aws/sku/n", "usage series metric `type`")
+	args.optimizeSet.Float64Var(&args.bracket, "bracket", 30, "hourly `commit` bracket computed around optimum")
+	args.optimizeSet.Float64Var(&args.step, "step", 0.1, "hourly `commit` increment computed within bracket")
 	args.optimizeSet.StringVar(&args.plan, "plan", "3nc", "savings plan `type`")
 	args.optimizeSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"optimize\" subcommand returns..."+
+			"\nThe \"optimize\" subcommand returns ..."+
 				"\n  Usage: cmon optimize [<optimize arg> ...]\n\n")
 		args.optimizeSet.PrintDefaults()
 	}
@@ -296,36 +296,6 @@ func curtabCmd() {
 	}
 }
 
-func optimizeCmd() {
-	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
-	if err != nil {
-		fatal(1, "error dialing GoRPC server: %v", err)
-	}
-	var r cmon.SeriesRet
-	if err = client.Call("API.Series", &cmon.SeriesArgs{
-		Token:    "placeholder_access_token",
-		Metric:   args.opMetric,
-		Recent:   int(int32(time.Now().Unix()/3600) - args.opInterval.from + 1),
-		Truncate: 0,
-	}, &r); err != nil {
-		fatal(1, "error calling GoRPC: %v", err)
-	}
-	client.Close()
-	for k, ser := range r.Series {
-		if f, alt := fmt.Sprintf("%.2f", ser), fmt.Sprintf("%.6g", ser); len(alt) < len(f) {
-			fmt.Printf("%v: %s\n", k, alt)
-		} else {
-			fmt.Printf("%v: %s\n", k, f)
-		}
-	}
-	fmt.Printf("...%v-item usage series returned for optimization\n", len(r.Series))
-	// build sku map and hour slice from r.Series
-	// locate optimum cost
-	// iterate commit through range in op.step increments around optimum, calculating cost
-	// output undiscounted, optimum, range begin/end graph data
-	// output commit/cost graph data
-}
-
 func main() {
 	switch flag.Parse(); flag.Arg(0) {
 	case "series":
@@ -336,7 +306,7 @@ func main() {
 		command, args.more = "table "+args.model, args.tableSet.Args()
 	case "optimize":
 		args.optimizeSet.Parse(flag.Args()[1:])
-		command, args.more = "optimize", args.seriesSet.Args()
+		command, args.more = "optimize "+args.opMetric+" "+args.plan, args.seriesSet.Args()
 	case "":
 		args.more = flag.Args()
 	default:
@@ -350,15 +320,16 @@ func main() {
 	address = cmon.Getarg([]string{args.address, settings.Address, "CMON_ADDRESS", ":4404"})
 
 	if cfn := map[string]func(){
-		"series":             seriesCmd,
-		"table cur.aws":      curtabCmd,
-		"table ec2.aws":      tableCmd,
-		"table ebs.aws":      tableCmd,
-		"table rds.aws":      tableCmd,
-		"table cdr.asp/term": tableCmd,
-		"table cdr.asp/orig": tableCmd,
-		"optimize":           optimizeCmd,
-		"":                   defaultCmd,
+		"series":                     seriesCmd,
+		"table cur.aws":              curtabCmd,
+		"table ec2.aws":              tableCmd,
+		"table ebs.aws":              tableCmd,
+		"table rds.aws":              tableCmd,
+		"table cdr.asp/term":         tableCmd,
+		"table cdr.asp/orig":         tableCmd,
+		"optimize ec2.aws/sku/n 1nc": optimizeCmd,
+		"optimize ec2.aws/sku/n 3nc": optimizeCmd,
+		"":                           defaultCmd,
 	}[command]; cfn == nil {
 		fatal(1, "can't get %s", command)
 	} else {
