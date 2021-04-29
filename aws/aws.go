@@ -59,7 +59,7 @@ type (
 		Location string // JSON rate resource location (filename, ...)
 		Default  string // default JSON rates
 
-		kRV map[RateKey]*RateValue
+		kRV map[RateKey]RateValue
 	}
 
 	// EBSRateKey ...
@@ -77,7 +77,7 @@ type (
 		Location string // JSON rate resource location (filename, ...)
 		Default  string // default JSON rates
 
-		kRV map[EBSRateKey]*EBSRateValue
+		kRV map[EBSRateKey]EBSRateValue
 	}
 )
 
@@ -121,7 +121,7 @@ func (r *Rater) Load(rr io.Reader, filter string) (err error) {
 		return fmt.Errorf("rates resource format problem: %v", err)
 	}
 
-	r.kRV = make(map[RateKey]*RateValue)
+	r.kRV = make(map[RateKey]RateValue)
 	for _, info := range res {
 		if filter != "" && strings.HasPrefix(info.Typ, "db.") == (filter != "rds" && filter != "RDS") {
 			continue
@@ -131,7 +131,7 @@ func (r *Rater) Load(rr io.Reader, filter string) (err error) {
 			Typ:    info.Typ,
 			Plat:   info.Plat,
 			Terms:  info.Terms,
-		}] = &RateValue{
+		}] = RateValue{
 			Core:  info.Core,
 			ECU:   info.ECU,
 			Clock: info.Clock,
@@ -156,7 +156,7 @@ func Region(az string) string {
 }
 
 // Lookup method on Rater ...
-func (r *Rater) Lookup(k *RateKey) (v *RateValue) {
+func (r *Rater) Lookup(k *RateKey) (v RateValue) {
 	if r == nil || k == nil || k.Typ == "" {
 		return
 	}
@@ -199,12 +199,12 @@ func (r *EBSRater) Load(rr io.Reader) (err error) {
 		return fmt.Errorf("rates resource format problem: %v", err)
 	}
 
-	r.kRV = make(map[EBSRateKey]*EBSRateValue)
+	r.kRV = make(map[EBSRateKey]EBSRateValue)
 	for _, info := range res {
 		r.kRV[EBSRateKey{
 			Region: info.Region,
 			Typ:    info.Typ,
-		}] = &EBSRateValue{
+		}] = EBSRateValue{
 			SZrate: info.SZrate / 730,
 			IOrate: info.IOrate / 730,
 		}
@@ -213,7 +213,7 @@ func (r *EBSRater) Load(rr io.Reader) (err error) {
 }
 
 // Lookup method on EBSRater ...
-func (r *EBSRater) Lookup(k *EBSRateKey) (v *EBSRateValue) {
+func (r *EBSRater) Lookup(k *EBSRateKey) (v EBSRateValue) {
 	if r == nil || k == nil {
 		return
 	}

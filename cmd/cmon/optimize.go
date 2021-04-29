@@ -25,7 +25,7 @@ func compawsOpt(base *cmon.SeriesRet, ho int) func(int, float64) float64 {
 	sku := make([][]skuCell, args.opInterval.to-args.opInterval.from+1)
 	var rates aws.Rater
 	var rk aws.RateKey
-	var od, sp *aws.RateValue
+	var od, sp aws.RateValue
 	if err := rates.Load(nil, "EC2"); err != nil {
 		fatal(1, "cannot load EC2 rates: %v", err)
 	}
