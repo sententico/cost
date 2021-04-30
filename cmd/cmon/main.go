@@ -43,8 +43,8 @@ var (
 		optimizeSet *flag.FlagSet
 		opInterval  intHours // usage hours baseline
 		opMetric    string   // usage series metric type
-		bracket     float64  // hourly commit bracket computed around optimum
-		step        float64  // hourly commit increment computed within bracket
+		bracket     float64  // hourly commit bracket output surrounding optimum
+		step        float64  // output granularity within bracket
 		plan        string   // savings plan type ("3nc", "1ns", ...)
 	}
 	address  string            // cmon server address (args override settings file)
@@ -105,12 +105,14 @@ func init() {
 	args.opInterval = intHours{h, h + 167, 24}
 	args.optimizeSet.Var(&args.opInterval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range usage baseline")
 	args.optimizeSet.StringVar(&args.opMetric, "metric", "ec2.aws/sku/n", "usage series metric `type`")
-	args.optimizeSet.Float64Var(&args.bracket, "bracket", 30, "hourly `commit` bracket computed around optimum")
-	args.optimizeSet.Float64Var(&args.step, "step", 0.1, "hourly `commit` increment computed within bracket")
+	args.optimizeSet.Float64Var(&args.bracket, "bracket", 100, "hourly `commit` bracket output surrounding optimum")
+	args.optimizeSet.Float64Var(&args.step, "step", 0.1, "output `ganularity` within bracket")
 	args.optimizeSet.StringVar(&args.plan, "plan", "3nc", "savings plan `type`")
 	args.optimizeSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"optimize\" subcommand returns ..."+
+			"\nThe \"optimize\" subcommand returns CSV summarizing hourly costs for -metric usage over -interval, comparing"+
+				"\nnon-discounted, optimum commit (for -plan), and -bracket[ed] commit alternatives.  Interval costs for commits"+
+				"\nin -bracket by -step are also returned."+
 				"\n  Usage: cmon optimize [<optimize arg> ...]\n\n")
 		args.optimizeSet.PrintDefaults()
 	}
@@ -328,7 +330,11 @@ func main() {
 		"table cdr.asp/term":         tableCmd,
 		"table cdr.asp/orig":         tableCmd,
 		"optimize ec2.aws/sku/n 1nc": optimizeCmd,
+		"optimize ec2.aws/sku/n 1pc": optimizeCmd,
+		"optimize ec2.aws/sku/n 1ac": optimizeCmd,
 		"optimize ec2.aws/sku/n 3nc": optimizeCmd,
+		"optimize ec2.aws/sku/n 3pc": optimizeCmd,
+		"optimize ec2.aws/sku/n 3ac": optimizeCmd,
 		"":                           defaultCmd,
 	}[command]; cfn == nil {
 		fatal(1, "can't get %s", command)

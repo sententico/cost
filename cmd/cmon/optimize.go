@@ -60,20 +60,28 @@ func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
 		if commit < 0 {
 			commit = 0
 		}
-		for _, cell := range sku[hr] {
-			if commit > 0 {
-				if disc := cell.sp * cell.usage; disc <= commit {
-					cost += disc
-					commit -= disc
-				} else {
-					cost += cell.od*(cell.usage-commit/cell.sp) + commit
-					commit = 0
-				}
-			} else {
-				cost += cell.od * cell.usage
-			}
+		end := hr + 1
+		if hr < 0 || hr >= ivl {
+			end, hr = ivl, 0
 		}
-		return cost + commit // cost for baseline usage hour, hr, based on hourly commit discount
+		for ; hr < end; hr++ {
+			commit := commit
+			for _, cell := range sku[hr] {
+				if commit > 0 {
+					if disc := cell.sp * cell.usage; disc <= commit {
+						cost += disc
+						commit -= disc
+					} else {
+						cost += cell.od*(cell.usage-commit/cell.sp) + commit
+						commit = 0
+					}
+				} else {
+					cost += cell.od * cell.usage
+				}
+			}
+			cost += commit
+		}
+		return // cost for baseline usage hour, hr (over ivl if outside it), based on hourly commit discount
 	}
 }
 
@@ -97,34 +105,30 @@ func optimizeCmd() {
 		client.Close()
 		ho -= ivl
 	}
+
 	switch command {
-	case "optimize ec2.aws/sku/n 1nc", "optimize ec2.aws/sku/n 3nc":
-		cost := compawsOpt(&r, ho, ivl)
-		icost := func(c float64) (t float64) {
-			for h := 0; h < ivl; h++ {
-				t += cost(h, c)
-			}
-			return
-		}
-		min, opt := 1e9, 0.0
+	case "optimize ec2.aws/sku/n 1nc", "optimize ec2.aws/sku/n 1pc", "optimize ec2.aws/sku/n 1ac",
+		"optimize ec2.aws/sku/n 3nc", "optimize ec2.aws/sku/n 3pc", "optimize ec2.aws/sku/n 3ac":
+		cost, min, opt := compawsOpt(&r, ho, ivl), 1e9, 0.0
 		for begin, end, step := minCommit, maxCommit, initStep; step > minStep; begin, end, step =
 			opt-step, opt+step, step/2 { // locate optimum commit
 			for c := begin; c < end; c += step {
-				if t := icost(c); t < min {
+				if t := cost(ivl, c); t < min {
 					min, opt = t, c
 				}
 			}
 		}
 		low, high := opt-args.bracket/2, opt+args.bracket/2
-		fmt.Println("hour,OD,optimal,bracket low,bracket high")
-		for h := 0; h < ivl; h++ {
-			fmt.Printf("%v,%.2f,%.2f,%.2f,%.2f\n", h, cost(h, 0), cost(h, low), cost(h, opt), cost(h, high))
+		fmt.Printf("hour,OD,low=%.0f,opt=%.2f,high=%.0f", low, opt, high)
+		for h := ivl - 1; h >= 0; h-- {
+			fmt.Printf("%v,%.2f,%.2f,%.2f,%.2f\n", -h-ho, cost(h, 0), cost(h, low), cost(h, opt), cost(h, high))
 		}
 		fmt.Println("\ncommit,interval cost")
 		for c := low; c < high; c += args.step {
-			fmt.Printf("%.2f,%.2f\n", c, icost(c))
+			fmt.Printf("%.2f,%.2f\n", c, cost(ivl, c))
 		}
 		fmt.Printf("\n$%.2f interval cost at optimum $%.2f commit\n", min, opt)
+
 	default:
 		fatal(1, "%q unsupported", command)
 	}
