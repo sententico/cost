@@ -108,18 +108,23 @@ func optimizeCmd() {
 		}
 		min, opt := 1e9, 0.0
 		for begin, end, step := minCommit, maxCommit, initStep; step > minStep; begin, end, step =
-			opt-step, opt+step, step/2 {
+			opt-step, opt+step, step/2 { // locate optimum commit
 			for c := begin; c < end; c += step {
 				if t := icost(c); t < min {
 					min, opt = t, c
 				}
 			}
 		}
-		for c, end := opt-args.bracket/2, opt+args.bracket/2; c < end; c += args.step {
+		low, high := opt-args.bracket/2, opt+args.bracket/2
+		fmt.Println("hour,OD,optimal,bracket low,bracket high")
+		for h := 0; h < ivl; h++ {
+			fmt.Printf("%v,%.2f,%.2f,%.2f,%.2f\n", h, cost(h, 0), cost(h, low), cost(h, opt), cost(h, high))
+		}
+		fmt.Println("\ncommit,interval cost")
+		for c := low; c < high; c += args.step {
 			fmt.Printf("%.2f,%.2f\n", c, icost(c))
 		}
 		fmt.Printf("\n$%.2f interval cost at optimum $%.2f commit\n", min, opt)
-		// output undiscounted, optimum, bracket begin/end coordinates over interval
 	default:
 		fatal(1, "%q unsupported", command)
 	}
