@@ -15,6 +15,7 @@ const (
 	minCommit = 1.0
 	maxCommit = 1000.0
 	initStep  = 10.0
+	minStep   = 0.01
 )
 
 func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
@@ -56,6 +57,9 @@ func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
 		sort.Slice(cells, func(i, j int) bool { return cells[i].sp/cells[i].od < cells[j].sp/cells[j].od })
 	}
 	return func(hr int, commit float64) (cost float64) {
+		if commit < 0 {
+			commit = 0
+		}
 		for _, cell := range sku[hr] {
 			if commit > 0 {
 				if disc := cell.sp * cell.usage; disc <= commit {
@@ -96,15 +100,22 @@ func optimizeCmd() {
 	switch command {
 	case "optimize ec2.aws/sku/n 1nc", "optimize ec2.aws/sku/n 3nc":
 		cost := compawsOpt(&r, ho, ivl)
-		for c := minCommit; c < maxCommit; c += initStep {
-			t := 0.0
+		icost := func(c float64) (t float64) {
 			for h := 0; h < ivl; h++ {
 				t += cost(h, c)
 			}
-			fmt.Printf("cost[%v] = %.2f\n", c, t)
+			return
 		}
-		// locate optimum commit minimizing cost
-		// iterate commit in args.step increments through bracket centered on optimum, calculating cost
+		min, opt := 1e9, 0.0
+		for begin, end, step := minCommit, maxCommit, initStep; step > minStep; begin, end, step =
+			opt-step, opt+step, step/2 {
+			for c := begin; c < end; c += step {
+				if t := icost(c); t < min {
+					min, opt = t, c
+				}
+			}
+		}
+		fmt.Printf("$%.2f interval cost at optimum $%.2f commit\n", min, opt)
 		// output undiscounted, optimum, bracket begin/end coordinates over interval
 		// output commit/cost coordinates over bracket
 	default:
