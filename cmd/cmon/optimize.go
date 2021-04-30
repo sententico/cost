@@ -38,10 +38,10 @@ func compawsOpt(base *cmon.SeriesRet, ho int) func(int, float64) float64 {
 		} else {
 			rk.Region, rk.Typ, rk.Plat, rk.Terms = s[0], s[1], s[2], "OD"
 		}
-		od, rk.Terms = rates.Lookup(&rk), args.plan
-		sp = rates.Lookup(&rk)
-		if cell.od, cell.sp = float64(od.Rate), float64(sp.Rate); cell.od == 0 || cell.sp == 0 {
+		if od, rk.Terms = rates.Lookup(&rk), args.plan; od.Rate == 0 {
 			fatal(1, "no rates for %v", rk)
+		} else if sp = rates.Lookup(&rk); sp.Rate == 0 {
+			sp.Rate = od.Rate
 		}
 		for h, u := range ser[ho:] {
 			if u != 0 {
