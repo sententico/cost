@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	minCommit = 1.0
-	maxCommit = 1000.0
-	initStep  = 10.0
-	minStep   = 0.01
+	minCommit = 0.0
+	maxCommit = 10000.0
+	initStep  = 100.0
+	minStep   = 0.005
 )
 
 func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
@@ -115,9 +115,11 @@ func optimizeCmd() {
 				}
 			}
 		}
-		fmt.Printf("$%.2f interval cost at optimum $%.2f commit\n", min, opt)
+		for c, end := opt-args.bracket/2, opt+args.bracket/2; c < end; c += args.step {
+			fmt.Printf("%.2f,%.2f\n", c, icost(c))
+		}
+		fmt.Printf("\n$%.2f interval cost at optimum $%.2f commit\n", min, opt)
 		// output undiscounted, optimum, bracket begin/end coordinates over interval
-		// output commit/cost coordinates over bracket
 	default:
 		fatal(1, "%q unsupported", command)
 	}
