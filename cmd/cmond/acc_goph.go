@@ -184,14 +184,14 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 			Typ:    inst.Typ,
 			Plat:   inst.Plat,
 		}
-		if r := work.rates.Lookup(&k); r.Rate == 0 {
+		if r := work.rates.Lookup(&k); r == nil {
 			logE.Printf("no EC2 %v rate found for %v/%v in %v", k.Terms, k.Typ, k.Plat, reg)
 			inst.Rate = inst.ORate * settings.AWS.UsageAdj
 		} else if inst.ORate != 0 {
 			inst.Rate = inst.ORate * settings.AWS.UsageAdj
 		} else if inst.Spot == "" {
 			k.Terms = settings.AWS.SavPlan
-			if s := work.rates.Lookup(&k); s.Rate == 0 {
+			if s := work.rates.Lookup(&k); s == nil {
 				inst.Rate = r.Rate * settings.AWS.UsageAdj
 			} else {
 				inst.Rate = (r.Rate*(1-settings.AWS.SavCov) + s.Rate*settings.AWS.SavCov) * settings.AWS.UsageAdj
@@ -269,7 +269,7 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 		Typ:    vol.Typ,
 	}, float32(0)
 	r := work.rates.Lookup(&k)
-	if r.SZrate == 0 {
+	if r == nil {
 		logE.Printf("no EBS rate found for %v in %v", k.Typ, reg)
 	}
 	switch vol.State = item["state"]; vol.State {
@@ -356,8 +356,12 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 		Region: reg,
 		Typ:    db.STyp,
 	}), uint64(0), float32(0)
-	if r.Rate == 0 || s.SZrate == 0 {
+	if r == nil {
 		logE.Printf("no RDS %v rate found for %v/%v[%v] in %v", k.Terms, k.Typ, k.Plat, db.STyp, reg)
+		r = &aws.RateValue{}
+	}
+	if s == nil {
+		s = &aws.EBSRateValue{}
 	}
 	switch db.State = item["state"]; db.State {
 	case "available", "backing-up":

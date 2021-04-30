@@ -171,7 +171,7 @@ func (r *Rater) Lookup(k *RateKey) (v *RateValue) {
 	} else if k.Region[len(k.Region)-1] > '9' {
 		k.Region = k.Region[:len(k.Region)-1]
 	}
-	if v = r.kRV[*k]; v.Rate != 0.0 {
+	if v = r.kRV[*k]; v != nil {
 		return
 	}
 	k.Region = "us-east-1"
@@ -225,7 +225,7 @@ func (r *EBSRater) Lookup(k *EBSRateKey) (v *EBSRateValue) {
 	} else if k.Region[len(k.Region)-1] > '9' {
 		k.Region = k.Region[:len(k.Region)-1]
 	}
-	if v = r.kRV[*k]; v.SZrate != 0.0 {
+	if v = r.kRV[*k]; v != nil {
 		return
 	}
 	k.Region = "us-east-1"
