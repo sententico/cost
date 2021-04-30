@@ -12,20 +12,20 @@ import (
 )
 
 const (
-	minCommit = 1
-	maxCommit = 1000
-	initStep  = 10
+	minCommit = 1.0
+	maxCommit = 1000.0
+	initStep  = 10.0
 )
 
-func compawsOpt(base *cmon.SeriesRet, ho int) func(int, float64) float64 {
+func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
 	type skuCell struct {
 		od, sp, usage float64
 	}
+	sku := make([][]skuCell, ivl)
 	var cell skuCell
-	sku := make([][]skuCell, args.opInterval.to-args.opInterval.from+1)
 	var rates aws.Rater
 	var rk aws.RateKey
-	var od, sp aws.RateValue
+	var od, sp *aws.RateValue
 	if err := rates.Load(nil, "EC2"); err != nil {
 		fatal(1, "cannot load EC2 rates: %v", err)
 	}
@@ -40,8 +40,10 @@ func compawsOpt(base *cmon.SeriesRet, ho int) func(int, float64) float64 {
 		}
 		if od, rk.Terms = rates.Lookup(&rk), args.plan; od.Rate == 0 {
 			fatal(1, "no rates for %v", rk)
-		} else if sp = rates.Lookup(&rk); sp.Rate == 0 {
-			sp.Rate = od.Rate
+		} else if sp, cell.od = rates.Lookup(&rk), float64(od.Rate); sp.Rate == 0 {
+			cell.sp = cell.od // TODO: consider fallback to "s" plan
+		} else {
+			cell.sp = float64(sp.Rate)
 		}
 		for h, u := range ser[ho:] {
 			if u != 0 {
@@ -67,7 +69,7 @@ func compawsOpt(base *cmon.SeriesRet, ho int) func(int, float64) float64 {
 				cost += cell.od * cell.usage
 			}
 		}
-		return // cost for baseline usage hour, hr, based on hourly commit discount
+		return cost + commit // cost for baseline usage hour, hr, based on hourly commit discount
 	}
 }
 
@@ -77,9 +79,8 @@ func optimizeCmd() {
 		fatal(1, "error dialing GoRPC server: %v", err)
 	}
 	var r cmon.SeriesRet
-	var ho int
-	if ho = int(int32((time.Now().Unix()-180)/3600) - args.opInterval.from + 1); ho <
-		int(args.opInterval.to-args.opInterval.from+2) {
+	ho, ivl := int(int32((time.Now().Unix()-180)/3600)-args.opInterval.from+1), int(args.opInterval.to-args.opInterval.from+1)
+	if ho < ivl+1 {
 		fatal(1, "usage baseline interval not available")
 	} else if err = client.Call("API.Series", &cmon.SeriesArgs{
 		Token:    "placeholder_access_token",
@@ -90,13 +91,18 @@ func optimizeCmd() {
 		fatal(1, "error calling GoRPC: %v", err)
 	} else {
 		client.Close()
-		ho -= int(args.opInterval.to - args.opInterval.from + 1)
+		ho -= ivl
 	}
 	switch command {
 	case "optimize ec2.aws/sku/n 1nc", "optimize ec2.aws/sku/n 3nc":
-		cost := compawsOpt(&r, ho)
-		fmt.Printf("cost(0,min)=%v, cost(0,mid)=%v, cost(0,max)=%v\n",
-			cost(0, minCommit), cost(0, (minCommit+maxCommit)/2), cost(0, maxCommit))
+		cost := compawsOpt(&r, ho, ivl)
+		for c := minCommit; c < maxCommit; c += initStep {
+			t := 0.0
+			for h := 0; h < ivl; h++ {
+				t += cost(h, c)
+			}
+			fmt.Printf("cost[%v] = %.2f\n", c, t)
+		}
 		// locate optimum commit minimizing cost
 		// iterate commit in args.step increments through bracket centered on optimum, calculating cost
 		// output undiscounted, optimum, bracket begin/end coordinates over interval
