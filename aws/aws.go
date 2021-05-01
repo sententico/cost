@@ -19,11 +19,11 @@ const (
 		{"Rg":"us-east-1",	"T":"st1",		"SZ":0.1,	"IO":0},
 		{"Rg":"us-east-1",	"T":"standard",	"SZ":0.1,	"IO":0},
 
-		{"Rg":"us-west-2",	"T":"gp2",		"SZ":0.138,	"IO":0},
-		{"Rg":"us-west-2",	"T":"io1",		"SZ":0.138,	"IO":0.11},
-		{"Rg":"us-west-2",	"T":"io2",		"SZ":0.138,	"IO":0.11},
-		{"Rg":"us-west-2",	"T":"st1",		"SZ":0.11,	"IO":0},
-		{"Rg":"us-west-2",	"T":"standard",	"SZ":0.11,	"IO":0},
+		{"Rg":"us-west-1",	"T":"gp2",		"SZ":0.138,	"IO":0},
+		{"Rg":"us-west-1",	"T":"io1",		"SZ":0.138,	"IO":0.11},
+		{"Rg":"us-west-1",	"T":"io2",		"SZ":0.138,	"IO":0.11},
+		{"Rg":"us-west-1",	"T":"st1",		"SZ":0.11,	"IO":0},
+		{"Rg":"us-west-1",	"T":"standard",	"SZ":0.11,	"IO":0},
 
 		{"Rg":"eu-west-1",	"T":"gp2",		"SZ":0.127,	"IO":0},
 		{"Rg":"eu-west-1",	"T":"io1",		"SZ":0.138,	"IO":0.11},
@@ -172,15 +172,20 @@ func (r *Rater) Lookup(k *RateKey) (v *RateValue) {
 	if k.Terms == "" {
 		k.Terms = "OD"
 	}
-	if k.Region == "" {
+	if len(k.Region) < 3 {
 		k.Region = "us-east-1"
 	} else if k.Region[len(k.Region)-1] > '9' {
 		k.Region = k.Region[:len(k.Region)-1]
 	}
-	if v = r.kRV[*k]; v != nil {
+	if v = r.kRV[*k]; v != nil || k.Region == "us-east-1" || k.Region == "eu-west-1" {
 		return
 	}
-	k.Region = "us-east-1"
+	switch k.Region[:3] {
+	case "us-":
+		k.Region = "us-east-1"
+	default:
+		k.Region = "eu-west-1"
+	}
 	return r.kRV[*k]
 }
 
@@ -226,14 +231,20 @@ func (r *EBSRater) Lookup(k *EBSRateKey) (v *EBSRateValue) {
 	if k.Typ == "" {
 		k.Typ = "gp3"
 	}
-	if k.Region == "" {
+	if len(k.Region) < 3 {
 		k.Region = "us-east-1"
 	} else if k.Region[len(k.Region)-1] > '9' {
 		k.Region = k.Region[:len(k.Region)-1]
 	}
-	if v = r.kRV[*k]; v != nil {
+	if v = r.kRV[*k]; v != nil || k.Region == "us-east-1" || k.Region == "eu-west-1" {
 		return
 	}
-	k.Region = "us-east-1"
+	switch k.Region[:3] {
+	case "us-":
+		k.Region = "us-east-1"
+	default:
+		k.Region = "eu-west-1"
+	}
 	return r.kRV[*k]
+
 }

@@ -127,7 +127,7 @@ func optimizeCmd() {
 		for c := low; c < high; c += args.step {
 			fmt.Printf("%.2f,%.2f\n", c, cost(ivl, c))
 		}
-		fmt.Printf("\n$%.2f %d-hour interval cost at optimum $%.2f commit (%q usage on %q plan)\n", min, ivl, opt, args.opMetric, args.plan)
+		fmt.Printf("\n$%.2f %d-hour interval cost at optimum $%.2f commit (%q usage on %q plan)\n\n", min, ivl, opt, args.opMetric, args.plan)
 
 	default:
 		fatal(1, "%q subcommand not implemented", command)
