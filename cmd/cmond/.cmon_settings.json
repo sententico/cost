@@ -57,6 +57,11 @@
 		"SavCov":	0.7,
 		"SpotDisc":	0.65,
 		"UsageAdj":	0.94,
+		"CUR": {
+			"account":	"default",
+			"bucket":	"cost-reporting/CUR",
+			"prefix":	"*hourly-[0-9]*"
+		},
 		"SES": {
 			"region":	"us-east-2",
 			"from":		"xxx"

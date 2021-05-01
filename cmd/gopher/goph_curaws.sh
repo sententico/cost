@@ -9,15 +9,17 @@
 
 cd aws/cache || exit 1
 
-# TODO: parameterize CUR location & naming pattern
-CUR="*hourly-[0-9]*"
-find . -maxdepth 1 -name "$CUR.csv.gz*" -mmin +90720 -delete
-prior="$(ls -l $CUR.csv.gz~link)"
-/opt/sententix/bin/s3sync -k sinceD=60 -lf cost-reporting.aspect.com/CUR/xaws-hourly -- "\.csv\.gz$"&
+ACCT=$1     # default
+BUCKET=$2   # cost-reporting/CUR
+PREFIX=$3   # *hourly-[0-9]*
+
+find . -maxdepth 1 -name "$PREFIX.csv.gz*" -mmin +90720 -delete
+prior="$(ls -l $PREFIX.csv.gz~link)"
+/opt/sententix/bin/s3sync -p $ACCT -k sinceD=60 -lf $BUCKET -- "\.csv\.gz$"&
 wait
 
-if [ -n "$prior" ] && [ "$prior" = "$(ls -l $CUR.csv.gz~link)" ]; then
-    links="$(ls $CUR.csv.gz~link)"
+if [ -n "$prior" ] && [ "$prior" = "$(ls -l $PREFIX.csv.gz~link)" ]; then
+    links="$(ls $PREFIX.csv.gz~link)"
     for f in $links; do
         echo "#!begin $f"
         zcat $f

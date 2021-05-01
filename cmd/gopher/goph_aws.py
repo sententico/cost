@@ -75,7 +75,7 @@ def getWriter(m, cols):
     return csvWrite
 
 def gophEC2AWS(model, settings, inputs, args):
-    if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
+    if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     pipe,flt,prof = getWriter(model, [
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
@@ -104,7 +104,7 @@ def gophEC2AWS(model, settings, inputs, args):
     pipe(None, None)
 
 def gophEBSAWS(model, settings, inputs, args):
-    if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
+    if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     pipe,flt,prof = getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
@@ -134,7 +134,7 @@ def gophEBSAWS(model, settings, inputs, args):
     pipe(None, None)
 
 def gophRDSAWS(model, settings, inputs, args):
-    if not settings.get('AWS'): raise GError('no AWS configuration for {}'.format(model))
+    if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     pipe,flt,prof = getWriter(model, [
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
@@ -171,10 +171,11 @@ def gophRDSAWS(model, settings, inputs, args):
 
 def gophCURAWS(model, settings, inputs, args):
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
-    pipe,head,ids,s = getWriter(model, [
+    if not settings.get('CUR'): raise GError('no CUR settings for {}'.format(model))
+    pipe,cur,head,ids,s = getWriter(model, [
         'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
         'name','env','dc','prod','app','cust','team','ver',
-    ]), {}, {}, ""
+    ]), settings['CUR'], {}, {}, ""
 
     def getcid(id):
         cid = id[-9:]; fid = ids.get(cid)
@@ -184,7 +185,9 @@ def gophCURAWS(model, settings, inputs, args):
         elif id in ids:     return id,  False
         ids[id] = '';       return id,  True
 
-    with subprocess.Popen([settings.get('BinDir').rstrip('/')+'/goph_curaws.sh'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+    with subprocess.Popen([settings.get('BinDir').rstrip('/')+'/goph_curaws.sh',
+            cur.get('account','default'), cur.get('bucket','cost-reporting/CUR'), cur.get('prefix','*hourly-[0-9]*')],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
             if l.startswith('identity/LineItemId,'):                    # https://docs.aws.amazon.com/cur/latest/userguide/data-dictionary.html
                 head = {h:i for i,h in enumerate(l[:-1].split(','))}

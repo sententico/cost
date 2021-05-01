@@ -29,6 +29,7 @@ type (
 		Options                    string
 		SavPlan                    string
 		SavCov, SpotDisc, UsageAdj float32
+		CUR                        map[string]string
 		SES                        map[string]string
 		Profiles                   map[string]map[string]float32
 		Regions, Accounts          map[string]TagMap
