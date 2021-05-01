@@ -171,11 +171,11 @@ def gophRDSAWS(model, settings, inputs, args):
 
 def gophCURAWS(model, settings, inputs, args):
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
-    if not settings.get('CUR'): raise GError('no CUR settings for {}'.format(model))
+    if not settings.get('AWS',{}).get('CUR'): raise GError('no CUR settings for {}'.format(model))
     pipe,cur,head,ids,s = getWriter(model, [
         'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
         'name','env','dc','prod','app','cust','team','ver',
-    ]), settings['CUR'], {}, {}, ""
+    ]), settings['AWS']['CUR'], {}, {}, ""
 
     def getcid(id):
         cid = id[-9:]; fid = ids.get(cid)
