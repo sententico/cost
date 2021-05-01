@@ -119,7 +119,7 @@ func optimizeCmd() {
 			}
 		}
 		low, high := opt-args.bracket/2, opt+args.bracket/2
-		fmt.Printf("hour,OD,low=%.0f,opt=%.2f,high=%.0f", low, opt, high)
+		fmt.Printf("hour,OD,low=%.0f,opt=%.2f,high=%.0f\n", low, opt, high)
 		for h := ivl - 1; h >= 0; h-- {
 			fmt.Printf("%v,%.2f,%.2f,%.2f,%.2f\n", -h-ho, cost(h, 0), cost(h, low), cost(h, opt), cost(h, high))
 		}
@@ -127,7 +127,7 @@ func optimizeCmd() {
 		for c := low; c < high; c += args.step {
 			fmt.Printf("%.2f,%.2f\n", c, cost(ivl, c))
 		}
-		fmt.Printf("\n$%.2f interval cost at optimum $%.2f commit\n", min, opt)
+		fmt.Printf("\n$%.2f %d-hour interval cost at optimum $%.2f commit (%q usage on %q plan)\n", min, ivl, opt, args.opMetric, args.plan)
 
 	default:
 		fatal(1, "%q unsupported", command)

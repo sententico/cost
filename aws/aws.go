@@ -11,13 +11,19 @@ import (
 )
 
 const (
-	// DefaultRDSEBSRates ... requires maintenance updates (last Oct20)
+	// DefaultRDSEBSRates ... requires maintenance updates (last May21)
 	DefaultRDSEBSRates = `[
 		{"Rg":"us-east-1",	"T":"gp2",		"SZ":0.115,	"IO":0},
 		{"Rg":"us-east-1",	"T":"io1",		"SZ":0.125,	"IO":0.1},
 		{"Rg":"us-east-1",	"T":"io2",		"SZ":0.125,	"IO":0.1},
 		{"Rg":"us-east-1",	"T":"st1",		"SZ":0.1,	"IO":0},
 		{"Rg":"us-east-1",	"T":"standard",	"SZ":0.1,	"IO":0},
+
+		{"Rg":"us-west-2",	"T":"gp2",		"SZ":0.138,	"IO":0},
+		{"Rg":"us-west-2",	"T":"io1",		"SZ":0.138,	"IO":0.11},
+		{"Rg":"us-west-2",	"T":"io2",		"SZ":0.138,	"IO":0.11},
+		{"Rg":"us-west-2",	"T":"st1",		"SZ":0.11,	"IO":0},
+		{"Rg":"us-west-2",	"T":"standard",	"SZ":0.11,	"IO":0},
 
 		{"Rg":"eu-west-1",	"T":"gp2",		"SZ":0.127,	"IO":0},
 		{"Rg":"eu-west-1",	"T":"io1",		"SZ":0.138,	"IO":0.11},
@@ -81,7 +87,7 @@ type (
 	}
 )
 
-// requires maintenance updates (last Oct20)
+// requires maintenance updates (last May21)
 var (
 	platMap = map[string]string{
 		"":              "Lin",
@@ -121,7 +127,7 @@ func (r *Rater) Load(rr io.Reader, filter string) (err error) {
 		return fmt.Errorf("rates resource format problem: %v", err)
 	}
 
-	r.kRV = make(map[RateKey]*RateValue, 2<<16)
+	r.kRV = make(map[RateKey]*RateValue, 2<<17)
 	for _, info := range res {
 		if filter != "" && strings.HasPrefix(info.Typ, "db.") == (filter != "rds" && filter != "RDS") {
 			continue
@@ -218,7 +224,7 @@ func (r *EBSRater) Lookup(k *EBSRateKey) (v *EBSRateValue) {
 		return
 	}
 	if k.Typ == "" {
-		k.Typ = "gp2"
+		k.Typ = "gp3"
 	}
 	if k.Region == "" {
 		k.Region = "us-east-1"
