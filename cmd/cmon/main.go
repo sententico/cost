@@ -111,8 +111,8 @@ func init() {
 	args.optimizeSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"optimize\" subcommand returns CSV summarizing hourly costs for -metric usage over -interval, comparing"+
-				"\nnon-discounted, optimum commit (for -plan), and -bracket[ed] commit alternatives.  Interval costs for commits"+
-				"\nin -bracket by -step are also returned."+
+				"\nnon-discounted, optimum commit (for -plan), and -bracket[ed] commit alternatives.  Interval costs for"+
+				"\ncommits in -bracket by -step are also returned."+
 				"\n  Usage: cmon optimize [<optimize arg> ...]\n\n")
 		args.optimizeSet.PrintDefaults()
 	}
@@ -337,7 +337,7 @@ func main() {
 		"optimize ec2.aws/sku/n 3ac": optimizeCmd,
 		"":                           defaultCmd,
 	}[command]; cfn == nil {
-		fatal(1, "%q command not implemented", command)
+		fatal(1, "%q subcommand not implemented", command)
 	} else {
 		cfn()
 	}
