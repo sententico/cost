@@ -15,7 +15,7 @@ const (
 	minCommit = 0.0
 	maxCommit = 10000.0
 	initStep  = 100.0
-	minStep   = 0.005
+	minStep   = 0.001
 )
 
 func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {

@@ -337,7 +337,7 @@ func main() {
 		"optimize ec2.aws/sku/n 3ac": optimizeCmd,
 		"":                           defaultCmd,
 	}[command]; cfn == nil {
-		fatal(1, "%q subcommand not implemented", command)
+		fatal(1, "%q subcommand not supported", command)
 	} else {
 		cfn()
 	}
