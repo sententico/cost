@@ -68,11 +68,11 @@ func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
 			commit := commit
 			for _, cell := range sku[hr] {
 				if commit > 0 {
-					if disc := cell.sp * cell.usage; disc <= commit {
+					if disc := cell.sp * cell.usage; commit >= disc {
 						cost += disc
 						commit -= disc
 					} else {
-						cost += cell.od*(cell.usage-commit/cell.sp) + commit
+						cost += commit + cell.od*(cell.usage-commit/cell.sp)
 						commit = 0
 					}
 				} else {
@@ -111,7 +111,7 @@ func optimizeCmd() {
 		"optimize ec2.aws/sku/n 3nc", "optimize ec2.aws/sku/n 3pc", "optimize ec2.aws/sku/n 3ac":
 		cost, min, opt := compawsOpt(&r, ho, ivl), 1e9, 0.0
 		for begin, end, step := minCommit, maxCommit, initStep; step > minStep; begin, end, step =
-			opt-step, opt+step, step/2 { // locate optimum commit
+			opt-step, opt+step, step/2 { // converge on optimum commit
 			for c := begin; c < end; c += step {
 				if t := cost(ivl, c); t < min {
 					min, opt = t, c

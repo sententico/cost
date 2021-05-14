@@ -1,4 +1,3 @@
-
 #!/usr/bin/python3
 
 import  sys
@@ -50,12 +49,15 @@ def overrideKVP(overrides):
         KVP[k] = v
 
 def terminate(sig, frame):
+    '''Raise a keyboard interrupt to terminate process'''
     raise KeyboardInterrupt
 def ex(err, code):
+    '''Exit process with specified return code'''
     if err: sys.stderr.write(err)
     sys.exit(code)
 
 def getWriter(m, cols):
+    '''Return a CSV writer closure for cols output columns with interspersed metadata'''
     section,flt,buf = '', str.maketrans('\n',' ','\r'), [
         '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
         '\t'.join(cols),
@@ -75,6 +77,7 @@ def getWriter(m, cols):
     return csvWrite
 
 def gophEC2AWS(model, settings, inputs, args):
+    '''Fetch EBS volume detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     pipe,flt,prof = getWriter(model, [
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
@@ -104,6 +107,7 @@ def gophEC2AWS(model, settings, inputs, args):
     pipe(None, None)
 
 def gophEBSAWS(model, settings, inputs, args):
+    '''Fetch EC2 instance detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     pipe,flt,prof = getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
@@ -134,6 +138,7 @@ def gophEBSAWS(model, settings, inputs, args):
     pipe(None, None)
 
 def gophRDSAWS(model, settings, inputs, args):
+    '''Fetch RDS database detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     pipe,flt,prof = getWriter(model, [
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
@@ -170,6 +175,7 @@ def gophRDSAWS(model, settings, inputs, args):
     pipe(None, None)
 
 def gophCURAWS(model, settings, inputs, args):
+    '''Fetch CUR (Cost & Usage Report) line item detail from AWS'''
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     if not settings.get('AWS',{}).get('CUR'): raise GError('no CUR settings for {}'.format(model))
     pipe,cur,head,ids,s = getWriter(model, [
@@ -178,6 +184,7 @@ def gophCURAWS(model, settings, inputs, args):
     ]), settings['AWS']['CUR'], {}, {}, ""
 
     def getcid(id):
+        '''Return cached compact line item ID with new-reference flag; full IDs unnecessarily large'''
         cid = id[-9:]; fid = ids.get(cid)
         if fid is None:
             ids[cid] = id;  return cid, True
@@ -369,7 +376,7 @@ def main():
         'ec2.aws':      [gophEC2AWS,    'fetch EC2 instances from AWS'],
         'ebs.aws':      [gophEBSAWS,    'fetch EBS volumes from AWS'],
         'rds.aws':      [gophRDSAWS,    'fetch RDS databases from AWS'],
-        'cur.aws':      [gophCURAWS,    'fetch CUR cost/usage data from AWS'],
+        'cur.aws':      [gophCURAWS,    'fetch CUR line items from AWS'],
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This gopher agent fetches Cloud Monitor content for an AWS model''')

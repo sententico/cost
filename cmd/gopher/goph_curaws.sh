@@ -2,7 +2,7 @@
 
 # Note: AWS posts CUR files to S3, replacing and expanding the prior set about every 10 hours;
 # when rolling to a new month, files for the old month continue to receive usage updates through
-# mid-day on the 3rd (adding also RI usage, RI unused & taxes; this coincodes with delivery of
+# mid-day on the 3rd (adding also RI usage, RI unused & taxes; this coincides with delivery of
 # preliminary PDF invoices); Premium Support posts by late on the 5th; EDP & CSC discounts post
 # by the 6th or 7th (this or final updates posted from the 12th to as late as the 16th coincide
 # with final PDF invoices).

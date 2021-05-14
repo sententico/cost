@@ -48,12 +48,15 @@ def overrideKVP(overrides):
         KVP[k] = v
 
 def terminate(sig, frame):
+    '''Raise a keyboard interrupt to terminate process'''
     raise KeyboardInterrupt
 def ex(err, code):
+    '''Exit process with specified return code'''
     if err: sys.stderr.write(err)
     sys.exit(code)
 
 def getWriter(m, cols):
+    '''Return a CSV writer closure for cols output columns with interspersed metadata'''
     section,flt,buf = '', str.maketrans('\n',' ','\r'), [
         '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
         '\t'.join(cols),
@@ -73,6 +76,7 @@ def getWriter(m, cols):
     return csvWrite
 
 def gophXXXRACK(model, settings, inputs, args):
+    '''Fetch ... from Rackspace'''
     if not settings.get('Rack'): raise GError('no Rackspace settings for {}'.format(model))
     pipe,s = getWriter(model, [
         'id','status',

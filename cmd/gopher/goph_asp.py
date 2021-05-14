@@ -46,12 +46,15 @@ def overrideKVP(overrides):
         KVP[k] = v
 
 def terminate(sig, frame):
+    '''Raise a keyboard interrupt to terminate process'''
     raise KeyboardInterrupt
 def ex(err, code):
+    '''Exit process with specified return code'''
     if err: sys.stderr.write(err)
     sys.exit(code)
 
 def getWriter(m, cols):
+    '''Return a CSV writer closure for cols output columns with interspersed metadata'''
     section,flt,buf = '', str.maketrans('\n',' ','\r'), [
         '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
         '\t'.join(cols),
@@ -71,6 +74,7 @@ def getWriter(m, cols):
     return csvWrite
 
 def gophCDRASP(model, settings, inputs, args):
+    '''Fetch Ribbon switch CDRs from Aspect'''
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     pipe,s = getWriter(model, [
         'id','loc','begin','dur','type','from','to','dip','try','eTG','IP','iTG',

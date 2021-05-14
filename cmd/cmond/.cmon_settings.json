@@ -1,9 +1,9 @@
 {
 	"Autoload":	true,
 	"Options":	"<placeholder>",
-	"Unit":		"cmon-aspect",
+	"Unit":		"cmon-xxx",
 	"Address":	":4404",
-	"WorkDir":	"/var/opt/sententix/aspect",
+	"WorkDir":	"/var/opt/sententix/xxx",
 	"BinDir":	"/opt/sententix/bin",
 	"Models": {
 		"evt.cmon":	".cmon_evtcmon.json",
@@ -58,7 +58,7 @@
 		"SpotDisc":	0.65,
 		"UsageAdj":	0.94,
 		"CUR": {
-			"account":	"default",
+			"account":	"60118068xxxx",
 			"bucket":	"cost-reporting/CUR",
 			"prefix":	"*hourly-[0-9]*"
 		},
@@ -108,12 +108,9 @@
 			}
 		},
 		"Accounts": {
-			"default": {
+			"60118068xxxx": {
 				"env":"corp",
 				"~name":"master corp","~profile":"minimum"
-			},"60118068xxxx": {
-				"env":"corp",
-				"~name":"master corp"
 			},"51836994xxxx": {
 				"env":"dev","prod":"via","team":"apsdevops",
 				"~name":"APS EMEA dev"
