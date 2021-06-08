@@ -193,15 +193,16 @@ def gophCURAWS(model, settings, inputs, args):
         ids[id] = '';       return id,  True
 
     with subprocess.Popen([settings.get('BinDir').rstrip('/')+'/goph_curaws.sh',
-            cur.get('account','default'), cur.get('bucket','cost-reporting/CUR'), cur.get('prefix','*hourly-[0-9]*')],
+            cur.get('account','default'), cur.get('bucket','cost-reporting/CUR/hourly'), cur.get('label','hourly')],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:
-            if l.startswith('identity/LineItemId,'):                    # https://docs.aws.amazon.com/cur/latest/userguide/data-dictionary.html
+            if l.startswith('identity/LineItemId,'):                            # https://docs.aws.amazon.com/cur/latest/userguide/data-dictionary.html
                 head = {h:i for i,h in enumerate(l[:-1].split(','))}
 
             elif not l.startswith('#!'):
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
+                col.append('')                                                  # default value for missing columns
                 typ = { 'Usage':                                'usage',
                         'DiscountedUsage':                      'RI usage',
                         'RIFee':                                'RI unused',
@@ -216,9 +217,9 @@ def gophCURAWS(model, settings, inputs, args):
                       }.get(col[head['lineItem/LineItemType']], 'unknown')
                 if typ == 'skip': continue
                 id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]; rec = {
-                    'id':       id,                                     # compact line item ID
-                    'hour':     hour,                                   # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
-                    'usg':      col[head['lineItem/UsageAmount']],      # default usage quantity
+                    'id':       id,                                             # compact line item ID
+                    'hour':     hour,                                           # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
+                    'usg':      col[head['lineItem/UsageAmount']],              # default usage quantity
                 }
                 if   typ == 'RI usage': rec['cost'] = col[head['reservation/EffectiveCost']]
                 elif typ == 'RI unused':
@@ -237,20 +238,20 @@ def gophCURAWS(model, settings, inputs, args):
                 if new:
                     svc,uop,az,rid,end,nm =\
                         col[head['product/ProductName']],   col[head['lineItem/Operation']],    col[head['product/region']],\
-                        col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']], col[head['resourceTags/user:Name']]
+                        col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']], col[head.get('resourceTags/user:Name',-1)]
                     try:    ivl = int(timedelta.total_seconds(datetime.fromisoformat(end[:-1])-datetime.fromisoformat(hour[:-1])))
                     except  ValueError: continue
 
                     rec.update({
-                        'acct': col[head['lineItem/UsageAccountId']],   # usage, not billing account
+                        'acct': col[head['lineItem/UsageAccountId']],           # usage, not billing account
                         'typ': {'AWS':                  '',
-                                'AWS Marketplace':      'mkt ',         # source
+                                'AWS Marketplace':      'mkt ',                 # source
                                }.get(col[head['bill/BillingEntity']],'other ') +
                                (''          if ivl < 3602       else (
                                 'monthly '  if ivl < 2678402    else (
                                 'periodic ' if ivl < 31103999   else
-                                'annual '))) +                          # usage interval category
-                               typ,                                     # line item type
+                                'annual '))) +                                  # usage interval category
+                               typ,                                             # line item type
                         'svc': {'Amazon Elastic Compute Cloud':         'EC2',
                                 'Amazon Simple Storage Service':        'S3',
                                 'Amazon Simple Notification Service':   'SNS',
@@ -271,11 +272,11 @@ def gophCURAWS(model, settings, inputs, args):
                                 ' supported by',        'by'    ).replace(
                                 'Enterprise Linux',     'Linux' ).replace(
                                 'Amazon ',              ''      ).replace(
-                                'AWS ',                 ''      )),     # service name
-                        'utyp': col[head['lineItem/UsageType']],        # usage detail
+                                'AWS ',                 ''      )),             # service name
+                        'utyp': col[head['lineItem/UsageType']],                # usage detail
                         'uop':  '' if uop in {'Any','any','ANY','Nil','nil','None','none','Null','null',
                                               'NoOperation','Not Applicable','N/A','n/a','Unknown','unknown',
-                                             } else uop,                # usage operation
+                                             } else uop,                        # usage operation
                         'reg':  {'us-east-1':           'USE1', 'ap-east-1':            'APE1',
                                  'us-east-2':           'USE2', 'ap-northeast-1':       'APN1',
                                  'us-west-1':           'USW1', 'ap-northeast-2':       'APN2',
@@ -288,9 +289,9 @@ def gophCURAWS(model, settings, inputs, args):
                                  'eu-west-2':           'EUW2', 'sa-east-1':            'SAE1',
                                  'eu-west-3':           'EUW3', 'af-south-1':           'CPT',
                                                                 'me-south-1':           'MES1',
-                                }.get(az,az),                           # service region
+                                }.get(az,az),                                   # service region
                         'rid':  rid.rsplit(':',1)[-1] if rid.startswith('arn:')
-                                                      else rid,         # resource ID (i-, vol-, ...)
+                                                      else rid,                 # resource ID (i-, vol-, ...)
                         'desc': col[head['lineItem/LineItemDescription']].replace(
                                 'USD',                  '$'     ).replace(
                                 '$ ',                   '$'     ).replace(
@@ -351,23 +352,22 @@ def gophCURAWS(model, settings, inputs, args):
                                 'Asia Pacific',         'APAC'  ).replace(
                                 'Northern ',            ''      ).replace(
                                 'N. ',                  ''      ).replace(
-                                'N.',                   ''      ),      # service description
-                        'ivl':  str(ivl),                               # usage interval (seconds)
-                        'name': '' if nm in {'Unknown','unknown',
-                                            } else nm,                  # user-supplied resource name
-                        'env':  col[head['resourceTags/user:env']],     # environment (prod, dev, ...)
-                        'dc':   col[head['resourceTags/user:dc']],      # operating loc (orl, iad, ...)
-                        'prod': col[head['resourceTags/user:product']], # product (high-level)
-                        'app':  col[head['resourceTags/user:app']],     # application (low-level)
-                        'cust': col[head['resourceTags/user:cust']],    # cost or owning org
-                        'team': col[head['resourceTags/user:team']],    # operating org
-                        'ver':  col[head['resourceTags/user:version']], # major.minor
+                                'N.',                   ''      ),              # service description
+                        'ivl':  str(ivl),                                       # usage interval (seconds)
+                        'name': '' if nm in {'Unknown','unknown'} else nm,      # user-supplied resource name
+                        'env':  col[head.get('resourceTags/user:env',-1)],      # environment (prod, dev, ...)
+                        'dc':   col[head.get('resourceTags/user:dc',-1)],       # operating loc (orl, iad, ...)
+                        'prod': col[head.get('resourceTags/user:product',-1)],  # product (high-level)
+                        'app':  col[head.get('resourceTags/user:app',-1)],      # application (low-level)
+                        'cust': col[head.get('resourceTags/user:cust',-1)],     # cost or owning org
+                        'team': col[head.get('resourceTags/user:team',-1)],     # operating org
+                        'ver':  col[head.get('resourceTags/user:version',-1)],  # major.minor
                     })
                 pipe(s, rec)
 
             elif l.startswith('#!begin '):
                 ps,s = s, l[:-1].partition(' ')[2].partition('~link')[0]
-                if ps and not s.startswith(ps[:-12]): ids = {}
+                if ps and not s.startswith(ps[:6]): ids = {}
         pipe(None, None)
 
 def main():

@@ -100,7 +100,14 @@
 	"=,{identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:dc,resourceTags/user:env,resourceTags/user:Name,resourceTags/user:product,resourceTags/user:team,resourceTags/user:version,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment}": {
 		"Cols": "identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:dc,resourceTags/user:env,resourceTags/user:Name,resourceTags/user:product,resourceTags/user:team,resourceTags/user:version,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment",
 		"Format": "AWS CUR",
-		"Ver": "2021 Aspect",
+		"Ver": "2021 Alvaria-tagged",
+		"Date": "2021-02-22T15:00:00-05:00",
+		"Lock": true
+	},
+	"=,{identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment}": {
+		"Cols": "identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment",
+		"Format": "AWS CUR",
+		"Ver": "2021",
 		"Date": "2021-02-22T15:00:00-05:00",
 		"Lock": true
 	},
@@ -148,7 +155,7 @@
 	},
 	"=,{gatewayAccountingId,startTime,fromNumber,toNumber,callDirection,rawDuration,meteredDuration,charges}": {
 		"Cols": "gatewayAccountingId,startTime,,fromNumber,toNumber,callDirection,rawDuration,meteredDuration,charges",
-		"Format": "Aspect CDR",
+		"Format": "Alvaria CDR",
 		"Ver": "2018 Mercury",
 		"Date": "2020-09-30T14:12:54.125854909-04:00",
 		"Lock": true
@@ -200,13 +207,6 @@
 		"Format": "awsmon RDS",
 		"Ver": "2019",
 		"Date": "2020-05-06T13:43:26.569535733-04:00",
-		"Lock": true
-	},
-	"f389d09b1bb5c49fd6a8b4888b872b43": {
-		"Cols": "lineItem/UsageStartDate,lineItem/UsageAccountId,lineItem/UsageType,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/LineItemType:={Usage:DiscountedUsage:Tax:RIFee:Refund:Fee:Credit},lineItem/UsageEndDate,product/ProductName,product/region,lineItem/UsageAmount,resourceTags/user:Name,reservation/UnusedQuantity,reservation/RecurringFeeForUsage,reservation/UnusedRecurringFee,lineItem/AvailabilityZone,bill/BillingEntity,resourceTags/user:env,resourceTags/user:dc,resourceTags/user:product,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:team,resourceTags/user:version",
-		"Format": "AWS CUR",
-		"Ver": "May20 Aspect",
-		"Date": "2020-05-18T14:35:20.047153223-04:00",
 		"Lock": true
 	},
 	"f50ff06fcc7f4f701283249ba6732681": {

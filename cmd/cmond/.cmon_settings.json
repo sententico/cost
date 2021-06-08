@@ -59,8 +59,8 @@
 		"UsageAdj":	0.94,
 		"CUR": {
 			"account":	"60118068xxxx",
-			"bucket":	"cost-reporting/CUR",
-			"prefix":	"*hourly-[0-9]*"
+			"bucket":	"cost-reporting/CUR/hourly",
+			"label":	"hourly"
 		},
 		"SES": {
 			"region":	"us-east-2",
