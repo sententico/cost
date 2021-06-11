@@ -101,14 +101,14 @@
 		"Cols": "identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,resourceTags/user:app,resourceTags/user:cust,resourceTags/user:dc,resourceTags/user:env,resourceTags/user:Name,resourceTags/user:product,resourceTags/user:team,resourceTags/user:version,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment",
 		"Format": "AWS CUR",
 		"Ver": "2021 Alvaria-tagged",
-		"Date": "2021-02-22T15:00:00-05:00",
+		"Date": "2021-06-01T15:00:00-05:00",
 		"Lock": true
 	},
 	"=,{identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment}": {
 		"Cols": "identity/LineItemId,bill/BillingEntity,lineItem/LineItemDescription,lineItem/LineItemType,lineItem/Operation,lineItem/ResourceId,lineItem/UnblendedCost,lineItem/UsageAccountId,lineItem/UsageAmount,lineItem/UsageEndDate,lineItem/UsageStartDate,lineItem/UsageType,reservation/EffectiveCost,reservation/UnusedAmortizedUpfrontFeeForBillingPeriod,reservation/UnusedQuantity,reservation/UnusedRecurringFee,product/ProductName,product/region,savingsPlan/SavingsPlanEffectiveCost,savingsPlan/TotalCommitmentToDate,savingsPlan/UsedCommitment",
 		"Format": "AWS CUR",
 		"Ver": "2021",
-		"Date": "2021-02-22T15:00:00-05:00",
+		"Date": "2021-06-01T15:00:00-05:00",
 		"Lock": true
 	},
 	"=f32,f16:0:1:2:3:4:5:6:7:8:9,f24:  ": {
@@ -157,7 +157,7 @@
 		"Cols": "gatewayAccountingId,startTime,,fromNumber,toNumber,callDirection,rawDuration,meteredDuration,charges",
 		"Format": "Alvaria CDR",
 		"Ver": "2018 Mercury",
-		"Date": "2020-09-30T14:12:54.125854909-04:00",
+		"Date": "2021-06-01T14:12:54.125854909-04:00",
 		"Lock": true
 	},
 	"bc468c72378979f9ca4f5918941216e3": {
@@ -214,6 +214,13 @@
 		"Format": "Voxbone CDR",
 		"Ver": "Mar20",
 		"Date": "2020-04-30T17:21:36.577480348-04:00",
+		"Lock": true
+	},
+	"e66b17d7274ab63d8d9818bcf64e254c": {
+		"Cols": "Start,Duration,From,To,Dial Status:={ANSWER},Call Status:={success},Cost,Record Type:={Voice},Zone",
+		"Format": "Voxbone CDR",
+		"Ver": "May21",
+		"Date": "2021-06-09T14:23:23.364069422-04:00",
 		"Lock": true
 	},
 	"f84e4eedb43b0576aeee317321974914": {

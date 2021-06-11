@@ -157,7 +157,7 @@ type (
 		Team string    `json:"Te,omitempty"`
 		Ver  string    `json:"V,omitempty"`
 		HMap []uint32  `json:"H,omitempty"`  // range hrs (+base) | usage (index/value) | base (mo-hr offset) [alt: 0b110 | Recs-offset bit-map]
-		HUsg []float32 `json:"HU,omitempty"` // hourly usage (offset by Recs from mo-hr or indexed or by HMap)
+		HUsg []float32 `json:"HU,omitempty"` // hourly usage (offset by Recs from mo-hr or indexed by HMap)
 		Recs uint32    `json:"Re,omitempty"` // CUR records (count-1) | from | to (mo-hr offsets)
 		Usg  float32   `json:"U"`
 		Cost float32   `json:"C"`
@@ -311,7 +311,7 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 		for suffix := key; ; suffix = suffix[1:] {
 			if c := m[suffix]; c != "" {
 				args := []string{
-					"python",
+					"python3",
 					fmt.Sprintf("%v/%v", strings.TrimRight(settings.BinDir, "/"), c),
 				}
 				// TODO: change to exec.CommandContext() to support timeouts?

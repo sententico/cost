@@ -248,9 +248,10 @@ def gophCURAWS(model, settings, inputs, args):
                                 'AWS Marketplace':      'mkt ',                 # source
                                }.get(col[head['bill/BillingEntity']],'other ') +
                                (''          if ivl < 3602       else (
+                                'daily '    if ivl < 86402      else (
                                 'monthly '  if ivl < 2678402    else (
                                 'periodic ' if ivl < 31103999   else
-                                'annual '))) +                                  # usage interval category
+                                'annual ')))) +                                 # usage interval category
                                typ,                                             # line item type
                         'svc': {'Amazon Elastic Compute Cloud':         'EC2',
                                 'Amazon Simple Storage Service':        'S3',

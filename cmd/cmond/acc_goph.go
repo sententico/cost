@@ -591,6 +591,7 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 	line.Usg += us
 	line.Cost += co
 	line.Recs++
+	// TODO: fix cost/usage clumping for day/mo reporting
 	work.isum.ByAcct.add(hr, line.Acct, c)
 	work.isum.ByRegion.add(hr, line.Reg, c)
 	work.isum.ByTyp.add(hr, line.Typ, c)
