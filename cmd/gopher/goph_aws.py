@@ -79,12 +79,17 @@ def getWriter(m, cols):
 def gophEC2AWS(model, settings, inputs, args):
     '''Fetch EBS volume detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    pipe,flt,prof = getWriter(model, [
+    pipe,flt,prof,sts = getWriter(model, [
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
-        session = boto3.Session(profile_name=a)
+        if at.get('~arn'):
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
+                                      aws_secret_access_key=cred['SecretAccessKey'],
+                                      aws_session_token=cred['SessionToken'])
+        else: session = boto3.Session(profile_name=a)
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
@@ -109,12 +114,17 @@ def gophEC2AWS(model, settings, inputs, args):
 def gophEBSAWS(model, settings, inputs, args):
     '''Fetch EC2 instance detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    pipe,flt,prof = getWriter(model, [
+    pipe,flt,prof,sts = getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], settings[''], boto3.client('sts')
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
-        session = boto3.Session(profile_name=a)
+        if at.get('~arn'):
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
+                                      aws_secret_access_key=cred['SecretAccessKey'],
+                                      aws_session_token=cred['SessionToken'])
+        else: session = boto3.Session(profile_name=a)
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
@@ -140,12 +150,17 @@ def gophEBSAWS(model, settings, inputs, args):
 def gophRDSAWS(model, settings, inputs, args):
     '''Fetch RDS database detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    pipe,flt,prof = getWriter(model, [
+    pipe,flt,prof,sts = getWriter(model, [
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles']
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
-        session = boto3.Session(profile_name=a)
+        if at.get('~arn'):
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
+                                      aws_secret_access_key=cred['SecretAccessKey'],
+                                      aws_session_token=cred['SessionToken'])
+        else: session = boto3.Session(profile_name=a)
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             rds, s = session.client('rds', region_name=r), a+':'+r

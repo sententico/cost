@@ -9,9 +9,9 @@
 
 cd aws/cache || exit 1
 
-ACCT=$1             # default
-BUCKET=$2           # cost-reporting/CUR/hourly
-LABEL="20*_$3-0*"   # hourly
+ACCT=$1                 # default
+BUCKET=$2               # cost-reporting/CUR/hourly
+LABEL="20????_$3-0*"    # hourly
 
 find . -maxdepth 1 -name "$LABEL" -mmin +90720 -delete
 prior="$(ls -l $LABEL~link)"
