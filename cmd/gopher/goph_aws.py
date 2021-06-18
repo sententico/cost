@@ -116,7 +116,7 @@ def gophEBSAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     pipe,flt,prof,sts = getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], settings[''], boto3.client('sts')
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
