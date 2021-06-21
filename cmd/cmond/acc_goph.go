@@ -647,7 +647,8 @@ func cdraspInsert(acc *modAcc, item map[string]string, now int) {
 	}
 
 	switch typ, ip, itg, etg := item["type"], item["IP"], item["iTG"], item["eTG"]; {
-	case typ == "CORE" || itg == "USPRODMBZ_ZIPWIRE_TG" || strings.HasPrefix(etg, "ACCESS_"):
+	case typ == "CORE" || strings.HasPrefix(itg, "ACCESS_") || strings.HasPrefix(etg, "ACCESS_") ||
+		itg == "MERCEDES" || itg == "USPRODMBZ_ZIPWIRE_TG":
 		// agent/ignored CDR
 	case typ == "CARRIER" || len(ip) > 3 && ip[:3] == "10.":
 		// inbound/origination CDR
