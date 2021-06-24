@@ -1884,11 +1884,11 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			err()
 		}
-	case "591": // Bolivia (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Bolivia
+	case "591": // Bolivia (Jun21) en.wikipedia.org/wiki/Telephone_numbers_in_Bolivia
 		switch nat[0] {
-		case '2', '3', '4':
+		case '2', '3', '4', '5':
 			set(1, 8)
-		case '7':
+		case '6', '7':
 			set(2, 8)
 		default:
 			err()
