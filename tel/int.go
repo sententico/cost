@@ -1900,17 +1900,14 @@ func (d *Decoder) ccInfo(n string, cc string) (i *ccInfo, p string, s string) {
 		default:
 			set(3, 7)
 		}
-	case "593": // Ecuador (Jan21) en.wikipedia.org/wiki/Telephone_numbers_in_Ecuador
-		switch nat[:3] {
-		case "700", "800", "900":
-			set(3, 9)
+	case "593": // Ecuador (Jun21) en.wikipedia.org/wiki/Telephone_numbers_in_Ecuador
+		switch nat[0] {
+		case '2', '3', '4', '5', '6', '7':
+			set(1, 8)
+		case '8', '9':
+			set(2, 9)
 		default:
-			switch nat[0] {
-			case '2', '5', '7', '8', '9':
-				set(2, 9)
-			default:
-				err()
-			}
+			err()
 		}
 	case "594": // French Guiana (Jan21) itu.int/dms_pub/itu-t/oth/02/02/T020200004C0002PDFE.pdf
 		switch nat[0] {
