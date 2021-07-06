@@ -193,7 +193,7 @@ func getRes(scache *csv.Settings, fn string) {
 				rated += ra
 				charged += ch
 				row["Re-rated Amount"] = fmt.Sprintf("%.4f", ra)
-			case "Aspect CDR":
+			case "Alvaria CDR":
 				if row["callDirection"] != "PSTN_OUTBOUND" {
 					break
 				}
