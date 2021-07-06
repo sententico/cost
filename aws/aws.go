@@ -11,31 +11,35 @@ import (
 )
 
 const (
-	// DefaultRDSEBSRates ... requires maintenance updates (last May21)
+	// DefaultRDSEBSRates ... requires maintenance updates (last Jul21)
 	DefaultRDSEBSRates = `[
 		{"Rg":"us-east-1",	"T":"gp2",		"SZ":0.115,	"IO":0},
 		{"Rg":"us-east-1",	"T":"io1",		"SZ":0.125,	"IO":0.1},
 		{"Rg":"us-east-1",	"T":"io2",		"SZ":0.125,	"IO":0.1},
 		{"Rg":"us-east-1",	"T":"st1",		"SZ":0.1,	"IO":0},
 		{"Rg":"us-east-1",	"T":"standard",	"SZ":0.1,	"IO":0},
+		{"Rg":"us-east-1",	"T":"aurora",	"SZ":0.1,	"IO":0},
 
 		{"Rg":"us-west-1",	"T":"gp2",		"SZ":0.138,	"IO":0},
 		{"Rg":"us-west-1",	"T":"io1",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"us-west-1",	"T":"io2",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"us-west-1",	"T":"st1",		"SZ":0.11,	"IO":0},
 		{"Rg":"us-west-1",	"T":"standard",	"SZ":0.11,	"IO":0},
+		{"Rg":"us-west-1",	"T":"aurora",	"SZ":0.11,	"IO":0},
 
 		{"Rg":"eu-west-1",	"T":"gp2",		"SZ":0.127,	"IO":0},
 		{"Rg":"eu-west-1",	"T":"io1",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"eu-west-1",	"T":"io2",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"eu-west-1",	"T":"st1",		"SZ":0.11,	"IO":0},
 		{"Rg":"eu-west-1",	"T":"standard",	"SZ":0.11,	"IO":0},
+		{"Rg":"eu-west-1",	"T":"aurora",	"SZ":0.11,	"IO":0},
 
 		{"Rg":"eu-west-2",	"T":"gp2",		"SZ":0.133,	"IO":0},
 		{"Rg":"eu-west-2",	"T":"io1",		"SZ":0.145,	"IO":0.116},
 		{"Rg":"eu-west-2",	"T":"io2",		"SZ":0.145,	"IO":0.116},
 		{"Rg":"eu-west-2",	"T":"st1",		"SZ":0.116,	"IO":0},
-		{"Rg":"eu-west-2",	"T":"standard",	"SZ":0.116,	"IO":0}
+		{"Rg":"eu-west-2",	"T":"standard",	"SZ":0.116,	"IO":0},
+		{"Rg":"eu-west-2",	"T":"aurora",	"SZ":0.1,	"IO":0}
 	]`
 )
 
@@ -87,22 +91,23 @@ type (
 	}
 )
 
-// requires maintenance updates (last May21)
+// requires maintenance updates (last Jul21)
 var (
 	platMap = map[string]string{
-		"":              "Lin",
-		"windows":       "Win",
-		"rhel":          "RHEL",
-		"mysql":         "MSQL",
-		"postgres":      "PSQL",
-		"oracle-ee":     "MSQL", // BYOL matches MySQL pricing
-		"oracle-se":     "MSQL", // BYOL matches MySQL pricing
-		"oracle-se1":    "ORLs1",
-		"oracle-se2":    "ORLs2",
-		"sqlserver-ee":  "SQLe",
-		"sqlserver-se":  "SQLs",
-		"sqlserver-web": "SQLw",
-		"sqlserver-ex":  "SQLx",
+		"":                  "Lin",
+		"windows":           "Win",
+		"rhel":              "RHEL",
+		"aurora-postgresql": "AURp",
+		"mysql":             "MSQL",
+		"postgres":          "PSQL",
+		"oracle-ee":         "MSQL", // BYOL matches MySQL pricing
+		"oracle-se":         "MSQL", // BYOL matches MySQL pricing
+		"oracle-se1":        "ORLs1",
+		"oracle-se2":        "ORLs2",
+		"sqlserver-ee":      "SQLe",
+		"sqlserver-se":      "SQLs",
+		"sqlserver-web":     "SQLw",
+		"sqlserver-ex":      "SQLx",
 	}
 )
 

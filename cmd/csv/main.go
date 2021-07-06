@@ -141,7 +141,7 @@ func getRes(scache *csv.Settings, fn string) {
 				"Unique CDR ID",
 				"Re-rated Amount",
 			})
-		case "Aspect CDR":
+		case "Alvaria CDR":
 			rater.Default = tel.T2intlTermRates
 			currency, write = "EUR", csvWriter(&res, []string{
 				"gatewayAccountingId",
