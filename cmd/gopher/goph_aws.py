@@ -206,11 +206,11 @@ def gophCURAWS(model, settings, inputs, args):
         elif fid == id:     return cid, False
         elif id in ids:     return id,  False
         ids[id] = '';       return id,  True
-    def getcol(hl, hm, c, dc=-1):
-        '''Return first non-empty column from heading list hl as offset by hm'''
+    def getcol(hl, ex, hm, c, dc=-1):
+        '''Return first non-ex column value from heading list hl as offset by hm'''
         for h in hl:
             o = hm.get(h, -1)
-            if o >= 0 and c[o]: return c[o]
+            if o >= 0 and c[o] not in ex: return c[o]
         return c[dc]
 
     with subprocess.Popen([settings.get('BinDir').rstrip('/')+'/goph_curaws.sh',
@@ -385,7 +385,7 @@ def gophCURAWS(model, settings, inputs, args):
                         'team': getcol(['resourceTags/user:team',               # operating org
                                         'resourceTags/user:group',              # ...alternate
                                         'resourceTags/user:SCRM_Group',         # ...custom alternate
-                                       ], head, col),
+                                       ], {'Unknown', 'unknown', ''}, head, col),
                         'ver':  col[head.get('resourceTags/user:version',-1)],  # major.minor
                     })
                 pipe(s, rec)
