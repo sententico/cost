@@ -8,5 +8,7 @@
 # Test binary, built with `go test -c`
 *.test
 
-# MacOS files
+# macOS files/folders
 .DS_Store
+.AppleDouble
+._*
