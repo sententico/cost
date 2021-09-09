@@ -7,3 +7,6 @@
 
 # Test binary, built with `go test -c`
 *.test
+
+# MacOS files
+.DS_Store
