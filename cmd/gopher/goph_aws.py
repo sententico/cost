@@ -232,6 +232,8 @@ def gophCURAWS(model, settings, inputs, args):
                         'SavingsPlanCoveredUsage':              'SP usage',
                         'SavingsPlanRecurringFee':              'SP unused',
                         'Refund':                               'EDP/refund',
+                        'EdpDiscount':                          'EDP/refund',
+                        'BundleDiscount':                       'EDP/refund',
                         'Credit':                               'CSC/WMP/credit',
                         'Tax':                                  'tax',
                         'SavingsPlanNegation':                  'skip',
