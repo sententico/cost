@@ -130,7 +130,7 @@ func fetch(acc *modAcc, insert func(*modAcc, map[string]string, int), meta bool)
 //
 func ec2awsHack(inst *ec2Item) {
 	switch settings.Unit {
-	case "cmon-aspect":
+	case "cmon-aspect", "cmon-alvaria":
 		// 88% of "sqlserver-se" EC2 instances identified by this hack (Oct20)
 		if inst.Plat == "windows" && inst.Vol > 4 && (strings.HasSuffix(inst.Tag["app"], ".edw") ||
 			strings.HasSuffix(inst.Tag["app"], ".wfd") ||
