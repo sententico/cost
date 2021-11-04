@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// DefaultRDSEBSRates ... requires maintenance updates (last Jul21)
+	// DefaultRDSEBSRates ... requires maintenance updates (last Nov21)
 	DefaultRDSEBSRates = `[
 		{"Rg":"us-east-1",	"T":"gp2",		"SZ":0.115,	"IO":0},
 		{"Rg":"us-east-1",	"T":"io1",		"SZ":0.125,	"IO":0.1},
@@ -39,7 +39,14 @@ const (
 		{"Rg":"eu-west-2",	"T":"io2",		"SZ":0.145,	"IO":0.116},
 		{"Rg":"eu-west-2",	"T":"st1",		"SZ":0.116,	"IO":0},
 		{"Rg":"eu-west-2",	"T":"standard",	"SZ":0.116,	"IO":0},
-		{"Rg":"eu-west-2",	"T":"aurora",	"SZ":0.1,	"IO":0}
+		{"Rg":"eu-west-2",	"T":"aurora",	"SZ":0.1,	"IO":0},
+
+		{"Rg":"eu-central-1","T":"gp2",		"SZ":0.133,	"IO":0},
+		{"Rg":"eu-central-1","T":"io1",		"SZ":0.145,	"IO":0.116},
+		{"Rg":"eu-central-1","T":"io2",		"SZ":0.145,	"IO":0.116},
+		{"Rg":"eu-central-1","T":"st1",		"SZ":0.116,	"IO":0},
+		{"Rg":"eu-central-1","T":"standard","SZ":0.116,	"IO":0},
+		{"Rg":"eu-central-1","T":"aurora",	"SZ":0.119,	"IO":0}
 	]`
 )
 
@@ -91,18 +98,22 @@ type (
 	}
 )
 
-// requires maintenance updates (last Jul21)
+// requires maintenance updates (last Nov21)
 var (
 	platMap = map[string]string{
-		"":                  "Lin",
+		"":                  "Lin", // or macOS
 		"windows":           "Win",
 		"rhel":              "RHEL",
+		"aurora":            "AURm",
+		"aurora-mysql":      "AURm",
 		"aurora-postgresql": "AURp",
+		"mariadb":           "MAR",
+		"docdb":             "DOC",
 		"mysql":             "MSQL",
 		"postgres":          "PSQL",
-		"oracle-ee":         "MSQL", // BYOL matches MySQL pricing
-		"oracle-se":         "MSQL", // BYOL matches MySQL pricing
-		"oracle-se1":        "ORLs1",
+		"oracle-ee":         "MSQL",  // BYOL matches MySQL pricing
+		"oracle-se":         "MSQL",  // BYOL matches MySQL pricing; deprecated
+		"oracle-se1":        "ORLs1", // deprecated
 		"oracle-se2":        "ORLs2",
 		"sqlserver-ee":      "SQLe",
 		"sqlserver-se":      "SQLs",
