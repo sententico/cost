@@ -457,7 +457,7 @@ func active(since, last int, ap []int) float32 {
 
 func nTags(name string) (t cmon.TagMap) {
 	switch settings.Unit {
-	case "cmon-aspect":
+	case "cmon-aspect", "cmon-alvaria":
 		if v := aspN.FindStringSubmatch(name); v != nil {
 			t = make(cmon.TagMap)
 			for i, k := range aspN.SubexpNames()[1:] {
