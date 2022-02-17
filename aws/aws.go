@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// DefaultRDSEBSRates ... requires maintenance updates (last Nov21)
+	// DefaultRDSEBSRates ... requires maintenance updates (last Feb22)
 	DefaultRDSEBSRates = `[
 		{"Rg":"us-east-1",	"T":"gp2",		"SZ":0.115,	"IO":0},
 		{"Rg":"us-east-1",	"T":"io1",		"SZ":0.125,	"IO":0.1},
@@ -98,7 +98,7 @@ type (
 	}
 )
 
-// requires maintenance updates (last Nov21)
+// requires maintenance updates (last Feb22)
 var (
 	platMap = map[string]string{
 		"":                  "Lin", // or macOS

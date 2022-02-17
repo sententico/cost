@@ -152,7 +152,6 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 	inst, initialized := detail.Inst[id]
 	if !initialized {
 		inst = &ec2Item{
-			Typ:   item["type"],
 			Plat:  item["plat"],
 			AMI:   item["ami"],
 			Spot:  item["spot"],
@@ -161,6 +160,7 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 		detail.Inst[id] = inst
 	}
 	inst.Acct = item["acct"]
+	inst.Typ = item["type"]
 	inst.Vol = atoi(item["vol"], 0)
 	inst.AZ = item["az"]
 	if tag := item["tag"]; tag != "" {
