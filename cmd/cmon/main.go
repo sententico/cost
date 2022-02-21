@@ -249,6 +249,9 @@ func tableCmd() {
 		case "rds.aws":
 			fmt.Println("DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ," +
 				"Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate")
+		case "snap.aws":
+			fmt.Println("Snap,Acct,Type,Size,VSiz,Reg,Vol,Par,Desc," +
+				"Name,env,dc,product,app,cust,team,version,Since,Rate")
 		case "cdr.asp/term", "cdr.asp/orig":
 			fmt.Println("CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin")
 		}
@@ -327,6 +330,7 @@ func main() {
 		"table ec2.aws":              tableCmd,
 		"table ebs.aws":              tableCmd,
 		"table rds.aws":              tableCmd,
+		"table snap.aws":             tableCmd,
 		"table cdr.asp/term":         tableCmd,
 		"table cdr.asp/orig":         tableCmd,
 		"optimize ec2.aws/sku/n 1nc": optimizeCmd,
