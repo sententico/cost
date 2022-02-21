@@ -96,6 +96,13 @@ type (
 
 		kRV map[EBSRateKey]*EBSRateValue
 	}
+	// SnapRater ...
+	SnapRater struct {
+		Location string // JSON rate resource location (filename, ...)
+		Default  string // default JSON rates
+
+		kRV map[EBSRateKey]float32
+	}
 )
 
 // requires maintenance updates (last Feb22)
@@ -253,6 +260,63 @@ func (r *EBSRater) Lookup(k *EBSRateKey) (v *EBSRateValue) {
 		k.Region = k.Region[:len(k.Region)-1]
 	}
 	if v = r.kRV[*k]; v != nil || k.Region == "us-east-1" || k.Region == "eu-west-1" {
+		return
+	}
+	switch k.Region[:3] {
+	case "us-":
+		k.Region = "us-east-1"
+	default:
+		k.Region = "eu-west-1"
+	}
+	return r.kRV[*k]
+
+}
+
+// Load method on SnapRater ...
+func (r *SnapRater) Load(rr io.Reader) (err error) {
+	var b []byte
+	res := []snapRateInfo{}
+	if r == nil {
+		return fmt.Errorf("no rater specified")
+	} else if r.kRV = nil; rr != nil {
+		b, err = io.ReadAll(rr)
+	} else if r.Location != "" {
+		b, err = os.ReadFile(iio.ResolveName(r.Location))
+	} else if r.Default != "" {
+		b = []byte(r.Default)
+	} else {
+		b = []byte(defaultSnapRates)
+	}
+	if err != nil {
+		return fmt.Errorf("cannot access rates resource: %v", err)
+	} else if err = json.Unmarshal(b, &res); err != nil {
+		return fmt.Errorf("rates resource format problem: %v", err)
+	}
+
+	r.kRV = make(map[EBSRateKey]float32)
+	for _, info := range res {
+		r.kRV[EBSRateKey{
+			Region: info.Region,
+			Typ:    info.Typ,
+		}] = info.SZrate / 730
+	}
+	return nil
+}
+
+// Lookup method on SnapRater ...
+func (r *SnapRater) Lookup(k *EBSRateKey) (v float32) {
+	if r == nil || k == nil {
+		return
+	}
+	if k.Typ == "" {
+		k.Typ = "standard"
+	}
+	if len(k.Region) < 3 {
+		k.Region = "us-east-1"
+	} else if k.Region[len(k.Region)-1] > '9' {
+		k.Region = k.Region[:len(k.Region)-1]
+	}
+	if v = r.kRV[*k]; v != 0 || k.Region == "us-east-1" || k.Region == "eu-west-1" {
 		return
 	}
 	switch k.Region[:3] {

@@ -189,6 +189,42 @@ def gophRDSAWS(model, settings, inputs, args):
                         })
     pipe(None, None)
 
+def gophSNAPAWS(model, settings, inputs, args):
+    '''Fetch EBS snapshot detail from AWS'''
+    if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
+    pipe,flt,prof,sts = getWriter(model, [
+        'id','acct','type','vsiz','reg','vol','desc','tag','since',
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+    for a,at in settings['AWS']['Accounts'].items():
+        if not at.get('~profile') or not prof.get(at['~profile']): continue
+        if at.get('~arn'):
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
+                                      aws_secret_access_key=cred['SecretAccessKey'],
+                                      aws_session_token=cred['SessionToken'])
+        else: session = boto3.Session(profile_name=a)
+        for r,u in prof[at['~profile']].items():
+            if u < 1.0 and u <= random.random(): continue
+            ec2, s = session.client('ec2', region_name=r), a+':'+r
+            for page in ec2.get_paginator('describe_snapshots').paginate(OwnerIds=[a]):
+                for snap in page['Snapshots']:
+                    if snap.get('State') != 'completed': continue
+                    pipe(s, {'id':      snap.get('SnapshotId',''),
+                             'acct':    a,
+                             'type':    snap.get('StorageTier','standard'),
+                             'vsiz':    snap.get('VolumeSize','0'),
+                             'reg':     r,
+                             'vol':     snap.get('VolumeId','vol-ffffffff'),
+                             'desc':    snap.get('Description',''),
+                             'tag':     '' if not snap.get('Tags') else '{}'.format('\t'.join([
+                                        '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in snap['Tags'] if
+                                        t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
+                                        'role','cust','customer','team','group','alert','slack','version','release','build','stop',
+                                        'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+                             'since':   snap['StartTime'].isoformat() + 'Z',
+                            })
+    pipe(None, None)
+
 def gophCURAWS(model, settings, inputs, args):
     '''Fetch CUR (Cost & Usage Report) line item detail from AWS'''
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
@@ -403,6 +439,7 @@ def main():
         'ec2.aws':      [gophEC2AWS,    'fetch EC2 instances from AWS'],
         'ebs.aws':      [gophEBSAWS,    'fetch EBS volumes from AWS'],
         'rds.aws':      [gophRDSAWS,    'fetch RDS databases from AWS'],
+        'snap.aws':     [gophSNAPAWS,   'fetch EBS snapshots from AWS'],
         'cur.aws':      [gophCURAWS,    'fetch CUR line items from AWS'],
     }
                                         # define and parse command line parameters

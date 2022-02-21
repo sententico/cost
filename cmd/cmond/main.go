@@ -94,6 +94,7 @@ func init() {
 		"ec2.aws":  {boot: ec2awsBoot, maint: ec2awsMaint, term: ec2awsTerm},
 		"ebs.aws":  {boot: ebsawsBoot, maint: ebsawsMaint, term: ebsawsTerm},
 		"rds.aws":  {boot: rdsawsBoot, maint: rdsawsMaint, term: rdsawsTerm},
+		"snap.aws": {boot: snapawsBoot, maint: snapawsMaint, term: snapawsTerm},
 		"cur.aws":  {boot: curawsBoot, maint: curawsMaint, term: curawsTerm},
 		"cdr.asp":  {boot: cdraspBoot, maint: cdraspMaint, term: cdraspTerm},
 	}, cmon.Getarg([]string{"CMON_SETTINGS", ".cmon_settings.json"})
@@ -138,6 +139,8 @@ func init() {
 	gob.Register(&ebsDetail{})
 	gob.Register(&rdsSum{})
 	gob.Register(&rdsDetail{})
+	gob.Register(&snapSum{})
+	gob.Register(&snapDetail{})
 	gob.Register(&curSum{})
 	gob.Register(&curDetail{})
 	gob.Register(&termSum{})

@@ -132,6 +132,33 @@ type (
 		srates aws.EBSRater
 	}
 
+	snapSum struct {
+		Current  int32 // hour cursor in summary maps (hours in Unix epoch)
+		ByAcct   hsU   // map by hour / account
+		ByRegion hsU   // map by hour / region
+	}
+	snapItem struct {
+		Acct  string      `json:"A"`
+		Typ   string      `json:"T,omitempty"`
+		Size  float32     `json:"S,omitempty"`
+		VSiz  int         `json:"Vs,omitempty"`
+		Reg   string      `json:"L"`
+		Vol   string      `json:"V,omitempty"` // volume root of snapshot tree
+		Par   string      `json:"P,omitempty"` // parent snapshot
+		Desc  string      `json:"D,omitempty"`
+		Tag   cmon.TagMap `json:"Tg,omitempty"`
+		Since int         `json:"Si"`
+		Last  int         `json:"La"`
+		Rate  float32     `json:"R"`
+	}
+	snapDetail struct {
+		Current int
+		Snap    map[string]*snapItem
+	}
+	snapWork struct {
+		rates aws.SnapRater
+	}
+
 	curSum struct {
 		Current  int32 // hour cursor in summary maps (hours in Unix epoch)
 		ByAcct   hsA   // map by hour / account
@@ -800,6 +827,104 @@ func rdsawsMaint(m *model) {
 }
 func rdsawsTerm(m *model) {
 	rdsawsClean(m, false)
+	m.store(true)
+}
+
+// snap.aws model core accessors
+//
+func snapawsBoot(m *model) {
+	sum, detail, work := &snapSum{
+		ByAcct:   make(hsU, 2424),
+		ByRegion: make(hsU, 2424),
+	}, &snapDetail{
+		Snap: make(map[string]*snapItem, 4096),
+	}, &snapWork{}
+	m.data = append(m.data, sum)
+	m.data = append(m.data, detail)
+	m.persist = len(m.data)
+	m.load()
+
+	if err := work.rates.Load(nil); err != nil {
+		logE.Fatalf("%q cannot load EBS snapshot rates: %v", m.name, err)
+	}
+	m.data = append(m.data, work)
+}
+func snapawsClean(m *model, deep bool) {
+	acc := m.newAcc()
+	acc.reqW()
+
+	// clean expired/invalid/insignificant data
+	sum, detail := m.data[0].(*snapSum), m.data[1].(*snapDetail)
+	for id, snap := range detail.Snap {
+		if x := detail.Current - snap.Last; snap.Last-snap.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
+			delete(detail.Snap, id)
+		}
+	}
+	exp := sum.Current - 24*100
+	sum.ByAcct.clean(exp)
+	sum.ByRegion.clean(exp)
+
+	acc.rel()
+}
+func snapawsMaint(m *model) {
+	modifySettings := func() {
+		acc := m.newAcc()
+		acc.reqR()
+		defer func() {
+			acc.rel()
+			if r := recover(); r != nil {
+				logE.Printf("cannot update %q settings: %v", m.name, r)
+			}
+		}()
+		if _, err := cmon.Reload(&settings, func(new *cmon.MonSettings) (modify bool) {
+			for _, snap := range m.data[1].(*snapDetail).Snap {
+				if new.PromoteAZ(snap.Acct, snap.Reg) {
+					logW.Printf("%s access promoted for account %s", snap.Reg, snap.Acct)
+					modify = true
+				}
+			}
+			return
+		}); err != nil {
+			panic(err)
+		}
+	}
+	goaftSession(0, 18*time.Second, func() {
+		if modifySettings(); fetch(m.newAcc(), snapawsInsert, false) > 0 {
+			snapawsClean(m, true)
+			modifySettings()
+			evt <- new(modEvt).append(m.name)
+		}
+	})
+	goaftSession(3568*time.Second, 3572*time.Second, func() { m.store(false) })
+
+	for f, cl, st :=
+		time.NewTicker(3600*time.Second),
+		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
+		select {
+		case <-f.C:
+			goaftSession(0, 18*time.Second, func() {
+				if fetch(m.newAcc(), snapawsInsert, false) > 0 {
+					modifySettings()
+					evt <- new(modEvt).append(m.name)
+				}
+			})
+		case <-cl.C:
+			goaftSession(3558*time.Second, 3560*time.Second, func() { snapawsClean(m, true) })
+		case <-st.C:
+			goaftSession(3568*time.Second, 3572*time.Second, func() { m.store(false) })
+
+		case event := <-m.evt:
+			switch event.name {
+			case "settings":
+				goaftSession(0, 0, func() { modifySettings() })
+			case "cur.aws":
+				goaftSession(0, 0, func() { snapawsFeedback(m, event); evt <- event.append(m.name) })
+			}
+		}
+	}
+}
+func snapawsTerm(m *model) {
+	snapawsClean(m, false)
 	m.store(true)
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -58,6 +59,8 @@ var (
 		"":    "goph_test.py", // default gopher
 		"~":   "gopher",       // command type
 	}
+
+	snapR = regexp.MustCompile(`for SourceSnapshot (?P<par>snap-[0-9a-f]{8,17})\.|Cross-account copy .+ (?P<vol>vol-[0-9a-f]{8,17}) \(`)
 )
 
 func fetch(acc *modAcc, insert func(*modAcc, map[string]string, int), meta bool) (items int) {
@@ -383,6 +386,91 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 		sum.BySKU.add(now, dur, reg+" "+k.Typ+" "+db.Engine, u, c)
 	}
 	db.Last = now
+}
+
+// snap.aws model gopher accessors
+//
+func snapawsInsert(acc *modAcc, item map[string]string, now int) {
+	sum, detail, work, id := acc.m.data[0].(*snapSum), acc.m.data[1].(*snapDetail), acc.m.data[2].(*snapWork), item["id"]
+	if item == nil {
+		if now > detail.Current {
+			detail.Current = now
+		}
+		for r, pr := 0, 1; pr > 0; r, pr = 0, r { // fix resolvable Vol references
+			for _, snap := range detail.Snap {
+				if snap.Vol != "" {
+				} else if p := detail.Snap[snap.Par]; p != nil && p.Vol != "" {
+					snap.Vol = p.Vol
+					r++
+				}
+			}
+		}
+		return
+	} else if id == "" {
+		return
+	}
+	snap, dur := detail.Snap[id], 0
+	if snap == nil {
+		snap = &snapItem{
+			Acct:  item["acct"],
+			Typ:   item["type"],
+			VSiz:  atoi(item["vsiz"], 0),
+			Reg:   item["reg"],
+			Since: now,
+		}
+		if item["vol"] != "vol-ffffffff" {
+			snap.Vol = item["vol"]
+		}
+		if t, err := time.Parse(time.RFC3339, item["since"]); err == nil {
+			snap.Since = int(t.Unix())
+		}
+		detail.Snap[id] = snap
+	} else {
+		dur = now - snap.Last
+	}
+	snap.Desc = item["desc"]
+	if tag := item["tag"]; tag != "" {
+		snap.Tag = make(cmon.TagMap)
+		for _, kv := range strings.Split(tag, "\t") {
+			kvs := strings.Split(kv, "=")
+			snap.Tag[kvs[0]] = kvs[1]
+		}
+	} else {
+		snap.Tag = nil
+	}
+	if snap.Vol == "" && (snap.Desc != "" || snap.Tag != nil) { // TODO: expand desc/tag parsing to improve reference resolution
+		for m, i := snapR.FindStringSubmatch(snap.Desc), 1; i < len(m); i++ {
+			if m[i] != "" {
+				switch snapR.SubexpNames()[i] { // TODO: evaluate using size check for Vol resolution
+				case "par":
+					snap.Par = m[i]
+					if p := detail.Snap[snap.Par]; p != nil {
+						snap.Vol = p.Vol
+					}
+				case "vol":
+					snap.Vol = m[i]
+				}
+				break
+			}
+		}
+	}
+
+	if snap.Size > 0 {
+		k := aws.EBSRateKey{
+			Region: snap.Reg,
+			Typ:    snap.Typ,
+		}
+		if r := work.rates.Lookup(&k); r == 0 {
+			logE.Printf("no EBS snapshot rate found for %v in %v", k.Typ, snap.Reg)
+		} else {
+			snap.Rate = r * snap.Size * settings.AWS.UsageAdj
+		}
+		if u, c := uint64(snap.Size*float32(dur)), snap.Rate*float32(dur)/3600; c > 0 {
+			sum.Current = sum.ByAcct.add(now, dur, snap.Acct, u, c)
+			sum.ByRegion.add(now, dur, snap.Reg, u, c)
+		}
+	}
+	snap.Last = now
 }
 
 // cur.aws model gopher accessors

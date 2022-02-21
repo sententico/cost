@@ -632,3 +632,51 @@ func ec2awsFeedback(m *model, event *modEvt) {
 		}()
 	}
 }
+
+func snapawsFeedback(m *model, event *modEvt) {
+	defer func() {
+		if r := recover(); r != nil {
+			logE.Printf("error looping in %q feedback for %q: %v", event.name, m.name, r)
+		}
+	}()
+
+	switch event.name {
+	case "cur.aws":
+		snap, det, size := m.newAcc(), m.data[1].(*snapDetail), make(map[string]float32, 4096)
+		func() {
+			snap.reqR()
+			defer snap.rel()
+			for id, s := range det.Snap {
+				size[id] = s.Size
+			}
+		}()
+		func() {
+			cur, now := mMod[event.name].newAcc(), ""
+			cur.reqR()
+			defer cur.rel()
+			for mo := range cur.m.data[1].(*curDetail).Line {
+				if mo > now {
+					now = mo
+				}
+			}
+			for _, item := range cur.m.data[1].(*curDetail).Line[now] {
+				if item.UOp != "CreateSnapshot" || !strings.HasPrefix(item.RID, "snapshot/") {
+				} else if ss, found := size[item.RID[9:]]; !found {
+				} else if cs := item.Usg / float32(item.Recs+1) * 365 / 12; cs > ss {
+					// TODO: investigate calculations that better account for initial/final days
+					size[item.RID[9:]] = cs
+				}
+			}
+		}()
+		func() {
+			snap.reqW()
+			defer snap.rel()
+			for id, ss := range size {
+				if ss == 0.0 {
+				} else if s := det.Snap[id]; s != nil {
+					s.Size = ss
+				}
+			}
+		}()
+	}
+}
