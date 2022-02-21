@@ -379,6 +379,11 @@ func seriesExtract(metric string, span, recent int, truncate interface{}) (res c
 	case "rds.aws/sku", "rds.aws/sku/n":
 		sum, cur = acc.m.data[0].(*rdsSum).BySKU, acc.m.data[0].(*rdsSum).Current
 
+	case "snap.aws/acct", "snap.aws/acct/n":
+		sum, cur = acc.m.data[0].(*snapSum).ByAcct, acc.m.data[0].(*snapSum).Current
+	case "snap.aws/region", "snap.aws/region/n":
+		sum, cur = acc.m.data[0].(*snapSum).ByRegion, acc.m.data[0].(*snapSum).Current
+
 	case "cur.aws/acct":
 		sum, cur = acc.m.data[0].(*curSum).ByAcct, acc.m.data[0].(*curSum).Current
 	case "cur.aws/region":
@@ -499,7 +504,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 		}
 		col, op, opd := ct[1], ct[2], ct[3]
 		switch col {
-		case "Acct", "acct":
+		case "Acct", "account", "acct":
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -553,7 +558,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Plat", "plat":
+		case "Plat", "platform", "plat":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Plat == opd })
@@ -576,7 +581,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Vol", "vol":
+		case "Vol", "volume", "vol":
 			if n, err := strconv.Atoi(opd); err == nil {
 				switch op {
 				case "=":
@@ -832,7 +837,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 		}
 		col, op, opd := ct[1], ct[2], ct[3]
 		switch col {
-		case "Acct", "acct":
+		case "Acct", "account", "acct":
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -1169,7 +1174,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 		}
 		col, op, opd := ct[1], ct[2], ct[3]
 		switch col {
-		case "Acct", "acct":
+		case "Acct", "account", "acct":
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -1223,7 +1228,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Sto", "sto", "stype", "styp":
+		case "Sto", "storage", "sto", "stype", "styp":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).STyp == opd })
@@ -1310,7 +1315,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Lic", "lic":
+		case "Lic", "license", "lic":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Lic == opd })
@@ -1533,6 +1538,262 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			time.Unix(int64(db.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(db.Since, db.Last, db.Active)), 'g', -1, 32),
 			strconv.FormatFloat(float64(db.Rate), 'g', -1, 32),
+		}
+		if pg--; pg >= 0 {
+			select {
+			case res <- row:
+				continue
+			default:
+			}
+		}
+		acc.rel()
+		res <- row
+		pg = smPage
+		acc.reqR()
+	}
+	acc.rel()
+}
+
+func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
+	var ct []string
+	var adj int
+	flt := make([]func(...interface{}) bool, 0, 32)
+	for nc, c := range criteria {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
+		}
+		col, op, opd := ct[1], ct[2], ct[3]
+		switch col {
+		case "Acct", "account", "acct":
+			switch op {
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*snapItem).Acct
+					return strings.HasPrefix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool {
+					a := v[0].(*snapItem).Acct
+					return strings.HasSuffix(a+" "+settings.AWS.Accounts[a]["~name"], opd)
+				})
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool {
+						a := v[0].(*snapItem).Acct
+						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) != ""
+					})
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool {
+						a := v[0].(*snapItem).Acct
+						return re.FindString(a+" "+settings.AWS.Accounts[a]["~name"]) == ""
+					})
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Type", "type", "typ":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Typ == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Typ != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*snapItem).Typ, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*snapItem).Typ, opd) })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*snapItem).Typ) != "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*snapItem).Typ) == "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Size", "size", "siz":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch op {
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Size < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Size > float32(f) })
+				}
+			} else {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			}
+		case "VSiz", "vsize", "vsiz", "vs":
+			if n, err := strconv.Atoi(opd); err == nil {
+				switch op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).VSiz == n })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).VSiz != n })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).VSiz < n })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).VSiz > n })
+				}
+			} else {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			}
+		case "Reg", "region", "reg":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Reg == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Reg != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*snapItem).Reg, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*snapItem).Reg, opd) })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*snapItem).Reg) != "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*snapItem).Reg) == "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Vol", "volume", "vol":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Vol == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Vol != opd })
+			}
+		case "Par", "parent", "par":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Par == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Par != opd })
+			}
+		case "Desc", "description", "desc":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Desc == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Desc != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*snapItem).Desc, opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*snapItem).Desc, opd) })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*snapItem).Desc) != "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*snapItem).Desc) == "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] != opd })
+			case "[":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[1].(cmon.TagMap)[col], opd) })
+			case "]":
+				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[1].(cmon.TagMap)[col], opd) })
+			case "~":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) != "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			case "^":
+				if re, err := regexp.Compile(opd); err == nil {
+					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[1].(cmon.TagMap)[col]) == "" })
+				} else {
+					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
+				}
+			}
+		case "Since", "since":
+			if s := atos(opd); s > 0 {
+				switch op {
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Since < int(s) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Since > int(s) })
+				}
+			} else {
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			}
+		case "Rate", "rate", "ra":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch op {
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Rate < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Rate > float32(f) })
+				}
+			} else {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			}
+		default:
+			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
+		}
+		if nc == len(flt) {
+			return 0, nil, fmt.Errorf("%q operator not supported for %q column", op, col)
+		}
+	}
+	return d.Current - adj, flt, nil
+}
+
+func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
+	pg := smPage
+	acc.reqR()
+	for id, snap := range d.Snap {
+		if snap.Last < cur {
+			continue
+		}
+		tag := cmon.TagMap{}.Update(snap.Tag).Update(nTags(snap.Tag["Name"])).UpdateT("team", snap.Tag["SCRM_Group"]).Update(
+			settings.AWS.Accounts[snap.Acct]).Update(settings.AWS.Regions[snap.Reg])
+		if skip(flt, snap, tag) {
+			continue
+		} else if rows--; rows == 0 {
+			break
+		}
+
+		row := []string{
+			id,
+			snap.Acct + " " + settings.AWS.Accounts[snap.Acct]["~name"],
+			snap.Typ,
+			strconv.FormatFloat(float64(snap.Size), 'g', -1, 32),
+			strconv.FormatInt(int64(snap.VSiz), 10),
+			snap.Reg,
+			snap.Vol,
+			snap.Par,
+			snap.Desc,
+			tag["Name"],
+			tag["env"],
+			tag["dc"],
+			tag["product"],
+			tag["app"],
+			tag["cust"],
+			tag["team"],
+			tag["version"],
+			time.Unix(int64(snap.Since), 0).UTC().Format("2006-01-02 15:04:05"),
+			strconv.FormatFloat(float64(snap.Rate), 'g', -1, 32),
 		}
 		if pg--; pg >= 0 {
 			select {
@@ -1778,6 +2039,8 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 			cur, flt, err = det.filters(criteria)
 		case *rdsDetail:
 			cur, flt, err = det.filters(criteria)
+		case *snapDetail:
+			cur, flt, err = det.filters(criteria)
 		case *origSum:
 			switch n {
 			case "cdr.asp/term":
@@ -1808,6 +2071,8 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 		case *ebsDetail:
 			det.table(acc, res, rows, cur, flt)
 		case *rdsDetail:
+			det.table(acc, res, rows, cur, flt)
+		case *snapDetail:
 			det.table(acc, res, rows, cur, flt)
 		case *origSum:
 			switch n {

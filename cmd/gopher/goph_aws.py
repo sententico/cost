@@ -212,16 +212,17 @@ def gophSNAPAWS(model, settings, inputs, args):
                     pipe(s, {'id':      snap.get('SnapshotId',''),
                              'acct':    a,
                              'type':    snap.get('StorageTier','standard'),
-                             'vsiz':    snap.get('VolumeSize','0'),
+                             'vsiz':    str(snap.get('VolumeSize',0)),
                              'reg':     r,
                              'vol':     snap.get('VolumeId','vol-ffffffff'),
                              'desc':    snap.get('Description',''),
                              'tag':     '' if not snap.get('Tags') else '{}'.format('\t'.join([
                                         '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in snap['Tags'] if
-                                        t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
-                                        'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                        'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
-                             'since':   snap['StartTime'].isoformat() + 'Z',
+                                        t['Value'] not in {'','-','--','unknown','Unknown'} and (True or
+                                        t['Key'] in {'env','dc','product','app','role','cust','customer','team','group','alert','slack',
+                                        'version','release','build','stop','Name','SCRM_Group','SCRM_Instance_Stop'} or
+                                        t['Key'].startswith(('aws:')))])),
+                             'since':   snap['StartTime'].isoformat(),
                             })
     pipe(None, None)
 

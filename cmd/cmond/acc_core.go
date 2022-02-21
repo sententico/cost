@@ -149,7 +149,7 @@ type (
 		Tag   cmon.TagMap `json:"Tg,omitempty"`
 		Since int         `json:"Si"`
 		Last  int         `json:"La"`
-		Rate  float32     `json:"R"`
+		Rate  float32     `json:"R",omitempty`
 	}
 	snapDetail struct {
 		Current int
