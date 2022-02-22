@@ -662,7 +662,7 @@ func snapawsFeedback(m *model, event *modEvt) {
 			for _, item := range cur.m.data[1].(*curDetail).Line[now] {
 				if item.UOp != "CreateSnapshot" || !strings.HasPrefix(item.RID, "snapshot/") {
 				} else if ss, found := size[item.RID[9:]]; !found {
-				} else if cs := item.Usg / float32(item.Recs+1) * 365 / 12; cs > ss {
+				} else if cs := item.Usg / float32(item.Recs>>recsShift+1) * 365 / 12; cs > ss {
 					// TODO: investigate calculations that better account for initial/final days
 					size[item.RID[9:]] = cs
 				}

@@ -10,6 +10,7 @@ import  subprocess
 import  random
 import  csv
 import  boto3
+import  botocore
 from    botocore.exceptions     import  ProfileNotFound,ClientError,EndpointConnectionError,ConnectionClosedError
 #import  datadog
 #import  awslib.patterns         as      aws
@@ -192,9 +193,9 @@ def gophRDSAWS(model, settings, inputs, args):
 def gophSNAPAWS(model, settings, inputs, args):
     '''Fetch EBS snapshot detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    pipe,flt,prof,sts = getWriter(model, [
+    flt,prof,pipe,cfg,sts = str.maketrans('\t',' ','='), settings['AWS']['Profiles'], getWriter(model, [
         'id','acct','type','vsiz','reg','vol','desc','tag','since',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+    ]), botocore.config.Config(read_timeout=300), boto3.client('sts')
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
@@ -205,7 +206,7 @@ def gophSNAPAWS(model, settings, inputs, args):
         else: session = boto3.Session(profile_name=a)
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
-            ec2, s = session.client('ec2', region_name=r), a+':'+r
+            ec2, s = session.client('ec2', region_name=r, config=cfg), a+':'+r
             for page in ec2.get_paginator('describe_snapshots').paginate(OwnerIds=[a]):
                 for snap in page['Snapshots']:
                     if snap.get('State') != 'completed': continue
