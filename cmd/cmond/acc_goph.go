@@ -444,7 +444,7 @@ func snapawsInsert(acc *modAcc, item map[string]string, now int) {
 			rr = append(rr, snapRefs.FindAllString(t, -1)...)
 		}
 		for _, r := range rr {
-			if strings.HasPrefix(r, "snap-") {
+			if strings.HasPrefix(r, "snap-") && r != id {
 				if p := detail.Snap[r]; p == nil {
 					snap.Par = r
 				} else if p.VSiz == snap.VSiz {
@@ -453,7 +453,7 @@ func snapawsInsert(acc *modAcc, item map[string]string, now int) {
 				} else if snap.Par == r {
 					snap.Par = ""
 				}
-			} else if strings.HasPrefix(r, "vol-") {
+			} else if strings.HasPrefix(r, "vol-") && snap.Vol == "" {
 				snap.Vol = r
 			}
 		}
