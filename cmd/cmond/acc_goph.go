@@ -60,7 +60,7 @@ var (
 		"~":   "gopher",       // command type
 	}
 
-	snapR = regexp.MustCompile(`for SourceSnapshot (?P<par>snap-[0-9a-f]{8,17})\.|Cross-account copy .+ (?P<vol>vol-[0-9a-f]{8,17}) \(`)
+	snapRefs = regexp.MustCompile(`\b(snap|vol)-([0-9a-f]{8}|[0-9a-f]{17})\b`)
 )
 
 func fetch(acc *modAcc, insert func(*modAcc, map[string]string, int), meta bool) (items int) {
@@ -399,7 +399,7 @@ func snapawsInsert(acc *modAcc, item map[string]string, now int) {
 		for r, pr := 0, 1; pr > 0; r, pr = 0, r { // fix resolvable Vol references
 			for _, snap := range detail.Snap {
 				if snap.Vol != "" {
-				} else if p := detail.Snap[snap.Par]; p != nil && p.Vol != "" {
+				} else if p := detail.Snap[snap.Par]; p != nil && p.VSiz == snap.VSiz && p.Vol != "" {
 					snap.Vol = p.Vol
 					r++
 				}
@@ -438,19 +438,23 @@ func snapawsInsert(acc *modAcc, item map[string]string, now int) {
 	} else {
 		snap.Tag = nil
 	}
-	if snap.Vol == "" && (snap.Desc != "" || snap.Tag != nil) { // TODO: expand desc/tag parsing to improve reference resolution
-		for m, i := snapR.FindStringSubmatch(snap.Desc), 1; i < len(m); i++ {
-			if m[i] != "" {
-				switch snapR.SubexpNames()[i] { // TODO: evaluate using size check for Vol resolution
-				case "par":
-					snap.Par = m[i]
-					if p := detail.Snap[snap.Par]; p != nil {
-						snap.Vol = p.Vol
-					}
-				case "vol":
-					snap.Vol = m[i]
+	if snap.Vol == "" && (snap.Desc != "" || snap.Tag != nil) { // scan metadata to resolve Par/Vol references
+		rr := snapRefs.FindAllString(snap.Desc, -1)
+		for _, t := range snap.Tag {
+			rr = append(rr, snapRefs.FindAllString(t, -1)...)
+		}
+		for _, r := range rr {
+			if strings.HasPrefix(r, "snap-") {
+				if p := detail.Snap[r]; p == nil {
+					snap.Par = r
+				} else if p.VSiz == snap.VSiz {
+					snap.Par, snap.Vol = r, p.Vol
+					break
+				} else if snap.Par == r {
+					snap.Par = ""
 				}
-				break
+			} else if strings.HasPrefix(r, "vol-") {
+				snap.Vol = r
 			}
 		}
 	}
