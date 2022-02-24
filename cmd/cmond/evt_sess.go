@@ -563,6 +563,7 @@ func ec2awsFeedback(m *model, event *modEvt) {
 	switch event.name {
 	case "cur.aws":
 		type feedback struct {
+			off         uint32
 			plat        string
 			spot        bool
 			usage, cost float32
@@ -608,8 +609,10 @@ func ec2awsFeedback(m *model, event *modEvt) {
 						f.cost += item.Cost
 					}
 					if p := ec2P.FindString(item.Desc); p != "" {
-						if f.plat = pmap[p]; strings.HasSuffix(p, " Spot") {
-							f.spot = true
+						if off := item.Recs & toffMask; off >= f.off {
+							if f.off, f.plat = off, pmap[p]; strings.HasSuffix(p, " Spot") {
+								f.spot = true
+							}
 						}
 						f.usage += item.Usg
 					}
