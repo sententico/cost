@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	curItemMin = 3.7e-7 // minimum CUR line item cost to avoid truncation
-	curItemDev = 0.02   // deviation limit from mean hourly line item cost to elide usage detail
+	curItemMin = 3e-7 // minimum CUR line item cost to avoid truncation
+	curItemDev = 0.02 // deviation limit from mean hourly line item cost to elide usage detail
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
