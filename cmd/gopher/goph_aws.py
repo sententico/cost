@@ -231,10 +231,10 @@ def gophCURAWS(model, settings, inputs, args):
     '''Fetch CUR (Cost & Usage Report) line item detail from AWS'''
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     if not settings.get('AWS',{}).get('CUR'): raise GError('no CUR settings for {}'.format(model))
-    pipe,cur,head,ids,s = getWriter(model, [
+    pipe,cur,edp,head,ids,s = getWriter(model, [
         'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
         'name','env','dc','prod','app','cust','team','ver',
-    ]), settings['AWS']['CUR'], {}, {}, ""
+    ]), settings['AWS']['CUR'], settings['AWS'].get('EDPAdj',1.0), {}, {}, ""
 
     def getcid(id):
         '''Return cached compact line item ID with new-reference flag; full IDs unnecessarily large'''
@@ -262,6 +262,7 @@ def gophCURAWS(model, settings, inputs, args):
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
                 col.append('')                                                  # default value for missing columns
+                t = col[head['lineItem/LineItemType']]
                 typ = { 'Usage':                                'usage',
                         'DiscountedUsage':                      'RI usage',
                         'RIFee':                                'RI unused',
@@ -275,7 +276,7 @@ def gophCURAWS(model, settings, inputs, args):
                         'Credit':                               'CSC/WMP/credit',
                         'Tax':                                  'tax',
                         'SavingsPlanNegation':                  'skip',
-                      }.get(col[head['lineItem/LineItemType']], 'unknown')
+                      }.get(t, 'unknown')
                 if typ == 'skip': continue
                 id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]; rec = {
                     'id':       id,                                             # compact line item ID
@@ -294,7 +295,7 @@ def gophCURAWS(model, settings, inputs, args):
                                                       col[head['savingsPlan/TotalCommitmentToDate']])-float(
                                                       col[head['savingsPlan/UsedCommitment']]))
                     except ValueError: continue
-                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']]
+                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']]*(edp if t=='EdpDiscount' else 1.0)
 
                 if new:
                     svc,uop,az,rid,end,nm =\

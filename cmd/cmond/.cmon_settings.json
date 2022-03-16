@@ -57,6 +57,7 @@
 		"SavCov":	0.7,
 		"SpotDisc":	0.65,
 		"UsageAdj":	0.94,
+		"EDPAdj":	0.77777778,
 		"CUR": {
 			"account":	"60118068xxxx",
 			"bucket":	"cost-reporting/CUR/hourly",
