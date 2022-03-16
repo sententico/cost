@@ -295,7 +295,8 @@ def gophCURAWS(model, settings, inputs, args):
                                                       col[head['savingsPlan/TotalCommitmentToDate']])-float(
                                                       col[head['savingsPlan/UsedCommitment']]))
                     except ValueError: continue
-                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']]*(edp if t=='EdpDiscount' else 1.0)
+                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']] if t!='EdpDiscount' or edp==1.0 else str(float(
+                                                      col[head['lineItem/UnblendedCost']])*edp)
 
                 if new:
                     svc,uop,az,rid,end,nm =\
