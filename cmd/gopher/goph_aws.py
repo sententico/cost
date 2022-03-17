@@ -262,7 +262,6 @@ def gophCURAWS(model, settings, inputs, args):
                 for col in csv.reader([l]): break
                 if len(col) != len(head): continue
                 col.append('')                                                  # default value for missing columns
-                t = col[head['lineItem/LineItemType']]
                 typ = { 'Usage':                                'usage',
                         'DiscountedUsage':                      'RI usage',
                         'RIFee':                                'RI unused',
@@ -276,7 +275,7 @@ def gophCURAWS(model, settings, inputs, args):
                         'Credit':                               'CSC/WMP/credit',
                         'Tax':                                  'tax',
                         'SavingsPlanNegation':                  'skip',
-                      }.get(t, 'unknown')
+                      }.get(col[head['lineItem/LineItemType']], 'unknown')
                 if typ == 'skip': continue
                 id,new = getcid(col[0]); hour = col[head['lineItem/UsageStartDate']]; rec = {
                     'id':       id,                                             # compact line item ID
@@ -295,7 +294,9 @@ def gophCURAWS(model, settings, inputs, args):
                                                       col[head['savingsPlan/TotalCommitmentToDate']])-float(
                                                       col[head['savingsPlan/UsedCommitment']]))
                     except ValueError: continue
-                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']] if t!='EdpDiscount' or edp==1.0 else str(float(
+                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']] if (
+                                                      col[head['lineItem/LineItemDescription']]!='Enterprise Program Discount' or
+                                                      edp==1.0) else str(float(
                                                       col[head['lineItem/UnblendedCost']])*edp)
 
                 if new:
