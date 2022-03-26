@@ -80,7 +80,7 @@ def getWriter(m, cols):
 def getTagFilter(settings):
     '''Return a tag filter closure for filtering and mapping AWS resource tags'''
     ts = settings['AWS'].get('Tags',{})
-    incl,prefixes,tmap = set(ts.get('include',[])), tuple(set(ts.get('prefixes',[])).add('cmon:')), {k:v
+    incl,prefixes,tmap = set(ts.get('include',[])), tuple(set(['cmon:']+ts.get('prefixes',[]))), {k:v
                          for k,v in ts.items() if k.startswith('cmon:') and v and type(v) is list}
     aliases = set().union(*tmap.values())
 
