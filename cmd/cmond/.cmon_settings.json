@@ -10,6 +10,7 @@
 		"ec2.aws":	".cmon_ec2aws.json",
 		"ebs.aws":	".cmon_ebsaws.json",
 		"rds.aws":	".cmon_rdsaws.json",
+		"snap.aws":	".cmon_snapaws.json",
 		"cur.aws":	".cmon_curaws.gob",
 		"cdr.asp":	".cmon_cdrasp.gob"
 	},
@@ -67,13 +68,26 @@
 			"region":	"us-east-2",
 			"from":		"xxx"
 		},
+		"Tags": {
+			"prefixes":	["aws:","SCRM_"],
+			"include":	["<placeholder...>"],
+			"cmon:Name":["Name"],
+			"cmon:Env":	["Environment","env"],
+			"cmon:Cust":["Customer","customer","cust"],
+			"cmon:Oper":["BusinessUnit","team","group","SCRM_Group"],
+			"cmon:Prod":["Application","prod","product"],
+			"cmon:Role":["Role","app"],
+			"cmon:Ver":	["Version","ver","version","release","build"],
+			"cmon:Prov":["ProductVendor","dc"]
+		},
 		"Regions": {
-			"USE2": {"dc":"cmh"},"us-east-2": {"dc":"cmh"},
-			"USW1": {"dc":"sfo"},"us-west-1": {"dc":"sfo"},
-			"USW2": {"dc":"eug"},"us-west-2": {"dc":"eug"},
-			"EUW1": {"dc":"dub"},"eu-west-1": {"dc":"dub"},
-			"EUW2": {"dc":"lgw"},"eu-west-2": {"dc":"lgw"},
-			"APS2": {"dc":"syd"},"ap-southeast-2": {"dc":"syd"}
+			"USE1": {"cmon:Prov":"iad"},"us-east-1": {"cmon:Prov":"iad"},
+			"USE2": {"cmon:Prov":"cmh"},"us-east-2": {"cmon:Prov":"cmh"},
+			"USW1": {"cmon:Prov":"sfo"},"us-west-1": {"cmon:Prov":"sfo"},
+			"USW2": {"cmon:Prov":"eug"},"us-west-2": {"cmon:Prov":"eug"},
+			"EUW1": {"cmon:Prov":"dub"},"eu-west-1": {"cmon:Prov":"dub"},
+			"EUW2": {"cmon:Prov":"lgw"},"eu-west-2": {"cmon:Prov":"lgw"},
+			"APS2": {"cmon:Prov":"syd"},"ap-southeast-2": {"cmon:Prov":"syd"}
 		},
 		"Profiles": {
 			"minimum": {
@@ -110,100 +124,100 @@
 		},
 		"Accounts": {
 			"60118068xxxx": {
-				"env":"corp",
+				"cmon:Env":"corp",
 				"~name":"master corp","~profile":"minimum"
 			},"51836994xxxx": {
-				"env":"dev","prod":"via","team":"apsdevops",
+				"cmon:Env":"dev","cmon:Prod":"via","cmon:Oper":"apsdevops",
 				"~name":"APS EMEA dev"
 			},"54260377xxxx": {
-				"env":"dev","prod":"via","team":"via",
+				"cmon:Env":"dev","cmon:Prod":"via","cmon:Oper":"via",
 				"~name":"Brooklyn dev","~profile":"us"
 			},"67313867xxxx": {
-				"env":"dev","prod":"via",
+				"cmon:Env":"dev","cmon:Prod":"via",
 				"~name":"Brooklyn DR dev","~profile":"minimum"
 			},"92718524xxxx": {
-				"env":"dev","prod":"via.core",
+				"cmon:Env":"dev","cmon:Prod":"via.core",
 				"~name":"Cloudcore dev","~profile":"us"
 			},"48487887xxxx": {
-				"env":"dev","prod":"via.cxp","team":"cxp",
+				"cmon:Env":"dev","cmon:Prod":"via.cxp","cmon:Oper":"cxp",
 				"~name":"Brooklyn CXP dev","~profile":"us east 1"
 			},"60672150xxxx": {
-				"env":"dev",
+				"cmon:Env":"dev",
 				"~name":"infrastr dev","~profile":"global"
 			},"21165647xxxx": {
-				"env":"dev","prod":"via.core","team":"mmd",
+				"cmon:Env":"dev","cmon:Prod":"via.core","cmon:Oper":"mmd",
 				"~name":"Manhattan dev","~profile":"us east 1"
 			},"00792578xxxx": {
-				"env":"dev",
+				"cmon:Env":"dev",
 				"~name":"arch dev","~profile":"us east 1"
 			},"93135332xxxx": {
-				"env":"dev","prod":"pes","team":"pes",
+				"cmon:Env":"dev","cmon:Prod":"pes","cmon:Oper":"pes",
 				"~name":"PES dev","~profile":"us east 1"
 			},"21344666xxxx": {
-				"env":"dev",
+				"cmon:Env":"dev",
 				"~name":"QA dev","~profile":"us east 1"
 			},"01880576xxxx": {
-				"env":"dev","team":"scrm",
+				"cmon:Env":"dev","cmon:Oper":"scrm",
 				"~name":"SCRM dev","~profile":"us east 1"
 			},"27177350xxxx": {
-				"env":"dev","prod":"wfm",
+				"cmon:Env":"dev","cmon:Prod":"wfm",
 				"~name":"WFM dev","~profile":"minimum"
 			},"99187950xxxx": {
-				"env":"dev","prod":"zipwire","team":"zipwire",
+				"cmon:Env":"dev","cmon:Prod":"zipwire","cmon:Oper":"zipwire",
 				"~name":"Zipwire dev","~profile":"minimum"
 			},"09399977xxxx": {
-				"env":"corp",
+				"cmon:Env":"corp",
 				"~name":"demo corp","~profile":"us east"
 			},"92283734xxxx": {
-				"env":"prod","prod":"via.cec","team":"apsdevops",
+				"cmon:Env":"prod","cmon:Prod":"via.cec","cmon:Oper":"apsdevops",
 				"~name":"APS","~profile":"global"
 			},"23663071xxxx": {
-				"env":"dev","prod":"via","team":"apsdevops",
+				"cmon:Env":"dev","cmon:Prod":"via","cmon:Oper":"apsdevops",
 				"~name":"APS dev","~profile":"us east 1"
 			},"17590786xxxx": {
-				"env":"prod","prod":"via","team":"via",
+				"cmon:Env":"prod","cmon:Prod":"via","cmon:Oper":"via",
 				"~name":"Brooklyn","~profile":"global"
 			},"63752713xxxx": {
-				"env":"prod","prod":"via.cxp","team":"cxp",
+				"cmon:Env":"prod","cmon:Prod":"via.cxp","cmon:Oper":"cxp",
 				"~name":"Brooklyn CXP","~profile":"global"
 			},"72621510xxxx": {
-				"env":"prod","prod":"cxp",
+				"cmon:Env":"prod","cmon:Prod":"cxp",
 				"~name":"CXP storage"
 			},"49278054xxxx": {
-				"env":"prod","prod":"cxp",
+				"cmon:Env":"prod","cmon:Prod":"cxp",
 				"~name":"CXP","~profile":"global"
 			},"50142472xxxx": {
-				"env":"prod","prod":"cxp",
+				"cmon:Env":"prod","cmon:Prod":"cxp",
 				"~name":"CXP staging","~profile":"global"
 			},"12740300xxxx": {
-				"env":"prod","prod":"via.core",
+				"cmon:Env":"prod","cmon:Prod":"via.core",
 				"~name":"Cloudcore","~profile":"global"
 			},"63490147xxxx": {
-				"env":"prod","prod":"uip",
+				"cmon:Env":"prod","cmon:Prod":"uip",
 				"~name":"AQM","~profile":"minimum"
 			},"89697156xxxx": {
-				"env":"prod","prod":"via.core",
+				"cmon:Env":"prod","cmon:Prod":"via.core",
 				"~name":"Manhattan","~profile":"global"
 			},"53760168xxxx": {
-				"env":"prod","prod":"zipwire",
+				"cmon:Env":"prod","cmon:Prod":"zipwire",
 				"~name":"Zipwire","~profile":"global"
 			},"99074492xxxx": {
-				"env":"prod","prod":"cxp",
+				"cmon:Env":"prod","cmon:Prod":"cxp",
 				"~name":"CXP ops"
 			},"16279043xxxx": {
-				"env":"sandbox","prod":"via.core",
+				"cmon:Env":"sandbox","cmon:Prod":"via.core",
 				"~name":"tools dev","~profile":"us"
 			},"04205083xxxx": {
-				"env":"prod","prod":"pes","team":"pes",
+				"cmon:Env":"prod","cmon:Prod":"pes","cmon:Oper":"pes",
 				"~name":"PES","~profile":"eu west"
 			},"76857544xxxx": {
-				"env":"prod","prod":"via",
+				"cmon:Env":"prod","cmon:Prod":"via",
 				"~name":"Transit VPC","~profile":"global"
 			},"84147897xxxx": {
-				"env":"prod","prod":"cxp","team":"cxp",
+				"cmon:Env":"prod","cmon:Prod":"cxp","cmon:Oper":"cxp",
 				"~name":"VoD","~profile":"global"
 			},"28633427xxxx": {
-				"env":"prod","prod":"wfm",
+				"cmon:Env":"prod","cmon:Prod":"wfm",
 				"~name":"WFM","~profile":"global"
 			}
 		}
