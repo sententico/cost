@@ -173,19 +173,19 @@ type (
 		UTyp string    `json:"UT,omitempty"`
 		UOp  string    `json:"UO,omitempty"`
 		Reg  string    `json:"L,omitempty"`
-		RID  string    `json:"R,omitempty"`
-		Desc string    `json:"De,omitempty"`
+		RID  string    `json:"I,omitempty"`
+		Desc string    `json:"D,omitempty"`
 		Name string    `json:"N,omitempty"`
 		Env  string    `json:"E,omitempty"`
-		DC   string    `json:"D,omitempty"`
-		Prod string    `json:"P,omitempty"`
-		App  string    `json:"Ap,omitempty"`
 		Cust string    `json:"Cu,omitempty"`
-		Team string    `json:"Te,omitempty"`
+		Oper string    `json:"O,omitempty"`
+		Prod string    `json:"P,omitempty"`
+		Role string    `json:"Ro,omitempty"`
 		Ver  string    `json:"V,omitempty"`
+		Prov string    `json:"Pv,omitempty"`
 		HMap []uint32  `json:"H,omitempty"`  // range hrs (+base) | usage (index/value) | base (mo-hr offset) [alt: 0b110 | Recs-offset bit-map]
 		HUsg []float32 `json:"HU,omitempty"` // hourly usage (offset by Recs from mo-hr or indexed by HMap)
-		Recs uint32    `json:"Re,omitempty"` // CUR records (count-1) | from | to (mo-hr offsets)
+		Recs uint32    `json:"R,omitempty"`  // CUR records (count-1) | from | to (mo-hr offsets)
 		Usg  float32   `json:"U"`
 		Cost float32   `json:"C"`
 	}

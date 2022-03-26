@@ -27,13 +27,13 @@ var (
 		"":      "wea_test.py", // default weasel
 		"~":     "weasel",      // command type
 	}
-	aspN = regexp.MustCompile(`\b(?P<cust>[a-z][a-z\d-]{1,11})(?P<version>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<app>[a-z]{0,8}?)[\dpr]?\b`)
+	alvN = regexp.MustCompile(`\b(?P<Cust>[a-z][a-z\d-]{1,11})(?P<Ver>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<Role>[a-z]{0,8}?)[\dpr]?\b`)
 	// filter criteria operators...
 	//  = equals		! not equals
 	//  < less/before	> greater/after
 	//  [ prefix		] suffix
 	//  ~ regex match	^ regex non-match
-	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w%]*?)\s*(?P<op>[=!<>[\]~^])(?P<opd>.*)$`)
+	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w:%]*?)\s*(?P<op>[=!<>[\]~^])(?P<opd>.*)$`)
 )
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
@@ -463,10 +463,10 @@ func active(since, last int, ap []int) float32 {
 func nTags(name string) (t cmon.TagMap) {
 	switch settings.Unit {
 	case "cmon-aspect", "cmon-alvaria":
-		if v := aspN.FindStringSubmatch(name); v != nil {
+		if v := alvN.FindStringSubmatch(name); v != nil {
 			t = make(cmon.TagMap)
-			for i, k := range aspN.SubexpNames()[1:] {
-				t[k] = v[i+1]
+			for i, k := range alvN.SubexpNames()[1:] {
+				t["cmon:"+k] = v[i+1]
 			}
 		}
 	}
@@ -633,7 +633,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Spot != opd })
 			}
-		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -779,9 +779,9 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		if inst.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
-		if tag.Update(settings.AWS.Accounts[inst.Acct]); inst.AZ != "" {
-			tag.Update(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]])
+		tag := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
+		if tag.UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:"); inst.AZ != "" {
+			tag.UpdateP(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]], "cmon:")
 		}
 		if skip(flt, inst, tag) {
 			continue
@@ -798,14 +798,14 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			inst.AZ,
 			inst.AMI,
 			inst.Spot,
-			tag["Name"],
-			tag["env"],
-			tag["dc"],
-			tag["product"],
-			tag["app"],
-			tag["cust"],
-			tag["team"],
-			tag["version"],
+			tag["cmon:Name"],
+			tag["cmon:Env"],
+			tag["cmon:Cust"],
+			tag["cmon:Oper"],
+			tag["cmon:Prod"],
+			tag["cmon:Role"],
+			tag["cmon:Ver"],
+			tag["cmon:Prov"],
 			inst.State,
 			time.Unix(int64(inst.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(inst.Since, inst.Last, inst.Active)), 'g', -1, 32),
@@ -963,7 +963,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -1106,7 +1106,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			defer ec2.rel()
 			for id := range itags {
 				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-					itags[id] = cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
+					itags[id] = cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
 				}
 			}
 		}()
@@ -1118,9 +1118,9 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		if vol.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.Update(vol.Tag).Update(nTags(vol.Tag["Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]]).UpdateT("team", vol.Tag["SCRM_Group"])
-		if tag.Update(settings.AWS.Accounts[vol.Acct]); vol.AZ != "" {
-			tag.Update(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]])
+		tag := cmon.TagMap{}.UpdateP(vol.Tag, "cmon:").Update(nTags(vol.Tag["cmon:Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]])
+		if tag.UpdateP(settings.AWS.Accounts[vol.Acct], "cmon:"); vol.AZ != "" {
+			tag.UpdateP(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]], "cmon:")
 		}
 		if skip(flt, vol, tag) {
 			continue
@@ -1136,14 +1136,14 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			strconv.FormatInt(int64(vol.IOPS), 10),
 			vol.AZ,
 			vol.Mount,
-			tag["Name"],
-			tag["env"],
-			tag["dc"],
-			tag["product"],
-			tag["app"],
-			tag["cust"],
-			tag["team"],
-			tag["version"],
+			tag["cmon:Name"],
+			tag["cmon:Env"],
+			tag["cmon:Cust"],
+			tag["cmon:Oper"],
+			tag["cmon:Prod"],
+			tag["cmon:Role"],
+			tag["cmon:Ver"],
+			tag["cmon:Prov"],
 			vol.State,
 			time.Unix(int64(vol.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
@@ -1361,7 +1361,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[2].(cmon.TagMap)[col] == opd })
@@ -1490,24 +1490,22 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 }
 
 func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
-	var name, az string
+	var az string
 	pg := smPage
 	acc.reqR()
 	for id, db := range d.DB {
-		var tag cmon.TagMap
 		if db.Last < cur {
 			continue
-		} else if name = db.Tag["Name"]; name == "" {
-			s := strings.Split(id, ":")
-			name = s[len(s)-1]
-			tag.UpdateT("Name", name)
-		}
-		if az = db.AZ; db.MultiAZ {
+		} else if az = db.AZ; db.MultiAZ {
 			az += "+"
 		}
-		tag = tag.Update(db.Tag).Update(nTags(name)).UpdateT("team", db.Tag["SCRM_Group"])
-		if tag.Update(settings.AWS.Accounts[db.Acct]); db.AZ != "" {
-			tag.Update(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]])
+		tag := cmon.TagMap{}.UpdateP(db.Tag, "cmon:")
+		if tag["cmon:Name"] == "" {
+			s := strings.Split(id, ":")
+			tag.UpdateT("cmon:Name", s[len(s)-1])
+		}
+		if tag.Update(nTags(tag["cmon:Name"])).UpdateP(settings.AWS.Accounts[db.Acct], "cmon:"); db.AZ != "" {
+			tag.UpdateP(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]], "cmon:")
 		}
 		if skip(flt, db, az, tag) {
 			continue
@@ -1526,14 +1524,14 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			db.Ver,
 			db.Lic,
 			az,
-			name,
-			tag["env"],
-			tag["dc"],
-			tag["product"],
-			tag["app"],
-			tag["cust"],
-			tag["team"],
-			tag["version"],
+			tag["cmon:Name"],
+			tag["cmon:Env"],
+			tag["cmon:Cust"],
+			tag["cmon:Oper"],
+			tag["cmon:Prod"],
+			tag["cmon:Role"],
+			tag["cmon:Ver"],
+			tag["cmon:Prov"],
 			db.State,
 			time.Unix(int64(db.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(db.Since, db.Last, db.Active)), 'g', -1, 32),
@@ -1704,7 +1702,7 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Name", "env", "dc", "product", "app", "cust", "team", "version":
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -1766,8 +1764,8 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 		if snap.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.Update(snap.Tag).Update(nTags(snap.Tag["Name"])).UpdateT("team", snap.Tag["SCRM_Group"]).Update(
-			settings.AWS.Accounts[snap.Acct]).Update(settings.AWS.Regions[snap.Reg])
+		tag := cmon.TagMap{}.UpdateP(snap.Tag, "cmon:").Update(nTags(snap.Tag["cmon:Name"])).UpdateP(
+			settings.AWS.Accounts[snap.Acct], "cmon:").UpdateP(settings.AWS.Regions[snap.Reg], "cmon:")
 		if skip(flt, snap, tag) {
 			continue
 		} else if rows--; rows == 0 {
@@ -1784,14 +1782,14 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 			snap.Vol,
 			snap.Par,
 			snap.Desc,
-			tag["Name"],
-			tag["env"],
-			tag["dc"],
-			tag["product"],
-			tag["app"],
-			tag["cust"],
-			tag["team"],
-			tag["version"],
+			tag["cmon:Name"],
+			tag["cmon:Env"],
+			tag["cmon:Cust"],
+			tag["cmon:Oper"],
+			tag["cmon:Prod"],
+			tag["cmon:Role"],
+			tag["cmon:Ver"],
+			tag["cmon:Prov"],
 			time.Unix(int64(snap.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(snap.Rate), 'g', -1, 32),
 		}
@@ -2288,7 +2286,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Name", "name":
+		case "cmon:Name", "Name", "name":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Name == opd })
@@ -2311,7 +2309,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "env", "dc", "product", "app", "cust", "team", "version":
+		case "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -2485,6 +2483,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				return nil
 			}
 		}
+
 		return []string{
 			id,
 			dts,
@@ -2497,13 +2496,13 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 			li.RID,
 			li.Desc,
 			li.Name,
-			tag["env"],
-			tag["dc"],
-			tag["product"],
-			tag["app"],
-			tag["cust"],
-			tag["team"],
-			tag["version"],
+			tag["cmon:Env"],
+			tag["cmon:Cust"],
+			tag["cmon:Oper"],
+			tag["cmon:Prod"],
+			tag["cmon:Role"],
+			tag["cmon:Ver"],
+			tag["cmon:Prov"],
 			strconv.FormatInt(int64(rec), 10),
 			strconv.FormatFloat(float64(usg), 'g', -1, 32),
 			strconv.FormatFloat(float64(cost), 'g', -1, 32),
@@ -2575,7 +2574,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				defer ec2.rel()
 				for id := range itags {
 					if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-						itags[id] = cmon.TagMap{}.Update(inst.Tag).Update(nTags(inst.Tag["Name"])).UpdateT("team", inst.Tag["SCRM_Group"])
+						itags[id] = cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
 					}
 				}
 			}()
@@ -2609,15 +2608,15 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 						}
 					}
 					if tag := (cmon.TagMap{
-						"env":     li.Env,
-						"dc":      li.DC,
-						"product": li.Prod,
-						"app":     li.App,
-						"cust":    li.Cust,
-						"team":    li.Team, // TODO: make SCRM_Group tag available as default?
-						"version": li.Ver,
-					}).Update(nTags(li.Name)).Update(nTags(li.RID)).Update(itags[vinst[li.RID]]).Update(
-						settings.AWS.Accounts[li.Acct]).Update(settings.AWS.Regions[li.Reg]); skip(flt, li, tag) {
+						"cmon:Env":  li.Env,
+						"cmon:Cust": li.Cust,
+						"cmon:Oper": li.Oper,
+						"cmon:Prod": li.Prod,
+						"cmon:Role": li.Role,
+						"cmon:Ver":  li.Ver,
+						"cmon:Prov": li.Prov,
+					}).Update(nTags(li.Name)).Update(nTags(li.RID)).Update(itags[vinst[li.RID]]).UpdateP(
+						settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg], "cmon:"); skip(flt, li, tag) {
 						continue
 					} else if item := cur.table(li, ifr, ito, units, trunc, id, tag, dts, rflt); item != nil {
 						for row := item(); row != nil; row = item() {

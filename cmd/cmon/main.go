@@ -239,19 +239,15 @@ func tableCmd() {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	if client.Close(); len(r) > 0 {
-		switch args.model {
+		switch tags := ",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov"; args.model {
 		case "ec2.aws":
-			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,AMI,Spot," +
-				"Name,env,dc,product,app,cust,team,version,State,Since,Active%,ORate,Rate")
+			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,AMI,Spot" + tags + ",State,Since,Active%,ORate,Rate")
 		case "ebs.aws":
-			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount," +
-				"Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate")
+			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount" + tags + ",State,Since,Active%,Rate")
 		case "rds.aws":
-			fmt.Println("DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ," +
-				"Name,env,dc,product,app,cust,team,version,State,Since,Active%,Rate")
+			fmt.Println("DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ" + tags + ",State,Since,Active%,Rate")
 		case "snap.aws":
-			fmt.Println("Snap,Acct,Type,Size,VSiz,Reg,Vol,Par,Desc," +
-				"Name,env,dc,product,app,cust,team,version,Since,Rate")
+			fmt.Println("Snap,Acct,Type,Size,VSiz,Reg,Vol,Par,Desc" + tags + ",Since,Rate")
 		case "cdr.asp/term", "cdr.asp/orig":
 			fmt.Println("CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin")
 		}
@@ -291,8 +287,8 @@ func curtabCmd() {
 		if len(r) == args.rows {
 			warn = " [row max]"
 		}
-		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID"+
-			",Item Description,Name,env,dc,product,app,cust,team,version,Recs,Usage,Billed\n", warn, unit)
+		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description"+
+			",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov,Recs,Usage,Billed\n", warn, unit)
 		for _, row := range r {
 			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
 		}

@@ -31,6 +31,7 @@ type (
 		SavCov, SpotDisc, UsageAdj, EDPAdj float32
 		CUR                                map[string]string
 		SES                                map[string]string
+		Tags                               map[string][]string
 		Profiles                           map[string]map[string]float32
 		Regions, Accounts                  map[string]TagMap
 	}
@@ -247,12 +248,27 @@ func (t TagMap) Update(u TagMap) TagMap {
 	return t
 }
 
+// UpdateP method on TagMap ...
+func (t TagMap) UpdateP(u TagMap, p string) TagMap {
+	if p == "" {
+		return t.Update(u)
+	} else if t == nil {
+		t = make(TagMap)
+	}
+	for k, v := range u {
+		if v != "" && strings.HasPrefix(k, p) && t[k] == "" {
+			t[k] = v
+		}
+	}
+	return t
+}
+
 // UpdateT method on TagMap ...
 func (t TagMap) UpdateT(k, v string) TagMap {
 	if t == nil {
 		t = make(TagMap)
 	}
-	if v != "" && k != "" && k[0] != '~' && t[k] == "" {
+	if v != "" && k != "" && t[k] == "" {
 		t[k] = v
 	}
 	return t

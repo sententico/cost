@@ -77,12 +77,35 @@ def getWriter(m, cols):
             sys.stdout.write('\n#!end gopher {} # at {}\n'.format(m, datetime.now().isoformat()))
     return csvWrite
 
+def getTagFilter(settings):
+    '''Return a tag filter closure for filtering and mapping AWS resource tags'''
+    ts = settings['AWS'].get('Tags',{})
+    incl,prefixes,tmap = set(ts.get('include',[])), tuple(set(ts.get('prefixes',[])).add('cmon:')), {k:v
+                         for k,v in ts.items() if k.startswith('cmon:') and v and type(v) is list}
+    aliases = set().union(*tmap.values())
+
+    def filterTags(tl):
+        nonlocal incl, prefixes, tmap, aliases
+        td, ad = {}, {}
+        for t in tl:
+            k,v = t['Key'], t['Value']
+            if  v in {'','--','unknown','Unknown'}:     continue
+            if  k in aliases:                           ad[k] = v
+            if  k in incl or k.startswith(prefixes):    td[k] = v
+        for t,al in tmap.items():
+            if t not in td:
+                for a in al:
+                    if a in ad:                         td[t] = ad[a]; break
+        return td
+    return filterTags
+
 def gophEC2AWS(model, settings, inputs, args):
     '''Fetch EBS volume detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    pipe,flt,prof,sts = getWriter(model, [
+    tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
@@ -104,20 +127,18 @@ def gophEC2AWS(model, settings, inputs, args):
                          'ami':     '' if not i.image_id else i.image_id,
                          'state':   i.state.get('Name',''),
                          'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
-                         'tag':     '' if not i.tags else '{}'.format('\t'.join([
-                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in i.tags if
-                                    t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
-                                    'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                    'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+                         'tag':     '' if not i.tags else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                                    for k,v in tagf(i.tags).items()]),
                         })
     pipe(None, None)
 
 def gophEBSAWS(model, settings, inputs, args):
     '''Fetch EC2 instance detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    pipe,flt,prof,sts = getWriter(model, [
+    tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
@@ -140,20 +161,18 @@ def gophEBSAWS(model, settings, inputs, args):
                          'mount':   '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
-                         'tag':     '' if not v.tags else '{}'.format('\t'.join([
-                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in v.tags if
-                                    t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
-                                    'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                    'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+                         'tag':     '' if not v.tags else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                                    for k,v in tagf(v.tags).items()]),
                         })
     pipe(None, None)
 
 def gophRDSAWS(model, settings, inputs, args):
     '''Fetch RDS database detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    pipe,flt,prof,sts = getWriter(model, [
+    tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
     ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
@@ -182,20 +201,18 @@ def gophRDSAWS(model, settings, inputs, args):
                          'az':      d.get('AvailabilityZone',r),
                          'multiaz': str(d.get('MultiAZ',False)),
                          'state':   d.get('DBInstanceStatus',''),
-                         'tag':     '' if not dtags else '{}'.format('\t'.join([
-                                    '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in dtags if
-                                    t['Value'] not in {'','--','unknown','Unknown'} and (t['Key'] in {'env','dc','product','app',
-                                    'role','cust','customer','team','group','alert','slack','version','release','build','stop',
-                                    'Name','SCRM_Group','SCRM_Instance_Stop'} or t['Key'].startswith(('aws:')))])),
+                         'tag':     '' if not dtags else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                                    for k,v in tagf(dtags).items()]),
                         })
     pipe(None, None)
 
 def gophSNAPAWS(model, settings, inputs, args):
     '''Fetch EBS snapshot detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    flt,prof,pipe,cfg,sts = str.maketrans('\t',' ','='), settings['AWS']['Profiles'], getWriter(model, [
+    tagf,pipe,flt,prof,cfg,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','vsiz','reg','vol','desc','tag','since',
-    ]), botocore.config.Config(read_timeout=300), boto3.client('sts')
+    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], botocore.config.Config(read_timeout=300), boto3.client('sts')
+
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
@@ -217,12 +234,8 @@ def gophSNAPAWS(model, settings, inputs, args):
                              'reg':     r,
                              'vol':     snap.get('VolumeId','vol-ffffffff'),
                              'desc':    snap.get('Description',''),
-                             'tag':     '' if not snap.get('Tags') else '{}'.format('\t'.join([
-                                        '{}={}'.format(t['Key'].translate(flt), t['Value'].translate(flt)) for t in snap['Tags'] if
-                                        t['Value'] not in {'','-','--','unknown','Unknown'} and (True or
-                                        t['Key'] in {'env','dc','product','app','role','cust','customer','team','group','alert','slack',
-                                        'version','release','build','stop','Name','SCRM_Group','SCRM_Instance_Stop'} or
-                                        t['Key'].startswith(('aws:')))])),
+                             'tag':     '' if not snap.get('Tags') else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                                        for k,v in tagf(snap['Tags']).items()]),
                              'since':   snap['StartTime'].isoformat(),
                             })
     pipe(None, None)
@@ -231,10 +244,10 @@ def gophCURAWS(model, settings, inputs, args):
     '''Fetch CUR (Cost & Usage Report) line item detail from AWS'''
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     if not settings.get('AWS',{}).get('CUR'): raise GError('no CUR settings for {}'.format(model))
-    pipe,cur,edp,head,ids,s = getWriter(model, [
+    tlist = ['cmon:Name','cmon:Env','cmon:Cust','cmon:Oper','cmon:Prod','cmon:Role','cmon:Ver','cmon:Prov',]
+    ts,pipe,cur,edp,flt,head,ids,s = settings['AWS'].get('Tags',{}), getWriter(model, [
         'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
-        'name','env','dc','prod','app','cust','team','ver',
-    ]), settings['AWS']['CUR'], settings['AWS'].get('EDPAdj',1.0), {}, {}, ""
+    ]+tlist), settings['AWS']['CUR'], settings['AWS'].get('EDPAdj',1.0), str.maketrans('\t',' ','='), {}, {}, ""
 
     def getcid(id):
         '''Return cached compact line item ID with new-reference flag; full IDs unnecessarily large'''
@@ -300,9 +313,9 @@ def gophCURAWS(model, settings, inputs, args):
                                                       col[head['lineItem/UnblendedCost']])*edp)
 
                 if new:
-                    svc,uop,az,rid,end,nm =\
+                    svc,uop,az,rid,end=\
                         col[head['product/ProductName']],   col[head['lineItem/Operation']],    col[head['product/region']],\
-                        col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']], col[head.get('resourceTags/user:Name',-1)]
+                        col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']]
                     try:    ivl = int(timedelta.total_seconds(datetime.fromisoformat(end[:-1])-datetime.fromisoformat(hour[:-1])))
                     except  ValueError: continue
 
@@ -419,18 +432,9 @@ def gophCURAWS(model, settings, inputs, args):
                                 'N. ',                  ''      ).replace(
                                 'N.',                   ''      ),              # service description
                         'ivl':  str(ivl),                                       # usage interval (seconds)
-                        'name': '' if nm in {'Unknown','unknown'} else nm,      # user-supplied resource name
-                        'env':  col[head.get('resourceTags/user:env',-1)],      # environment (prod, dev, ...)
-                        'dc':   col[head.get('resourceTags/user:dc',-1)],       # operating loc (orl, iad, ...)
-                        'prod': col[head.get('resourceTags/user:product',-1)],  # product (high-level)
-                        'app':  col[head.get('resourceTags/user:app',-1)],      # application (low-level)
-                        'cust': col[head.get('resourceTags/user:cust',-1)],     # cost or owning org
-                        'team': getcol(['resourceTags/user:team',               # operating org
-                                        'resourceTags/user:group',              # ...alternate
-                                        'resourceTags/user:SCRM_Group',         # ...custom alternate
-                                       ], {'Unknown', 'unknown', ''}, head, col),
-                        'ver':  col[head.get('resourceTags/user:version',-1)],  # major.minor
-                    })
+                    })                                                          # cmon tags or mappings...
+                    rec.update({t:getcol(['resourceTags/user:'+a    for a in [t]+ts.get(t,[])], {'','--','unknown','Unknown'},
+                                         head, col).translate(flt)  for t in tlist})
                 pipe(s, rec)
 
             elif l.startswith('#!begin '):

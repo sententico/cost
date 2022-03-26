@@ -650,14 +650,14 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 			Reg:  item["reg"],
 			RID:  item["rid"],
 			Desc: item["desc"],
-			Name: item["name"],
-			Env:  item["env"],
-			DC:   item["dc"],
-			Prod: item["prod"],
-			App:  item["app"],
-			Cust: item["cust"],
-			Team: item["team"],
-			Ver:  item["ver"],
+			Name: item["cmon:Name"],
+			Env:  item["cmon:Env"],
+			Cust: item["cmon:Cust"],
+			Oper: item["cmon:Oper"],
+			Prod: item["cmon:Prod"],
+			Role: item["cmon:Role"],
+			Ver:  item["cmon:Ver"],
+			Prov: item["cmon:Prov"],
 		}
 		work.idetm[id] = line
 	}
