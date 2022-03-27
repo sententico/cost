@@ -82,20 +82,21 @@ def getTagFilter(settings):
     ts = settings['AWS'].get('Tags',{})
     incl,prefixes,tmap = set(ts.get('include',[])), tuple(set(['cmon:']+ts.get('prefixes',[]))), {k:v
                          for k,v in ts.items() if k.startswith('cmon:') and v and type(v) is list}
+    if '*' in incl: incl = None         # "wildcard" includes all tags
     aliases = set().union(*tmap.values())
 
     def filterTags(tl):
         nonlocal incl, prefixes, tmap, aliases
         td, ad = {}, {}
-        for t in tl:
+        for t in tl:                    # filter resource tags
             k,v = t['Key'], t['Value']
-            if  v in {'','--','unknown','Unknown'}:     continue
-            if  k in aliases:                           ad[k] = v
-            if  k in incl or k.startswith(prefixes):    td[k] = v
-        for t,al in tmap.items():
+            if  v in {'','--','unknown','Unknown'}:                     continue
+            if  k in aliases:                                           ad[k] = v
+            if  incl is None or k in incl or k.startswith(prefixes):    td[k] = v
+        for t,al in tmap.items():       # map aliases to native cmon tags
             if t not in td:
                 for a in al:
-                    if a in ad:                         td[t] = ad[a]; break
+                    if a in ad:                                         td[t] = ad[a]; break
         return td
     return filterTags
 
