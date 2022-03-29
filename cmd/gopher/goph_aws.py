@@ -80,23 +80,23 @@ def getWriter(m, cols):
 def getTagFilter(settings):
     '''Return a tag filter closure for filtering and mapping AWS resource tags'''
     ts = settings['AWS'].get('Tags',{})
-    incl,prefixes,tmap = set(ts.get('include',[])), tuple(set(['cmon:']+ts.get('prefixes',[]))), {k:v
-                         for k,v in ts.items() if k.startswith('cmon:') and v and type(v) is list}
-    if '*' in incl: incl = None         # "wildcard" includes all tags
+    incl,tmap = set(ts.get('include',[])), {k:v for k,v in ts.items() if k.startswith('cmon:') and v and type(v) is list}
+    if '*' in incl: incl,pfxs,sfxs = None, (), ()
+    else:           pfxs,sfxs = tuple(set(['cmon:']+ts.get('prefixes',[]))), tuple(set(ts.get('suffixes',[])))
     aliases = set().union(*tmap.values())
 
     def filterTags(tl):
-        nonlocal incl, prefixes, tmap, aliases
+        nonlocal incl, tmap, aliases, pfxs, sfxs
         td, ad = {}, {}
-        for t in tl:                    # filter resource tags
+        for t in tl:                    # filter resource tags; "*" wildcard includes all tags
             k,v = t['Key'], t['Value']
-            if  v in {'','--','unknown','Unknown'}:                     continue
-            if  k in aliases:                                           ad[k] = v
-            if  incl is None or k in incl or k.startswith(prefixes):    td[k] = v
+            if  v in {'','--','unknown','Unknown'}:                                     continue
+            if  k in aliases:                                                           ad[k] = v
+            if  incl is None or k in incl or k.startswith(pfxs) or k.endswith(sfxs):    td[k] = v
         for t,al in tmap.items():       # map aliases to native cmon tags
             if t not in td:
                 for a in al:
-                    if a in ad:                                         td[t] = ad[a]; break
+                    if a in ad:                                                         td[t] = ad[a]; break
         return td
     return filterTags
 

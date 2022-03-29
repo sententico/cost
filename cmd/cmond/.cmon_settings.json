@@ -70,7 +70,8 @@
 		},
 		"Tags": {
 			"prefixes":	["aws:","SCRM_"],
-			"include":	["<placeholder...>"],
+			"suffixes": ["<tag suffix>,..."],
+			"include":	["<tag or '*' wildcard>,..."],
 			"cmon:Name":["Name"],
 			"cmon:Env":	["Environment","env"],
 			"cmon:Cust":["Customer","customer","cust"],
