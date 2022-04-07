@@ -169,7 +169,7 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 	if tag := item["tag"]; tag != "" {
 		inst.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
-			kvs := strings.Split(kv, "=")
+			kvs := strings.SplitN(kv, "~", 2)
 			inst.Tag[kvs[0]] = kvs[1]
 		}
 	} else {
@@ -259,7 +259,7 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 	if tag := item["tag"]; tag != "" {
 		vol.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
-			kvs := strings.Split(kv, "=")
+			kvs := strings.SplitN(kv, "~", 2)
 			vol.Tag[kvs[0]] = kvs[1]
 		}
 	} else {
@@ -342,7 +342,7 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	if tag := item["tag"]; tag != "" {
 		db.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
-			kvs := strings.Split(kv, "=")
+			kvs := strings.SplitN(kv, "~", 2)
 			db.Tag[kvs[0]] = kvs[1]
 		}
 	} else {
@@ -432,7 +432,7 @@ func snapawsInsert(acc *modAcc, item map[string]string, now int) {
 	if tag := item["tag"]; tag != "" {
 		snap.Tag = make(cmon.TagMap)
 		for _, kv := range strings.Split(tag, "\t") {
-			kvs := strings.Split(kv, "=")
+			kvs := strings.SplitN(kv, "~", 2)
 			snap.Tag[kvs[0]] = kvs[1]
 		}
 	} else {

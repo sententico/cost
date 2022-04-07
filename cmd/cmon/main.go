@@ -167,6 +167,18 @@ func fatal(ex int, format string, a ...interface{}) {
 	os.Exit(ex)
 }
 
+func escapeQ(ss []string) []string {
+	for i, s := range ss {
+		if s == "" {
+		} else if s[0] == '=' {
+			ss[i] = `'=` + strings.ReplaceAll(s[1:], `"`, `""`) // prevent treatment as formula by Excel
+		} else {
+			ss[i] = strings.ReplaceAll(s, `"`, `""`)
+		}
+	}
+	return ss
+}
+
 func defaultWorker(in chan string) {
 	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
 	if err != nil {
@@ -252,7 +264,7 @@ func tableCmd() {
 			fmt.Println("CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin")
 		}
 		for _, row := range r {
-			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
+			fmt.Printf("\"%s\"\n", strings.Join(escapeQ(row), `","`)) // escape double-quotes per RFC 4180
 		}
 	} else {
 		fatal(1, "no rows returned")
@@ -290,7 +302,7 @@ func curtabCmd() {
 		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description"+
 			",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov,Recs,Usage,Billed\n", warn, unit)
 		for _, row := range r {
-			fmt.Printf("\"%s\"\n", strings.Join(row, "\",\"")) // assumes no double-quotes in fields
+			fmt.Printf("\"%s\"\n", strings.Join(escapeQ(row), `","`)) // escape double-quotes per RFC 4180
 		}
 	} else {
 		fatal(1, "no items returned")

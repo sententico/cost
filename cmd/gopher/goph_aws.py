@@ -58,7 +58,7 @@ def ex(err, code):
     sys.exit(code)
 
 def getWriter(m, cols):
-    '''Return a CSV writer closure for cols output columns with interspersed metadata'''
+    '''Return a CSV (TSV) writer closure for cols output columns with interspersed metadata'''
     section,flt,buf = '', str.maketrans('\n',' ','\r'), [
         '#!begin gopher {} # at {}'.format(m, datetime.now().isoformat()),
         '\t'.join(cols),
@@ -81,13 +81,13 @@ def getTagFilter(settings):
     '''Return a tag filter closure for filtering and mapping AWS resource tags'''
     ts = settings['AWS'].get('Tags',{})
     incl,tmap = set(ts.get('include',[])), {k:v for k,v in ts.items() if k.startswith('cmon:') and v and type(v) is list}
-    if '*' in incl: incl,pfxs,sfxs = None, (), ()
-    else:           pfxs,sfxs = tuple(set(['cmon:']+ts.get('prefixes',[]))), tuple(set(ts.get('suffixes',[])))
+    if '*' not in incl: pfxs,sfxs = tuple(set(['cmon:']+ts.get('prefixes',[]))), tuple(set(ts.get('suffixes',[])))
+    else:         incl, pfxs,sfxs = None, (), ()
     aliases = set().union(*tmap.values())
 
     def filterTags(tl):
-        nonlocal incl, tmap, aliases, pfxs, sfxs
-        td, ad = {}, {}
+        nonlocal incl, tmap, pfxs, sfxs, aliases
+        td, ad = {}, {} 
         for t in tl:                    # filter resource tags; "*" wildcard includes all tags
             k,v = t['Key'], t['Value']
             if  v in {'','--','unknown','Unknown'}:                                     continue
@@ -105,7 +105,7 @@ def gophEC2AWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','plat','vol','az','ami','state','spot','tag',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+    ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
 
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
@@ -128,7 +128,7 @@ def gophEC2AWS(model, settings, inputs, args):
                          'ami':     '' if not i.image_id else i.image_id,
                          'state':   i.state.get('Name',''),
                          'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
-                         'tag':     '' if not i.tags else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                         'tag':     '' if not i.tags else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
                                     for k,v in tagf(i.tags).items()]),
                         })
     pipe(None, None)
@@ -138,7 +138,7 @@ def gophEBSAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','size','iops','az','state','mount','tag',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+    ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
 
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
@@ -162,7 +162,7 @@ def gophEBSAWS(model, settings, inputs, args):
                          'mount':   '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
-                         'tag':     '' if not v.tags else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                         'tag':     '' if not v.tags else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
                                     for k,v in tagf(v.tags).items()]),
                         })
     pipe(None, None)
@@ -172,7 +172,7 @@ def gophRDSAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], boto3.client('sts')
+    ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
 
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
@@ -202,7 +202,7 @@ def gophRDSAWS(model, settings, inputs, args):
                          'az':      d.get('AvailabilityZone',r),
                          'multiaz': str(d.get('MultiAZ',False)),
                          'state':   d.get('DBInstanceStatus',''),
-                         'tag':     '' if not dtags else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                         'tag':     '' if not dtags else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
                                     for k,v in tagf(dtags).items()]),
                         })
     pipe(None, None)
@@ -212,7 +212,7 @@ def gophSNAPAWS(model, settings, inputs, args):
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     tagf,pipe,flt,prof,cfg,sts = getTagFilter(settings), getWriter(model, [
         'id','acct','type','vsiz','reg','vol','desc','tag','since',
-    ]), str.maketrans('\t',' ','='), settings['AWS']['Profiles'], botocore.config.Config(read_timeout=300), boto3.client('sts')
+    ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], botocore.config.Config(read_timeout=300), boto3.client('sts')
 
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
@@ -235,7 +235,7 @@ def gophSNAPAWS(model, settings, inputs, args):
                              'reg':     r,
                              'vol':     snap.get('VolumeId','vol-ffffffff'),
                              'desc':    snap.get('Description',''),
-                             'tag':     '' if not snap.get('Tags') else '\t'.join(['{}={}'.format(k.translate(flt), v.translate(flt))
+                             'tag':     '' if not snap.get('Tags') else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
                                         for k,v in tagf(snap['Tags']).items()]),
                              'since':   snap['StartTime'].isoformat(),
                             })
@@ -248,7 +248,7 @@ def gophCURAWS(model, settings, inputs, args):
     tlist = ['cmon:Name','cmon:Env','cmon:Cust','cmon:Oper','cmon:Prod','cmon:Role','cmon:Ver','cmon:Prov',]
     ts,pipe,cur,edp,flt,head,ids,s = settings['AWS'].get('Tags',{}), getWriter(model, [
         'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
-    ]+tlist), settings['AWS']['CUR'], settings['AWS'].get('EDPAdj',1.0), str.maketrans('\t',' ','='), {}, {}, ""
+    ]+tlist), settings['AWS']['CUR'], settings['AWS'].get('EDPAdj',1.0), str.maketrans('\t',' '), {}, {}, ""
 
     def getcid(id):
         '''Return cached compact line item ID with new-reference flag; full IDs unnecessarily large'''
@@ -321,7 +321,7 @@ def gophCURAWS(model, settings, inputs, args):
                     except  ValueError: continue
 
                     rec.update({
-                        'acct': col[head['lineItem/UsageAccountId']],           # usage, not billing account
+                        'acct': col[head['lineItem/UsageAccountId']],           # usage (not billing) account
                         'typ': {'AWS':                  '',
                                 'AWS Marketplace':      'mkt ',                 # source
                                }.get(col[head['bill/BillingEntity']],'other ') +
@@ -435,6 +435,7 @@ def gophCURAWS(model, settings, inputs, args):
                         'ivl':  str(ivl),                                       # usage interval (seconds)
                     })                                                          # cmon tags or mappings...
                     rec.update({t:getcol(['resourceTags/user:'+a    for a in [t]+ts.get(t,[])], {'','--','unknown','Unknown'},
+                                         # translate as with API-sourced tags for sake of potential matching
                                          head, col).translate(flt)  for t in tlist})
                 pipe(s, rec)
 
