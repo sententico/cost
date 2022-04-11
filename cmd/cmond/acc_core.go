@@ -258,6 +258,10 @@ type (
 	}
 )
 
+const (
+	fetchCycle = 360 // base/standard fetch cycle (seconds)
+)
+
 func (m *model) load() {
 	var list []string
 	if fn := settings.Models[m.name]; fn == "" {
@@ -433,7 +437,7 @@ func evtcmonMaint(m *model) {
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
 	for cl, st :=
-		time.NewTicker(3600*time.Second), time.NewTicker(10800*time.Second); ; {
+		time.NewTicker(fetchCycle*10*time.Second), time.NewTicker(10800*time.Second); ; {
 		select {
 		case <-cl.C:
 			goaftSession(318*time.Second, 320*time.Second, func() { evtcmonClean(m, true) })
@@ -551,8 +555,8 @@ func ec2awsClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ec2Sum), m.data[1].(*ec2Detail)
 	for id, inst := range detail.Inst {
-		if x := detail.Current - inst.Last; inst.State == "terminated" && inst.Last-inst.Since < 3600*12 &&
-			x > 0 || x > 3600*72 {
+		if x := detail.Current - inst.Last; inst.State == "terminated" && inst.Last-inst.Since < 72*3600 &&
+			x > 3*fetchCycle || x > 72*3600 {
 			delete(detail.Inst, id)
 		}
 	}
@@ -592,11 +596,11 @@ func ec2awsMaint(m *model) {
 			evt <- new(modEvt).append(m.name)
 		}
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
+	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
 	for f, sf, cl, st :=
-		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
+		time.NewTicker(fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second),
+		time.NewTicker(10*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
@@ -608,9 +612,9 @@ func ec2awsMaint(m *model) {
 		case <-sf.C:
 			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), ec2awsSInsert, false) })
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { ec2awsClean(m, true) })
+			goaftSession((fetchCycle-42)*time.Second, (fetchCycle-40)*time.Second, func() { ec2awsClean(m, true) })
 		case <-st.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
+			goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
 			switch event.name {
@@ -654,7 +658,7 @@ func ebsawsClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*ebsSum), m.data[1].(*ebsDetail)
 	for id, vol := range detail.Vol {
-		if x := detail.Current - vol.Last; vol.Last-vol.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
+		if x := detail.Current - vol.Last; vol.Last-vol.Since < 12*3600 && x > 3*3600 || x > 72*3600 {
 			delete(detail.Vol, id)
 		}
 	}
@@ -694,11 +698,11 @@ func ebsawsMaint(m *model) {
 			evt <- new(modEvt).append(m.name)
 		}
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
+	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
 	for f, sf, cl, st :=
-		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
+		time.NewTicker(fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second),
+		time.NewTicker(10*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
@@ -710,9 +714,9 @@ func ebsawsMaint(m *model) {
 		case <-sf.C:
 			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), ebsawsSInsert, false) })
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { ebsawsClean(m, true) })
+			goaftSession((fetchCycle-42)*time.Second, (fetchCycle-40)*time.Second, func() { ebsawsClean(m, true) })
 		case <-st.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
+			goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
 			switch event.name {
@@ -757,7 +761,7 @@ func rdsawsClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*rdsSum), m.data[1].(*rdsDetail)
 	for id, db := range detail.DB {
-		if x := detail.Current - db.Last; db.Last-db.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
+		if x := detail.Current - db.Last; db.Last-db.Since < 12*3600 && x > 3*3600 || x > 72*3600 {
 			delete(detail.DB, id)
 		}
 	}
@@ -797,11 +801,11 @@ func rdsawsMaint(m *model) {
 			evt <- new(modEvt).append(m.name)
 		}
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
+	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
 	for f, sf, cl, st :=
-		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
+		time.NewTicker(fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second),
+		time.NewTicker(10*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
@@ -813,9 +817,9 @@ func rdsawsMaint(m *model) {
 		case <-sf.C:
 			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), rdsawsSInsert, false) })
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { rdsawsClean(m, true) })
+			goaftSession((fetchCycle-42)*time.Second, (fetchCycle-40)*time.Second, func() { rdsawsClean(m, true) })
 		case <-st.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
+			goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
 			switch event.name {
@@ -856,7 +860,7 @@ func snapawsClean(m *model, deep bool) {
 	// clean expired/invalid/insignificant data
 	sum, detail := m.data[0].(*snapSum), m.data[1].(*snapDetail)
 	for id, snap := range detail.Snap {
-		if x := detail.Current - snap.Last; snap.Last-snap.Since < 3600*12 && x > 3600*3 || x > 3600*72 {
+		if x := detail.Current - snap.Last; snap.Last-snap.Since < 12*3600 && x > 3*3600 || x > 72*3600 {
 			delete(detail.Snap, id)
 		}
 	}
@@ -895,11 +899,11 @@ func snapawsMaint(m *model) {
 			evt <- new(modEvt).append(m.name)
 		}
 	})
-	goaftSession(3568*time.Second, 3572*time.Second, func() { m.store(false) })
+	goaftSession((10*fetchCycle-32)*time.Second, (10*fetchCycle-28)*time.Second, func() { m.store(false) })
 
 	for f, cl, st :=
-		time.NewTicker(3600*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
+		time.NewTicker(10*fetchCycle*time.Second),
+		time.NewTicker(20*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
@@ -909,9 +913,9 @@ func snapawsMaint(m *model) {
 				}
 			})
 		case <-cl.C:
-			goaftSession(3558*time.Second, 3560*time.Second, func() { snapawsClean(m, true) })
+			goaftSession((10*fetchCycle-42)*time.Second, (10*fetchCycle-40)*time.Second, func() { snapawsClean(m, true) })
 		case <-st.C:
-			goaftSession(3568*time.Second, 3572*time.Second, func() { m.store(false) })
+			goaftSession((10*fetchCycle-32)*time.Second, (10*fetchCycle-28)*time.Second, func() { m.store(false) })
 
 		case event := <-m.evt:
 			switch event.name {
@@ -993,7 +997,7 @@ func curawsMaint(m *model) {
 		goGo <- true
 	})
 
-	for f := time.NewTicker(2160 * time.Second); ; {
+	for f := time.NewTicker(6 * fetchCycle * time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 6*time.Second, func() {
@@ -1228,11 +1232,11 @@ func cdraspMaint(m *model) {
 		}
 		goGo <- true
 	})
-	goaftSession(328*time.Second, 332*time.Second, func() { m.store(!<-goGo); goGo <- true })
+	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(!<-goGo); goGo <- true })
 
 	for f, cl, st :=
-		time.NewTicker(360*time.Second),
-		time.NewTicker(1800*time.Second), time.NewTicker(14400*time.Second); ; {
+		time.NewTicker(fetchCycle*time.Second),
+		time.NewTicker(5*fetchCycle*time.Second), time.NewTicker(40*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
@@ -1246,9 +1250,9 @@ func cdraspMaint(m *model) {
 				}
 			})
 		case <-cl.C:
-			goaftSession(318*time.Second, 320*time.Second, func() { cdraspClean(m, <-goGo); goGo <- true })
+			goaftSession((fetchCycle-42)*time.Second, (fetchCycle-40)*time.Second, func() { cdraspClean(m, <-goGo); goGo <- true })
 		case <-st.C:
-			goaftSession(328*time.Second, 332*time.Second, func() { m.store(!<-goGo); goGo <- true })
+			goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(!<-goGo); goGo <- true })
 
 		case <-m.evt:
 			// TODO: process event notifications

@@ -435,7 +435,6 @@ func main() {
 		quit <- true
 		<-ok
 		srv.Close()
-		logI.Printf("shutting down %v monitored object models", len(mMod))
 		for _, m := range mMod {
 			m := m
 			go func() { m.term(m); ctl <- m.name }()
@@ -450,6 +449,7 @@ func main() {
 	}
 	sig <- nil
 
+	logI.Printf("shutting down %v monitored object models", len(mMod))
 	for range mMod {
 		n := <-ctl
 		mMod[n].state = msTERM

@@ -496,8 +496,7 @@ func skip(flt []func(...interface{}) bool, v ...interface{}) bool {
 
 func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var adj int
-	flt := make([]func(...interface{}) bool, 0, 32)
+	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
@@ -775,10 +774,8 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	pg := smPage
 	acc.reqR()
-	f1, f2, f3 := 0, 0, 0
 	for id, inst := range d.Inst {
 		if inst.Last < cur {
-			f1++
 			continue
 		}
 		tag := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
@@ -786,10 +783,8 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			tag.UpdateP(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]], "cmon:")
 		}
 		if skip(flt, inst, tag) {
-			f2++
 			continue
 		} else if rows--; rows == 0 {
-			f3++
 			break
 		}
 
@@ -828,14 +823,12 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		pg = smPage
 		acc.reqR()
 	}
-	logI.Printf("EC2 table extract filtered (%v, %v, %v) of %v instances", f1, f2, f3, len(d.Inst))
 	acc.rel()
 }
 
 func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var adj int
-	flt := make([]func(...interface{}) bool, 0, 32)
+	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
@@ -1171,8 +1164,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var adj int
-	flt := make([]func(...interface{}) bool, 0, 32)
+	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
@@ -1559,7 +1551,6 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var adj int
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
@@ -1759,7 +1750,7 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 			return 0, nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 		}
 	}
-	return d.Current - adj, flt, nil
+	return d.Current - 3*fetchCycle, flt, nil
 }
 
 func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
