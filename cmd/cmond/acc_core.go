@@ -595,10 +595,16 @@ func ec2awsMaint(m *model) {
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for f, sf, cl, st :=
+	for f, sf, cl, st, d :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
+		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second),
+		time.NewTicker(60*time.Second); ; {
 		select {
+		case <-d.C:
+			acc := m.newAcc()
+			acc.reqR()
+			logI.Printf("maintenance scan of EC2 model shows %v instances", len(m.data[1].(*ec2Detail).Inst))
+			acc.rel()
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
 				if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
