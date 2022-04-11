@@ -128,8 +128,8 @@ def gophEC2AWS(model, settings, inputs, args):
                          'ami':     '' if not i.image_id else i.image_id,
                          'state':   i.state.get('Name',''),
                          'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
-                         'tag':     '' if not i.tags else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
-                                    for k,v in tagf(i.tags).items()]),
+                         'tag':     '' if not i.tags else '\t'.join([s.translate(flt)
+                                    for kv in tagf(i.tags).items() for s in kv]),
                         })
     pipe(None, None)
 
@@ -162,8 +162,8 @@ def gophEBSAWS(model, settings, inputs, args):
                          'mount':   '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
-                         'tag':     '' if not v.tags else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
-                                    for k,v in tagf(v.tags).items()]),
+                         'tag':     '' if not v.tags else '\t'.join([s.translate(flt)
+                                    for kv in tagf(v.tags).items() for s in kv]),
                         })
     pipe(None, None)
 
@@ -202,8 +202,8 @@ def gophRDSAWS(model, settings, inputs, args):
                          'az':      d.get('AvailabilityZone',r),
                          'multiaz': str(d.get('MultiAZ',False)),
                          'state':   d.get('DBInstanceStatus',''),
-                         'tag':     '' if not dtags else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
-                                    for k,v in tagf(dtags).items()]),
+                         'tag':     '' if not dtags else '\t'.join([s.translate(flt)
+                                    for kv in tagf(dtags).items() for s in kv]),
                         })
     pipe(None, None)
 
@@ -235,8 +235,8 @@ def gophSNAPAWS(model, settings, inputs, args):
                              'reg':     r,
                              'vol':     snap.get('VolumeId','vol-ffffffff'),
                              'desc':    snap.get('Description',''),
-                             'tag':     '' if not snap.get('Tags') else '\t'.join(['{}~{}'.format(k.translate(flt), v.translate(flt))
-                                        for k,v in tagf(snap['Tags']).items()]),
+                             'tag':     '' if not snap.get('Tags') else '\t'.join([s.translate(flt)
+                                        for kv in tagf(snap['Tags']).items() for s in kv]),
                              'since':   snap['StartTime'].isoformat(),
                             })
     pipe(None, None)
