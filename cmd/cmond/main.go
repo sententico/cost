@@ -449,6 +449,7 @@ func main() {
 	}
 	sig <- nil
 
+	logI.Printf("awaiting shutdown of %v monitored object models", len(mMod))
 	for range mMod {
 		n := <-ctl
 		mMod[n].state = msTERM
