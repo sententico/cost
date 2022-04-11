@@ -456,5 +456,6 @@ func main() {
 		logI.Printf("%q object model shutdown", n)
 	}
 	logI.Printf("shutdown complete with %v sessions handled", seSeq-seInit-int64(len(seID)))
+	time.Sleep(time.Second)
 	os.Exit(exit)
 }
