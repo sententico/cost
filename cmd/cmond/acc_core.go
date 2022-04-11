@@ -543,6 +543,7 @@ func ec2awsBoot(m *model) {
 		logE.Fatalf("%q cannot load EC2 rates: %v", m.name, err)
 	}
 	m.data = append(m.data, work)
+	logI.Printf("booting EC2 model with %v instances", len(detail.Inst))
 }
 func ec2awsClean(m *model, deep bool) {
 	acc := m.newAcc()

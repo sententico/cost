@@ -435,6 +435,7 @@ func main() {
 		quit <- true
 		<-ok
 		srv.Close()
+		logI.Printf("shutting down %v monitored object models", len(mMod))
 		for _, m := range mMod {
 			m := m
 			go func() { m.term(m); ctl <- m.name }()
@@ -449,13 +450,12 @@ func main() {
 	}
 	sig <- nil
 
-	logI.Printf("awaiting shutdown of %v monitored object models", len(mMod))
 	for range mMod {
 		n := <-ctl
 		mMod[n].state = msTERM
 		logI.Printf("%q object model shutdown", n)
 	}
 	logI.Printf("shutdown complete with %v sessions handled", seSeq-seInit-int64(len(seID)))
-	time.Sleep(time.Second)
+	time.Sleep(100 * time.Millisecond)
 	os.Exit(exit)
 }
