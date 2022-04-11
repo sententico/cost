@@ -775,8 +775,10 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	pg := smPage
 	acc.reqR()
+	f1, f2, f3 := 0, 0, 0
 	for id, inst := range d.Inst {
 		if inst.Last < cur {
+			f1++
 			continue
 		}
 		tag := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
@@ -784,8 +786,10 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			tag.UpdateP(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]], "cmon:")
 		}
 		if skip(flt, inst, tag) {
+			f2++
 			continue
 		} else if rows--; rows == 0 {
+			f3++
 			break
 		}
 
@@ -824,6 +828,7 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		pg = smPage
 		acc.reqR()
 	}
+	logI.Printf("EC2 table extract filtered (%v, %v, %v) of %v instances", f1, f2, f3, len(d.Inst))
 	acc.rel()
 }
 

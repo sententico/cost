@@ -543,7 +543,6 @@ func ec2awsBoot(m *model) {
 		logE.Fatalf("%q cannot load EC2 rates: %v", m.name, err)
 	}
 	m.data = append(m.data, work)
-	logI.Printf("booting EC2 model with %v instances", len(detail.Inst))
 }
 func ec2awsClean(m *model, deep bool) {
 	acc := m.newAcc()
@@ -595,16 +594,10 @@ func ec2awsMaint(m *model) {
 	})
 	goaftSession(328*time.Second, 332*time.Second, func() { m.store(false) })
 
-	for f, sf, cl, st, d :=
+	for f, sf, cl, st :=
 		time.NewTicker(360*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second),
-		time.NewTicker(60*time.Second); ; {
+		time.NewTicker(3600*time.Second), time.NewTicker(7200*time.Second); ; {
 		select {
-		case <-d.C:
-			acc := m.newAcc()
-			acc.reqR()
-			logI.Printf("maintenance scan of EC2 model shows %v instances", len(m.data[1].(*ec2Detail).Inst))
-			acc.rel()
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
 				if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
