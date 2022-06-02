@@ -21,6 +21,7 @@ const (
 func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
 	type skuCell struct {
 		od, sp, usage float64
+		// TODO: change sp to []float64
 	}
 	sku := make([][]skuCell, ivl)
 	var cell skuCell
@@ -39,6 +40,8 @@ func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
 		} else {
 			rk.Region, rk.Typ, rk.Plat, rk.Terms = s[0], s[1], s[2], "OD"
 		}
+		// TODO: use alternate call... rates.LookupS() ...to get slice of rates for all terms...
+		//		 OD, 1nc,1pc,1ac, 1ns,1ps,1as, 3nc,3pc,3ac, 3ns,3ps,3as
 		if od, rk.Terms = rates.Lookup(&rk), args.plan; od == nil {
 			fatal(1, "no rates for %v", rk)
 		} else if sp, cell.od = rates.Lookup(&rk), float64(od.Rate); sp == nil {
