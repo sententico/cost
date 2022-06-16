@@ -89,8 +89,10 @@ def getTagFilter(settings):
         nonlocal incl, tmap, pfxs, sfxs, aliases
         td, ad = {}, {} 
         for t in tl:                    # filter resource tags; "*" wildcard includes all tags
-            k,v = t['Key'], t['Value']
-            if  v in {'','--','unknown','Unknown'}:                                     continue
+            k,v = t.get('Key'), t.get('Value')
+            if  type(k) is not str or type(v) is not str or k in {
+                '','--'} or v in {'','--','unknown','Unknown',
+                }:                                                                      continue
             if  k in aliases:                                                           ad[k] = v
             if  incl is None or k in incl or k.startswith(pfxs) or k.endswith(sfxs):    td[k] = v
         for t,al in tmap.items():       # map aliases to native cmon tags
