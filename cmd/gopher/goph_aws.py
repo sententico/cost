@@ -90,11 +90,11 @@ def getTagFilter(settings):
         td, ad = {}, {} 
         for t in tl:                    # filter resource tags; "*" wildcard includes all tags
             k,v = t.get('Key'), t.get('Value')
-            if  type(k) is not str or type(v) is not str or k in {
-                '','--'} or v in {'','--','unknown','Unknown',
-                }:                                                                      continue
-            if  k in aliases:                                                           ad[k] = v
-            if  incl is None or k in incl or k.startswith(pfxs) or k.endswith(sfxs):    td[k] = v
+            if type(k) is not str or type(v) is not str or k in {
+               '','--'} or v in {'','--','unknown','Unknown',
+               }:                                                                       continue
+            if k in aliases:                                                            ad[k] = v
+            if incl is None or k in incl or k.startswith(pfxs) or k.endswith(sfxs):     td[k] = v
         for t,al in tmap.items():       # map aliases to native cmon tags
             if t not in td:
                 for a in al:
@@ -127,7 +127,7 @@ def gophEC2AWS(model, settings, inputs, args):
                          'plat':    '' if not i.platform else i.platform,
                          'vol':     str(len(i.block_device_mappings)),
                          'az':      i.placement.get('AvailabilityZone',r),
-                         'vpc':     i.vpc_id,
+                         'vpc':     '' if not i.vpc_id else i.vpc_id,
                          'ami':     '' if not i.image_id else i.image_id,
                          'state':   i.state.get('Name',''),
                          'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
