@@ -618,6 +618,13 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
+		case "VPC", "vpc":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).VPC == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).VPC != opd })
+			}
 		case "AMI", "ami":
 			switch op {
 			case "=":
@@ -795,6 +802,7 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			inst.Plat,
 			strconv.FormatInt(int64(inst.Vol), 10),
 			inst.AZ,
+			inst.VPC,
 			inst.AMI,
 			inst.Spot,
 			tag["cmon:Name"],
@@ -1358,6 +1366,13 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
+		case "VPC", "vpc":
+			switch op {
+			case "=":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).VPC == opd })
+			case "!":
+				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).VPC != opd })
+			}
 		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
 			switch op {
 			case "=":
@@ -1521,6 +1536,7 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			db.Ver,
 			db.Lic,
 			az,
+			db.VPC,
 			tag["cmon:Name"],
 			tag["cmon:Env"],
 			tag["cmon:Cust"],

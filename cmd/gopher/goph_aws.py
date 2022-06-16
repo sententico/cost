@@ -104,7 +104,7 @@ def gophEC2AWS(model, settings, inputs, args):
     '''Fetch EBS volume detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
-        'id','acct','type','plat','vol','az','ami','state','spot','tag',
+        'id','acct','type','plat','vol','az','vpc','ami','state','spot','tag',
     ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
 
     for a,at in settings['AWS']['Accounts'].items():
@@ -125,6 +125,7 @@ def gophEC2AWS(model, settings, inputs, args):
                          'plat':    '' if not i.platform else i.platform,
                          'vol':     str(len(i.block_device_mappings)),
                          'az':      i.placement.get('AvailabilityZone',r),
+                         'vpc':     i.vpc_id,
                          'ami':     '' if not i.image_id else i.image_id,
                          'state':   i.state.get('Name',''),
                          'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
@@ -171,7 +172,7 @@ def gophRDSAWS(model, settings, inputs, args):
     '''Fetch RDS database detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
-        'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','state','tag',
+        'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','vpc','state','tag',
     ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
 
     for a,at in settings['AWS']['Accounts'].items():
@@ -201,6 +202,7 @@ def gophRDSAWS(model, settings, inputs, args):
                          'lic':     d.get('LicenseModel',''),
                          'az':      d.get('AvailabilityZone',r),
                          'multiaz': str(d.get('MultiAZ',False)),
+                         'vpc':     d.get('DBSubnetGroup',{}).get('VpcId',''),
                          'state':   d.get('DBInstanceStatus',''),
                          'tag':     '' if not dtags else '\t'.join([s.translate(flt)
                                     for kv in tagf(dtags).items() for s in kv]),

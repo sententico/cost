@@ -50,6 +50,7 @@ type (
 		Plat   string      `json:",omitempty"`
 		Vol    int         `json:",omitempty"`
 		AZ     string      `json:",omitempty"`
+		VPC    string      `json:",omitempty"`
 		AMI    string      `json:",omitempty"`
 		Spot   string      `json:",omitempty"`
 		Tag    cmon.TagMap `json:",omitempty"`
@@ -115,6 +116,7 @@ type (
 		Lic     string      `json:",omitempty"`
 		AZ      string      `json:",omitempty"`
 		MultiAZ bool        `json:",omitempty"`
+		VPC     string      `json:",omitempty"`
 		Tag     cmon.TagMap `json:",omitempty"`
 		State   string
 		Since   int

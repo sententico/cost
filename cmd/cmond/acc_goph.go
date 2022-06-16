@@ -166,6 +166,7 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 	inst.Typ = item["type"]
 	inst.Vol = atoi(item["vol"], 0)
 	inst.AZ = item["az"]
+	inst.VPC = item["vpc"]
 	if tag := item["tag"]; tag != "" {
 		inst.Tag = make(cmon.TagMap)
 		for t, kv := 1, strings.Split(tag, "\t"); t < len(kv); t += 2 {
@@ -333,6 +334,7 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	db.IOPS = atoi(item["iops"], 0)
 	db.Ver = item["ver"]
 	db.AZ = item["az"]
+	db.VPC = item["vpc"]
 	db.Lic = item["lic"]
 	if db.MultiAZ = item["multiaz"] == "True"; db.MultiAZ {
 		az = 2

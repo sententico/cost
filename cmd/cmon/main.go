@@ -253,11 +253,11 @@ func tableCmd() {
 	if client.Close(); len(r) > 0 {
 		switch tags := ",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov"; args.model {
 		case "ec2.aws":
-			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,AMI,Spot" + tags + ",State,Since,Active%,ORate,Rate")
+			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,VPC,AMI,Spot" + tags + ",State,Since,Active%,ORate,Rate")
 		case "ebs.aws":
 			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount" + tags + ",State,Since,Active%,Rate")
 		case "rds.aws":
-			fmt.Println("DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ" + tags + ",State,Since,Active%,Rate")
+			fmt.Println("DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ,VPC" + tags + ",State,Since,Active%,Rate")
 		case "snap.aws":
 			fmt.Println("Snap,Acct,Type,Size,VSiz,Reg,Vol,Par,Desc" + tags + ",Since,Rate")
 		case "cdr.asp/term", "cdr.asp/orig":
