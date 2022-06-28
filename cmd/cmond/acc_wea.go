@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	maxTableRows = 2e6 // maximum table extract rows allowed
+	maxTableRows = 4e6 // maximum table extract rows allowed
 	maxPctMargin = 10  // maximum magnitude of %margin for non-billed amounts
 )
 
