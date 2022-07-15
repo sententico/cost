@@ -2376,6 +2376,17 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
+		case "PU", "pu":
+			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+				switch op {
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[2].(float32) < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[2].(float32) > float32(f) })
+				}
+			} else {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			}
 		case "Recs", "recs", "Usage", "usage", "usg":
 			xc++
 		default:
@@ -2432,7 +2443,7 @@ func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, er
 	return flt, nil
 }
 
-func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id string, tag cmon.TagMap, dts string, flt []func(...interface{}) bool) func() []string {
+func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id string, tag cmon.TagMap, puf float32, dts string, flt []func(...interface{}) bool) func() []string {
 	var husg func(int32) float32
 	var rate float32
 	if un < 720 {
@@ -2482,7 +2493,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 		}
 	}
 	id = dts[:8] + id
-	acct := li.Acct + " " + settings.AWS.Accounts[li.Acct]["~name"]
+	acct, pu := li.Acct+" "+settings.AWS.Accounts[li.Acct]["~name"], strconv.FormatFloat(float64(puf), 'g', -1, 32)
 
 	return func() []string {
 		var rec int16
@@ -2548,6 +2559,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
 			strconv.FormatInt(int64(rec), 10),
+			pu,
 			strconv.FormatFloat(float64(usg), 'g', -1, 32),
 			strconv.FormatFloat(float64(cost), 'g', -1, 32),
 		}
@@ -2663,7 +2675,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 							continue
 						}
 					}
-					if tag := (cmon.TagMap{
+					if pu, tag := sum.Hist.ppuse(li.RID, from, to), (cmon.TagMap{
 						"cmon:Env":  li.Env,
 						"cmon:Cust": li.Cust,
 						"cmon:Oper": li.Oper,
@@ -2672,9 +2684,9 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 						"cmon:Ver":  li.Ver,
 						"cmon:Prov": li.Prov,
 					}).Update(nTags(li.Name)).Update(nTags(li.RID)).Update(atags[ralt[li.RID]]).UpdateP(
-						settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg], "cmon:"); skip(flt, li, tag) {
+						settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg], "cmon:"); skip(flt, li, tag, pu) {
 						continue
-					} else if item := cur.table(li, ifr, ito, units, trunc, id, tag, dts, rflt); item != nil {
+					} else if item := cur.table(li, ifr, ito, units, trunc, id, tag, pu, dts, rflt); item != nil {
 						for row := item(); row != nil; row = item() {
 							if rows--; rows == 0 {
 								break outerLoop

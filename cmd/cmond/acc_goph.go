@@ -588,6 +588,7 @@ func curawsFinalize(acc *modAcc) {
 			psum.ByRegion.update(work.isum.ByRegion, bh, eh)
 			psum.ByTyp.update(work.isum.ByTyp, bh, eh)
 			psum.BySvc.update(work.isum.BySvc, bh, eh)
+			psum.Hist.update(wm, bh, eh)
 			logI.Printf("%s AWS CUR update: %d line items (%d truncated @$%.4f) updated %d",
 				bt.Format("Jan06"), len(wm), tl, tc, len(pm))
 		}
@@ -612,7 +613,7 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 				if work.imo = meta[8:14]; work.idet.Line[work.imo] == nil {
 					work.idet.Line[work.imo] = make(map[string]*curItem)
 				}
-				work.ihr = uint32(t.Unix() / 3600)
+				work.ihr = int32(t.Unix() / 3600)
 				work.idetm = work.idet.Line[work.imo]
 			} else {
 				work.imo = ""
@@ -629,9 +630,9 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 		return
 	}
 
-	var h uint32
+	var h int32
 	if t, err := time.Parse(time.RFC3339, item["hour"]); err == nil {
-		if h = uint32(t.Unix()/3600) - work.ihr; h > usgIndex {
+		if h = int32(t.Unix()/3600) - work.ihr; h > usgIndex {
 			h = 0
 		}
 	}
@@ -670,10 +671,10 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 			line.HUsg = append(line.HUsg, us)
 		}
 	}
-	for ; r < len(line.HMap) && line.HMap[r]&baseMask+line.HMap[r]>>rangeShift+1 != h; r++ {
+	for ; r < len(line.HMap) && line.HMap[r]&baseMask+line.HMap[r]>>rangeShift+1 != uint32(h); r++ {
 	}
 	if r == len(line.HMap) || line.HMap[r]>>usgShift&usgMask != ur {
-		line.HMap = append(line.HMap, ur<<usgShift|h)
+		line.HMap = append(line.HMap, ur<<usgShift|uint32(h))
 	} else {
 		line.HMap[r] += 1 << rangeShift
 	}
@@ -681,7 +682,7 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 	line.Usg += us
 	line.Cost += co
 	line.Recs++
-	// TODO: fix cost/usage clumping for day/mo reporting
+	// TODO: fix cost/usage clumping for day/mo (non-hourly) reporting
 	work.isum.ByAcct.add(hr, line.Acct, c)
 	work.isum.ByRegion.add(hr, line.Reg, c)
 	work.isum.ByTyp.add(hr, line.Typ, c)

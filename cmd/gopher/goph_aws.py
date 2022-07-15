@@ -366,15 +366,15 @@ def gophCURAWS(model, settings, inputs, args):
                                  'us-west-2':           'USW2', 'ap-northeast-3':       'APN3',
                                  '':                    'none', 'ap-southeast-1':       'APS1',
                                                                 'ap-southeast-2':       'APS2',
-                                 'eu-central-1':        'EUC1', 'ap-south-1':           'APS3',
-                                 'eu-north-1':          'EUN1',
-                                 'eu-west-1':           'EUW1', 'ca-central-1':         'CAN1',
-                                 'eu-west-2':           'EUW2', 'sa-east-1':            'SAE1',
-                                 'eu-west-3':           'EUW3', 'af-south-1':           'CPT',
-                                                                'me-south-1':           'MES1',
+                                 'eu-central-1':        'EUC1', 'ap-southeast-3':       'APS4',
+                                 'eu-north-1':          'EUN1', 'ap-south-1':           'APS3',
+                                 'eu-south-1':          'EUS1', 'ca-central-1':         'CAN1',
+                                 'eu-west-1':           'EUW1', 'sa-east-1':            'SAE1',
+                                 'eu-west-2':           'EUW2', 'af-south-1':           'CPT',
+                                 'eu-west-3':           'EUW3', 'me-south-1':           'MES1',
                                 }.get(az,az),                                   # service region
-                        'rid':  rid.rsplit(':',1)[-1] if rid.startswith('arn:')
-                                                      else rid,                 # resource ID (i-, vol-, ...)
+                        'rid':  rid.split(':', 5)[-1]   if      rid.startswith('arn:')
+                                                        else    rid,            # resource ID (i-, vol-, ...)
                         'desc': col[head['lineItem/LineItemDescription']].replace(
                                 'USD',                  '$'     ).replace(
                                 '$ ',                   '$'     ).replace(

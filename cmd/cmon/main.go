@@ -144,17 +144,17 @@ func (i *intHours) Set(arg string) error {
 	switch len(s[0]) {
 	case 7:
 		if t, err = time.Parse(time.RFC3339, s[0]+"-01T00:00:00Z"); err == nil {
-			i.from, i.to, i.units = int32(t.Unix())/3600, int32(t.AddDate(0, r+1, 0).Unix()-1)/3600, 720
+			i.from, i.to, i.units = int32(t.Unix()/3600), int32((t.AddDate(0, r+1, 0).Unix()-1)/3600), 720
 			return nil
 		}
 	case 10:
 		if t, err = time.Parse(time.RFC3339, s[0]+"T00:00:00Z"); err == nil {
-			i.from, i.to, i.units = int32(t.Unix())/3600, int32(t.AddDate(0, 0, r+1).Unix()-1)/3600, 24
+			i.from, i.to, i.units = int32(t.Unix()/3600), int32((t.AddDate(0, 0, r+1).Unix()-1)/3600), 24
 			return nil
 		}
 	case 13:
 		if t, err = time.Parse(time.RFC3339, s[0]+":00:00Z"); err == nil {
-			i.from = int32(t.Unix()) / 3600
+			i.from = int32(t.Unix() / 3600)
 			i.to, i.units = i.from+int32(r), 1
 			return nil
 		}
@@ -300,7 +300,7 @@ func curtabCmd() {
 			warn = " [row max]"
 		}
 		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description"+
-			",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov,Recs,Usage,Billed\n", warn, unit)
+			",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov,Recs,PU,Usage,Billed\n", warn, unit)
 		for _, row := range r {
 			fmt.Println(escapeQ(row))
 		}

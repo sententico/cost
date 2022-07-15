@@ -37,6 +37,7 @@ type (
 	}
 	hsU map[int32]map[string]*usageItem // usage by hour/string descriptor
 	hsA map[int32]map[string]float64    // amount (USD cost) by hour/string descriptor
+	riO map[string][2]int32             // observation range (hours in Unix epoch) by resource ID
 
 	ec2Sum struct {
 		Current  int32 // hour cursor in summary maps (hours in Unix epoch)
@@ -167,6 +168,7 @@ type (
 		ByRegion hsA   // map by hour / region
 		ByTyp    hsA   // map by hour / line item type
 		BySvc    hsA   // map by hour / AWS service
+		Hist     riO   // map range of observation by resource ID
 	}
 	curItem struct {
 		Acct string    `json:"A"`
@@ -197,10 +199,10 @@ type (
 	}
 	curWork struct {
 		imo   string              // CUR insertion month
-		ihr   uint32              // CUR insertion month base hour (in Unix epoch)
+		ihr   int32               // CUR insertion month base hour (in Unix epoch)
 		isum  curSum              // CUR summary insertion maps
 		idet  curDetail           // CUR line item insertion map
-		idetm map[string]*curItem // CUR line item month insertion map
+		idetm map[string]*curItem // CUR line item month insertion map (reference to idet entry)
 	}
 
 	callsItem struct {
@@ -526,6 +528,45 @@ func (m hsA) clean(exp int32) {
 	for hr := range m {
 		if hr <= exp {
 			delete(m, hr)
+		}
+	}
+}
+func (m riO) update(mo map[string]*curItem, from, to int32) {
+	for _, li := range mo {
+		if li.RID == "" {
+		} else if o, f, t := m[li.RID], int32(li.Recs>>foffShift&foffMask)+from, int32(li.Recs&toffMask)+from; o[1] == 0 {
+			m[li.RID] = [2]int32{f, t}
+		} else if t > o[1] {
+			if o[1] = t; f < o[0] {
+				o[0] = f
+			}
+			m[li.RID] = o
+		} else if f < o[0] {
+			o[0] = f
+			m[li.RID] = o
+		}
+	}
+}
+func (m riO) ppuse(ri string, from, to int32) float32 {
+	switch o := m[ri]; {
+	case o[1] == 0:
+	case o[1] < from:
+		return -1
+	case o[0] > to:
+		return 1
+	case o[0] <= from && o[1] >= to:
+
+	case o[0] < from: // post-use part of from/to period (<0, usage ending)
+		return -1 + float32(o[1]-from+1)/float32(to-from+1)
+	case o[1] > to: // pre-use part of from/to period (>0, usage starting)
+		return 1 - float32(to-o[0]+1)/float32(to-from+1)
+	}
+	return 0
+}
+func (m riO) clean(short, long int32) {
+	for ri, o := range m {
+		if o[1] <= long || o[1]-o[0] < 4 && o[1] <= short {
+			delete(m, ri)
 		}
 	}
 }
@@ -942,6 +983,7 @@ func curawsBoot(m *model) {
 		ByRegion: make(hsA, 2424),
 		ByTyp:    make(hsA, 2424),
 		BySvc:    make(hsA, 2424),
+		Hist:     make(riO, 16384),
 	}, &curDetail{
 		Month: make(map[string]*[2]int32, 6),
 		Line:  make(map[string]map[string]*curItem, 6),
@@ -975,6 +1017,7 @@ func curawsClean(m *model, deep bool) {
 		sum.ByRegion.clean(exp)
 		sum.ByTyp.clean(exp)
 		sum.BySvc.clean(exp)
+		sum.Hist.clean(sum.Current-24*3, exp)
 		if len(sm) > 3 {
 			for _, m := range sm[:len(sm)-3] {
 				for hrs = detail.Month[m]; hrs[0] <= hrs[1] && sum.ByTyp[hrs[0]] == nil; hrs[0]++ {
