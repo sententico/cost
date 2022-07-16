@@ -994,6 +994,14 @@ func curawsBoot(m *model) {
 	m.load()
 
 	m.data = append(m.data, work)
+	logI.Printf("%s loaded with %v Hist resources", m.name, len(sum.Hist))
+	n := 0
+	for ri, o := range sum.Hist {
+		logI.Printf("...Hist[%v]: %v", ri, o)
+		if n++; n > 4 {
+			break
+		}
+	}
 }
 func curawsClean(m *model, deep bool) {
 	acc := m.newAcc()
