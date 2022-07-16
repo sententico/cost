@@ -532,20 +532,25 @@ func (m hsA) clean(exp int32) {
 	}
 }
 func (m riO) update(mo map[string]*curItem, from, to int32) {
+	n, u := 0, 0
 	for _, li := range mo {
 		if li.RID == "" {
 		} else if o, f, t := m[li.RID], int32(li.Recs>>foffShift&foffMask)+from, int32(li.Recs&toffMask)+from; o[1] == 0 {
 			m[li.RID] = [2]int32{f, t}
+			n++
 		} else if t > o[1] {
 			if o[1] = t; f < o[0] {
 				o[0] = f
 			}
 			m[li.RID] = o
+			u++
 		} else if f < o[0] {
 			o[0] = f
 			m[li.RID] = o
+			u++
 		}
 	}
+	logI.Printf("CUR resource history added %v entries (%v total, %v updated)", n, len(m), u)
 }
 func (m riO) ppuse(ri string, from, to int32) float32 {
 	switch o := m[ri]; {
@@ -994,14 +999,6 @@ func curawsBoot(m *model) {
 	m.load()
 
 	m.data = append(m.data, work)
-	logI.Printf("%s loaded with %v Hist resources", m.name, len(sum.Hist))
-	n := 0
-	for ri, o := range sum.Hist {
-		logI.Printf("...Hist[%v]: %v", ri, o)
-		if n++; n > 4 {
-			break
-		}
-	}
 }
 func curawsClean(m *model, deep bool) {
 	acc := m.newAcc()
