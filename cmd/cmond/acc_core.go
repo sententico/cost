@@ -533,6 +533,7 @@ func (m hsA) clean(exp int32) {
 }
 func (m riO) update(mo map[string]*curItem, from, to int32) {
 	n, u := 0, 0
+	logI.Printf("updating CUR resource history (nil = %v)", m == nil)
 	for _, li := range mo {
 		if li.RID == "" {
 		} else if o, f, t := m[li.RID], int32(li.Recs>>foffShift&foffMask)+from, int32(li.Recs&toffMask)+from; o[1] == 0 {
