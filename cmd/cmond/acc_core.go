@@ -993,9 +993,6 @@ func curawsBoot(m *model) {
 	m.persist = len(m.data)
 	m.load()
 
-	if sum.Hist == nil {
-		sum.Hist = make(riO, 16384)
-	}
 	m.data = append(m.data, work)
 }
 func curawsClean(m *model, deep bool) {

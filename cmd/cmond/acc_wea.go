@@ -2381,6 +2381,8 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[2].(float32) < float32(f) })
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return math.Abs(float64(v[2].(float32)-float32(f))) < 0.0007 })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[2].(float32) > float32(f) })
 				}
