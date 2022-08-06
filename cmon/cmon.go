@@ -31,9 +31,10 @@ type (
 		SavCov, SpotDisc, UsageAdj, EDPAdj float32
 		CUR                                map[string]string
 		SES                                map[string]string
-		Tags                               map[string][]string
+		TagRules                           map[string]map[string]map[string][]string
 		Profiles                           map[string]map[string]float32
 		Regions, Accounts                  map[string]TagMap
+		tcmap                              map[string]map[string]map[string]string
 	}
 	// datadogService settings
 	datadogService struct {
@@ -211,6 +212,29 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 	default:
 		return false, fmt.Errorf("unknown settings source")
 	}
+
+	new.AWS.tcmap = make(map[string]map[string]map[string]string) // build tag content map from TagRules to speed lookups
+	for k, v := range new.AWS.TagRules {
+		rs := make(map[string]map[string]string)
+		for k, v := range v {
+			if strings.HasPrefix(k, "cmon:") {
+				r := make(map[string]string)
+				for k, v := range v {
+					if k == "" || k[0] != '~' {
+						for _, v := range v {
+							r[strings.ToLower(v)] = k
+						}
+					}
+				}
+				if len(r) > 0 {
+					rs[k] = r
+				}
+			}
+		}
+		if len(rs) > 0 {
+			new.AWS.tcmap[k] = rs
+		}
+	}
 	*cur, loaded = new, true // TODO: assumes atomicity of pointer assignment; consider using atomic.Value()
 	return
 }
@@ -270,6 +294,28 @@ func (t TagMap) UpdateT(k, v string) TagMap {
 	}
 	if v != "" && k != "" && t[k] == "" {
 		t[k] = v
+	}
+	return t
+}
+
+// UpdateV method on TagMap ...
+func (t TagMap) UpdateV(s *MonSettings, acct string) TagMap {
+	var tr string
+	if t == nil || s == nil {
+		return t
+	} else if tr = s.AWS.Accounts[acct]["~tagrules"]; tr == "" {
+		tr = "default"
+	}
+	if rs := s.AWS.tcmap[tr]; rs != nil {
+		for k, v := range t {
+			if r := rs[k]; r == nil {
+			} else if rv, rule := r[strings.ToLower(v)]; rule {
+				t[k] = rv
+			} else if v == "" {
+			} else if wv, wild := r["*"]; wild {
+				t[k] = wv
+			}
+		}
 	}
 	return t
 }

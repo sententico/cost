@@ -79,26 +79,29 @@ def getWriter(m, cols):
 
 def getTagFilter(settings):
     '''Return a tag filter closure for filtering and mapping AWS resource tags'''
-    ts = settings['AWS'].get('Tags',{})
-    incl,tmap = set(ts.get('include',[])), {k:v for k,v in ts.items() if k.startswith('cmon:') and v and type(v) is list}
-    if '*' not in incl: pfxs,sfxs = tuple(set(['cmon:']+ts.get('prefixes',[]))), tuple(set(ts.get('suffixes',[])))
-    else:         incl, pfxs,sfxs = None, (), ()
-    aliases = set().union(*tmap.values())
+    trd = {rsk:(set(            rsv.get('~filters',{}).get('include',[])),
+                tuple(set(      rsv.get('~filters',{}).get('prefixes',[])+['cmon:'])),
+                tuple(set(      rsv.get('~filters',{}).get('suffixes',[]))),
+                {t:             r.get('~aliases',[]) for t,r in rsv.items() if t.startswith('cmon:')},
+                set().union(*[  r.get('~aliases',[]) for t,r in rsv.items() if t.startswith('cmon:')]),
+           ) for rsk,rsv in settings['AWS'].get('TagRules',{}).items()}
 
-    def filterTags(tl):
-        nonlocal incl, tmap, pfxs, sfxs, aliases
-        td, ad = {}, {} 
+    def filterTags(at, tl):
+        nonlocal trd
+        incl,pfxs,sfxs,amap,aset = trd.get(at.get('~tagrules','default'),(set(),('cmon:'),(),{},set()))
+ 
+        td,ad = {}, {}
         for t in tl:                    # filter resource tags; "*" wildcard includes all tags
             k,v = t.get('Key'), t.get('Value')
             if type(k) is not str or type(v) is not str or k in {
                '','--'} or v in {'','--','unknown','Unknown',
-               }:                                                                       continue
-            if k in aliases:                                                            ad[k] = v
-            if incl is None or k in incl or k.startswith(pfxs) or k.endswith(sfxs):     td[k] = v
-        for t,al in tmap.items():       # map aliases to native cmon tags
-            if t not in td:
+               }:                                                                   continue
+            if k in aset:                                                           ad[k] = v
+            if k.startswith(pfxs) or '*' in incl or k in incl or k.endswith(sfxs):  td[k] = v
+        for n,al in amap.items():       # map aliases to native cmon tags
+            if n not in td:
                 for a in al:
-                    if a in ad:                                                         td[t] = ad[a]; break
+                    if a in ad:                                                     td[n] = ad[a]; break
         return td
     return filterTags
 
@@ -132,7 +135,7 @@ def gophEC2AWS(model, settings, inputs, args):
                          'state':   i.state.get('Name',''),
                          'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
                          'tag':     '' if not i.tags else '\t'.join([s.translate(flt)
-                                    for kv in tagf(i.tags).items() for s in kv]),
+                                    for kv in tagf(at, i.tags).items() for s in kv]),
                         })
     pipe(None, None)
 
@@ -166,7 +169,7 @@ def gophEBSAWS(model, settings, inputs, args):
                                     v.attachments[0]['DeleteOnTermination']) if len(v.attachments)==1 else
                                     '{} attachments'.format(len(v.attachments)),
                          'tag':     '' if not v.tags else '\t'.join([s.translate(flt)
-                                    for kv in tagf(v.tags).items() for s in kv]),
+                                    for kv in tagf(at, v.tags).items() for s in kv]),
                         })
     pipe(None, None)
 
@@ -207,7 +210,7 @@ def gophRDSAWS(model, settings, inputs, args):
                          'vpc':     d.get('DBSubnetGroup',{}).get('VpcId',''),
                          'state':   d.get('DBInstanceStatus',''),
                          'tag':     '' if not dtags else '\t'.join([s.translate(flt)
-                                    for kv in tagf(dtags).items() for s in kv]),
+                                    for kv in tagf(at, dtags).items() for s in kv]),
                         })
     pipe(None, None)
 
@@ -240,7 +243,7 @@ def gophSNAPAWS(model, settings, inputs, args):
                              'vol':     snap.get('VolumeId','vol-ffffffff'),
                              'desc':    snap.get('Description',''),
                              'tag':     '' if not snap.get('Tags') else '\t'.join([s.translate(flt)
-                                        for kv in tagf(snap['Tags']).items() for s in kv]),
+                                        for kv in tagf(at, snap['Tags']).items() for s in kv]),
                              'since':   snap['StartTime'].isoformat(),
                             })
     pipe(None, None)
@@ -250,9 +253,10 @@ def gophCURAWS(model, settings, inputs, args):
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     if not settings.get('AWS',{}).get('CUR'): raise GError('no CUR settings for {}'.format(model))
     tlist = ['cmon:Name','cmon:Env','cmon:Cust','cmon:Oper','cmon:Prod','cmon:Role','cmon:Ver','cmon:Prov',]
-    ts,pipe,cur,edp,flt,head,ids,s = settings['AWS'].get('Tags',{}), getWriter(model, [
+    cur,accts,rules,edp,pipe,flt,head,ids,s = settings['AWS']['CUR'], settings['AWS'].get('Accounts',{}), settings[
+        'AWS'].get('TagRules',{}), settings['AWS'].get('EDPAdj',1.0), getWriter(model, [
         'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
-    ]+tlist), settings['AWS']['CUR'], settings['AWS'].get('EDPAdj',1.0), str.maketrans('\t',' '), {}, {}, ""
+    ]+tlist), str.maketrans('\t',' '), {}, {}, ""
 
     def getcid(id):
         '''Return cached compact line item ID with new-reference flag; full IDs unnecessarily large'''
@@ -318,14 +322,14 @@ def gophCURAWS(model, settings, inputs, args):
                                                       col[head['lineItem/UnblendedCost']])*edp)
 
                 if new:
-                    svc,uop,az,rid,end=\
-                        col[head['product/ProductName']],   col[head['lineItem/Operation']],    col[head['product/region']],\
-                        col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']]
+                    acct,svc,uop,az,rid,end=\
+                        col[head['lineItem/UsageAccountId']],col[head['product/ProductName']],  col[head['lineItem/Operation']],\
+                        col[head['product/region']],        col[head['lineItem/ResourceId']],   col[head['lineItem/UsageEndDate']]
                     try:    ivl = int(timedelta.total_seconds(datetime.fromisoformat(end[:-1])-datetime.fromisoformat(hour[:-1])))
                     except  ValueError: continue
 
                     rec.update({
-                        'acct': col[head['lineItem/UsageAccountId']],           # usage (not billing) account
+                        'acct': acct,                                           # usage (not billing) account
                         'typ': {'AWS':                  '',
                                 'AWS Marketplace':      'mkt ',                 # source
                                }.get(col[head['bill/BillingEntity']],'other ') +
@@ -335,20 +339,21 @@ def gophCURAWS(model, settings, inputs, args):
                                 'periodic ' if ivl < 31103999   else
                                 'annual ')))) +                                 # usage interval category
                                typ,                                             # line item type
-                        'svc': {'Amazon Elastic Compute Cloud':         'EC2',
-                                'Amazon Simple Storage Service':        'S3',
-                                'Amazon Simple Notification Service':   'SNS',
-                                'Amazon EC2 Container Service':         'ECS',
-                                'Elastic Load Balancing':               'ELB',
-                                'AmazonCloudWatch':                     'CloudWatch',
-                                'Amazon Virtual Private Cloud':         'VPC',
-                                'AWS Key Management Service':           'KMS',
-                                'Amazon Simple Queue Service':          'SQS',
-                                'Amazon Relational Database Service':   'RDS',
-                                'Amazon EC2 Container Registry (ECR)':  'ECR',
-                                'Amazon Elastic File System':           'EFS',
-                                'CloudEndure Disaster Recovery to AWS': 'CloudEndure',
-                                'Repstance Advanced Edition':           'Repstance AE',
+                        'svc': {'Amazon Elastic Compute Cloud':                         'EC2',
+                                'Amazon Simple Storage Service':                        'S3',
+                                'Amazon Simple Notification Service':                   'SNS',
+                                'Amazon Elastic Container Service':                     'ECS',
+                                'Amazon Elastic Container Service for Kubernetes':      'EKS',
+                                'Elastic Load Balancing':                               'ELB',
+                                'AmazonCloudWatch':                                     'CloudWatch',
+                                'Amazon Virtual Private Cloud':                         'VPC',
+                                'AWS Key Management Service':                           'KMS',
+                                'Amazon Simple Queue Service':                          'SQS',
+                                'Amazon Relational Database Service':                   'RDS',
+                                'Amazon EC2 Container Registry (ECR)':                  'ECR',
+                                'Amazon Elastic File System':                           'EFS',
+                                'CloudEndure Disaster Recovery to AWS':                 'CloudEndure',
+                                'Repstance Advanced Edition':                           'Repstance AE',
                                 'Contact Center Telecommunications (service sold by AMCS, LLC) ':'Amazon Connect telecom',
                                }.get(svc,svc.replace(
                                 'with support by',      'by'    ).replace(
@@ -438,9 +443,10 @@ def gophCURAWS(model, settings, inputs, args):
                                 'N.',                   ''      ),              # service description
                         'ivl':  str(ivl),                                       # usage interval (seconds)
                     })                                                          # cmon tags or mappings...
-                    rec.update({t:getcol(['resourceTags/user:'+a    for a in [t]+ts.get(t,[])], {'','--','unknown','Unknown'},
+                    rs = rules.get(accts.get(acct,{}).get('~tagrules','default'),{})
+                    rec.update({t:getcol(['resourceTags/user:'+a for a in [t]+rs.get(t,{}).get('~aliases',[])],
                                          # translate as with API-sourced tags for sake of potential matching
-                                         head, col).translate(flt)  for t in tlist})
+                                         {'','--','unknown','Unknown'}, head, col).translate(flt) for t in tlist})
                 pipe(s, rec)
 
             elif l.startswith('#!begin '):
