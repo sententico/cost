@@ -84,7 +84,8 @@ def getTagFilter(settings):
                 tuple(set(      rsv.get('~filters',{}).get('suffixes',[]))),
                 {t:             r.get('~aliases',[]) for t,r in rsv.items() if t.startswith('cmon:')},
                 set().union(*[  r.get('~aliases',[]) for t,r in rsv.items() if t.startswith('cmon:')]),
-           ) for rsk,rsv in settings['AWS'].get('TagRules',{}).items()}
+           ) for rsk,rsv in settings['AWS'].get('TagRules',{}).items()
+                if rsk and not rsk.startswith('~') and type(rsv) is dict}
 
     def filterTags(at, tl):
         nonlocal trd

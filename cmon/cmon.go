@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,7 @@ type (
 		Profiles                           map[string]map[string]float32
 		Regions, Accounts                  map[string]TagMap
 		tcmap                              map[string]map[string]map[string]string
+		tpmap                              map[string]map[string][]*regexp.Regexp
 	}
 	// datadogService settings
 	datadogService struct {
@@ -214,25 +216,46 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 	}
 
 	new.AWS.tcmap = make(map[string]map[string]map[string]string) // build tag content map from TagRules to speed lookups
+	new.AWS.tpmap = make(map[string]map[string][]*regexp.Regexp)  // build tag parser map from conventions in TagRules
 	for k, v := range new.AWS.TagRules {
-		rs := make(map[string]map[string]string)
-		for k, v := range v {
-			if strings.HasPrefix(k, "cmon:") {
-				r := make(map[string]string)
-				for k, v := range v {
-					if k == "" || k[0] != '~' {
-						for _, v := range v {
-							r[strings.ToLower(v)] = k
+		if k != "" && k[0] != '~' {
+			tc := make(map[string]map[string]string) // build content maps from cmon tag entries in a TagRules ruleset
+			for k, v := range v {
+				if strings.HasPrefix(k, "cmon:") {
+					m := make(map[string]string)
+					for k, v := range v {
+						if k == "" || k[0] != '~' {
+							for _, v := range v {
+								m[strings.ToLower(v)] = k
+							}
 						}
 					}
-				}
-				if len(r) > 0 {
-					rs[k] = r
+					if len(m) > 0 {
+						tc[k] = m
+					}
 				}
 			}
-		}
-		if len(rs) > 0 {
-			new.AWS.tcmap[k] = rs
+			if len(tc) > 0 {
+				new.AWS.tcmap[k] = tc
+			}
+
+			if c := v["~conventions"]; c != nil { // build tag parsers from naming convention regexes in a TagRules ruleset
+				tp := make(map[string][]*regexp.Regexp)
+				for k, v := range c {
+					p := []*regexp.Regexp{}
+					for _, e := range v {
+						if re, _ := regexp.Compile(e); re != nil {
+							p = append(p, re)
+						}
+					}
+					if len(p) > 0 {
+						tp[k] = p
+					}
+				}
+				if len(tp) > 0 {
+					new.AWS.tpmap[k] = tp
+				}
+			}
 		}
 	}
 	*cur, loaded = new, true // TODO: assumes atomicity of pointer assignment; consider using atomic.Value()
@@ -259,7 +282,7 @@ func (s *MonSettings) PromoteAZ(acct, az string) bool {
 	return false
 }
 
-// Update method on TagMap ...
+// Update method on TagMap adds tags not in t from u
 func (t TagMap) Update(u TagMap) TagMap {
 	if t == nil {
 		t = make(TagMap)
@@ -272,7 +295,7 @@ func (t TagMap) Update(u TagMap) TagMap {
 	return t
 }
 
-// UpdateP method on TagMap ...
+// UpdateP method on TagMap adds tags not in t from u having prefix p
 func (t TagMap) UpdateP(u TagMap, p string) TagMap {
 	if p == "" {
 		return t.Update(u)
@@ -287,7 +310,7 @@ func (t TagMap) UpdateP(u TagMap, p string) TagMap {
 	return t
 }
 
-// UpdateT method on TagMap ...
+// UpdateT method on TagMap adds tag k if not already in t
 func (t TagMap) UpdateT(k, v string) TagMap {
 	if t == nil {
 		t = make(TagMap)
@@ -298,23 +321,49 @@ func (t TagMap) UpdateT(k, v string) TagMap {
 	return t
 }
 
-// UpdateV method on TagMap ...
-func (t TagMap) UpdateV(s *MonSettings, acct string) TagMap {
+// UpdateV method on TagMap updates tag values per content maps in TagRules settings for account a
+func (t TagMap) UpdateV(s *MonSettings, a string) TagMap {
 	var tr string
+	var defined bool
 	if t == nil || s == nil {
 		return t
-	} else if tr = s.AWS.Accounts[acct]["~tagrules"]; tr == "" {
+	} else if tr, defined = s.AWS.Accounts[a]["~tagrules"]; !defined {
 		tr = "default"
 	}
-	if rs := s.AWS.tcmap[tr]; rs != nil {
+	if tc := s.AWS.tcmap[tr]; tc != nil {
 		for k, v := range t {
-			if r := rs[k]; r == nil {
-			} else if rv, rule := r[strings.ToLower(v)]; rule {
-				t[k] = rv
+			if m := tc[k]; m == nil {
+			} else if mv, mapped := m[strings.ToLower(v)]; mapped {
+				t[k] = mv
 			} else if v == "" {
-			} else if wv, wild := r["*"]; wild {
+			} else if wv, wild := m["*"]; wild {
 				t[k] = wv
 			}
+		}
+	}
+	return t
+}
+
+// UpdateN method on TagMap adds tags not in t from name parsed by convention c in TagRules settings for account a
+func (t TagMap) UpdateN(s *MonSettings, a, c, name string) TagMap {
+	var tr string
+	var defined bool
+	if t == nil {
+		t = make(TagMap)
+	}
+	if s == nil || name == "" {
+		return t
+	} else if tr, defined = s.AWS.Accounts[a]["~tagrules"]; !defined {
+		tr = "default"
+	}
+	for _, p := range s.AWS.tpmap[tr][c] {
+		if mv := p.FindStringSubmatch(name); mv != nil {
+			for i, k := range p.SubexpNames()[1:] {
+				if k = "cmon:" + k; t[k] == "" {
+					t[k] = mv[i+1]
+				}
+			}
+			break
 		}
 	}
 	return t

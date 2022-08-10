@@ -27,7 +27,6 @@ var (
 		"":      "wea_test.py", // default weasel
 		"~":     "weasel",      // command type
 	}
-	alvN = regexp.MustCompile(`\b(?P<Cust>[a-z][a-z\d-]{1,11})(?P<Ver>a[12]?\da|b[12]?\db)[tsmlxy][gbewh](?P<Role>[a-z]{0,8}?)[\dpr]?\b`)
 	// filter criteria operators...
 	//  = equals		! not equals
 	//  < less/before	> greater/after
@@ -460,19 +459,6 @@ func active(since, last int, ap []int) float32 {
 	return float32(a) / float32(last-since+1)
 }
 
-func nTags(name string) (t cmon.TagMap) {
-	switch settings.Unit {
-	case "cmon-aspect", "cmon-alvaria":
-		if v := alvN.FindStringSubmatch(name); v != nil {
-			t = make(cmon.TagMap)
-			for i, k := range alvN.SubexpNames()[1:] {
-				t["cmon:"+k] = v[i+1]
-			}
-		}
-	}
-	return
-}
-
 func atos(ts string) (s int64) {
 	if s, _ = strconv.ParseInt(ts, 0, 0); s > 1e4 {
 		if s < 3e6 { // hours/seconds in Unix epoch cutoff
@@ -785,7 +771,7 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		if inst.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
+		tag := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
 		if tag.UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:"); inst.AZ != "" {
 			tag.UpdateP(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]], "cmon:")
 		}
@@ -1112,7 +1098,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			defer ec2.rel()
 			for id := range itags {
 				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-					itags[id] = cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
+					itags[id] = cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
 				}
 			}
 		}()
@@ -1124,7 +1110,8 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		if vol.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.UpdateP(vol.Tag, "cmon:").Update(nTags(vol.Tag["cmon:Name"])).Update(itags[strings.SplitN(vol.Mount, ":", 2)[0]])
+		tag := cmon.TagMap{}.UpdateP(vol.Tag, "cmon:").UpdateN(settings, vol.Acct, "names", vol.Tag["cmon:Name"]).Update(
+			itags[strings.SplitN(vol.Mount, ":", 2)[0]])
 		if tag.UpdateP(settings.AWS.Accounts[vol.Acct], "cmon:"); vol.AZ != "" {
 			tag.UpdateP(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]], "cmon:")
 		}
@@ -1516,7 +1503,7 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			s := strings.Split(id, ":")
 			tag.UpdateT("cmon:Name", s[len(s)-1])
 		}
-		if tag.Update(nTags(tag["cmon:Name"])).UpdateP(settings.AWS.Accounts[db.Acct], "cmon:"); db.AZ != "" {
+		if tag.UpdateN(settings, db.Acct, "names", tag["cmon:Name"]).UpdateP(settings.AWS.Accounts[db.Acct], "cmon:"); db.AZ != "" {
 			tag.UpdateP(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]], "cmon:")
 		}
 		if skip(flt, db, az, tag.UpdateV(settings, db.Acct)) {
@@ -1796,7 +1783,7 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 			defer ec2.rel()
 			for id, t := range atags {
 				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-					atags[id] = t.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
+					atags[id] = t.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
 				}
 			}
 		}()
@@ -1808,8 +1795,8 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 		if snap.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.UpdateP(snap.Tag, "cmon:").Update(nTags(snap.Tag["cmon:Name"])).Update(atags[ralt[snap.Vol]]).UpdateP(
-			settings.AWS.Accounts[snap.Acct], "cmon:").UpdateP(settings.AWS.Regions[snap.Reg], "cmon:")
+		tag := cmon.TagMap{}.UpdateP(snap.Tag, "cmon:").UpdateN(settings, snap.Acct, "names", snap.Tag["cmon:Name"]).Update(
+			atags[ralt[snap.Vol]]).UpdateP(settings.AWS.Accounts[snap.Acct], "cmon:").UpdateP(settings.AWS.Regions[snap.Reg], "cmon:")
 		if skip(flt, snap, tag.UpdateV(settings, snap.Acct)) {
 			continue
 		} else if rows--; rows == 0 {
@@ -2645,7 +2632,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				defer ec2.rel()
 				for id, t := range atags {
 					if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-						atags[id] = t.UpdateP(inst.Tag, "cmon:").Update(nTags(inst.Tag["cmon:Name"]))
+						atags[id] = t.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
 					}
 				}
 			}()
@@ -2687,9 +2674,9 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 						"cmon:Role": li.Role,
 						"cmon:Ver":  li.Ver,
 						"cmon:Prov": li.Prov,
-					}).Update(nTags(li.Name)).Update(nTags(li.RID)).Update(atags[ralt[li.RID]]).UpdateP(
-						settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg], "cmon:"); skip(flt, li,
-						tag.UpdateV(settings, li.Acct), pu) {
+					}).UpdateN(settings, li.Acct, "names", li.Name).UpdateN(settings, li.Acct, "RIDs", li.RID).Update(
+						atags[ralt[li.RID]]).UpdateP(settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg],
+						"cmon:"); skip(flt, li, tag.UpdateV(settings, li.Acct), pu) {
 						continue
 					} else if item := cur.table(li, ifr, ito, units, trunc, id, tag, pu, dts, rflt); item != nil {
 						for row := item(); row != nil; row = item() {
