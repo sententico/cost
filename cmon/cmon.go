@@ -332,33 +332,35 @@ func (t TagMap) UpdateV(s *MonSettings, a string) TagMap {
 	}
 	if tc := s.AWS.tcmap[tr]; tc != nil {
 		for k, v := range t {
-			if m := tc[k]; m == nil {
-			} else if mv, mapped := m[strings.ToLower(v)]; mapped {
-				switch { // update to mapped value/expression or skip if "*"
-				case mv == "*":
-				case mv != "" && mv[0] == '=':
-					switch sv := strings.SplitN(mv[1:], "*", 2); len(sv) {
-					case 1:
-						t[k] = mv
-					default:
-						t[k] = sv[0] + v + sv[1]
+			if m := tc[k]; m != nil {
+				mapv, chain := func(v string) (string, bool) {
+					if mv, ok := m[strings.ToLower(v)]; ok {
+						switch { // update to mapped value/expression or skip if "*"
+						case mv == "*":
+							return v, true
+						case mv != "" && mv[0] == '=':
+							switch sv := strings.SplitN(mv[1:], "*", 2); len(sv) {
+							case 1:
+							default:
+								return sv[0] + v + sv[1], true
+							}
+						}
+						return mv, true
 					}
-				default:
-					t[k] = mv
+					return "", false
+				}, 0
+				for chain < 4 {
+					if mv, ok := mapv(v); !ok {
+					} else if chain, v, ok = chain+1, mv, !strings.EqualFold(v, mv); ok {
+						continue
+					}
+					break
 				}
-			} else if v == "" {
-			} else if wv, wild := m["*"]; wild && wv != "*" {
-				switch { // update to wildcard value/expression or skip if "*"
-				case wv == "*":
-				case wv != "" && wv[0] == '=':
-					switch sv := strings.SplitN(wv[1:], "*", 2); len(sv) {
-					case 1:
-						t[k] = wv
-					default:
-						t[k] = sv[0] + v + sv[1]
-					}
-				default:
-					t[k] = wv
+				if chain > 0 {
+					t[k] = v
+				} else if v == "" {
+				} else if mv, ok := mapv("*"); ok {
+					t[k] = mv
 				}
 			}
 		}
