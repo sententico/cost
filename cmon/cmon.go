@@ -334,10 +334,12 @@ func (t TagMap) UpdateV(s *MonSettings, a string) TagMap {
 		for k, v := range t {
 			if m := tc[k]; m == nil {
 			} else if mv, mapped := m[strings.ToLower(v)]; mapped {
-				t[k] = mv
+				if mv != "*" {
+					t[k] = mv // update to mapped value (skip if "*")
+				}
 			} else if v == "" {
-			} else if wv, wild := m["*"]; wild {
-				t[k] = wv
+			} else if wv, wild := m["*"]; wild && wv != "*" {
+				t[k] = wv // update to wildcard value (skip if "*")
 			}
 		}
 	}
