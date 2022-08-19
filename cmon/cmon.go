@@ -35,7 +35,7 @@ type (
 		TagRules                           map[string]map[string]map[string][]string
 		Profiles                           map[string]map[string]float32
 		Regions, Accounts                  map[string]TagMap
-		tcmap                              map[string]map[string]map[string]string
+		tcmap                              map[string]map[string]map[string][2]string
 		tpmap                              map[string]map[string][]*regexp.Regexp
 	}
 	// datadogService settings
@@ -215,18 +215,18 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		return false, fmt.Errorf("unknown settings source")
 	}
 
-	new.AWS.tcmap = make(map[string]map[string]map[string]string) // build tag content map from TagRules to speed lookups
-	new.AWS.tpmap = make(map[string]map[string][]*regexp.Regexp)  // build tag parser map from conventions in TagRules
+	new.AWS.tcmap = make(map[string]map[string]map[string][2]string) // build tag content map from TagRules to speed lookups
+	new.AWS.tpmap = make(map[string]map[string][]*regexp.Regexp)     // build tag parser map from conventions in TagRules
 	for k, v := range new.AWS.TagRules {
 		if k != "" && k[0] != '~' {
-			tc := make(map[string]map[string]string) // build content maps from cmon tag entries in a TagRules ruleset
+			tc := make(map[string]map[string][2]string) // build content maps from cmon tag entries in a TagRules ruleset
 			for k, v := range v {
 				if strings.HasPrefix(k, "cmon:") {
-					m := make(map[string]string)
+					m := make(map[string][2]string)
 					for k, v := range v {
 						if k == "" || k[0] != '~' {
 							for _, v := range v {
-								m[strings.ToLower(v)] = k
+								m[strings.ToLower(v)] = [2]string{k, v}
 							}
 						}
 					}
@@ -333,24 +333,30 @@ func (t TagMap) UpdateV(s *MonSettings, a string) TagMap {
 	if tc := s.AWS.tcmap[tr]; tc != nil {
 		for k, v := range t {
 			if m := tc[k]; m != nil {
-				mapv, chain := func(v string) (string, bool) {
-					if mv, ok := m[strings.ToLower(v)]; ok {
-						switch { // update to mapped value/expression or skip if "*"
-						case mv == "*":
-							return v, true
-						case mv != "" && mv[0] == '=':
-							switch sv := strings.SplitN(mv[1:], "*", 2); len(sv) {
+				mapv, chain := func(l, v string) (string, bool) {
+					if mv, ok := m[l]; ok {
+						switch {
+						case mv[0] == "*": // map to lookup value (rule casing if available)
+							if mv[1] == "*" {
+								return v, true
+							}
+							return mv[1], true
+						case mv[0] != "" && mv[0][0] == '=':
+							switch sv := strings.SplitN(mv[0][1:], "*", 2); len(sv) {
 							case 1:
-							default:
-								return sv[0] + v + sv[1], true
+							default: // map to expression inserting lookup value (rule casing if available)
+								if mv[1] == "*" {
+									return sv[0] + v + sv[1], true
+								}
+								return sv[0] + mv[1] + sv[1], true
 							}
 						}
-						return mv, true
+						return mv[0], true // simple lookup value mapping
 					}
 					return "", false
 				}, 0
 				for chain < 4 {
-					if mv, ok := mapv(v); !ok {
+					if mv, ok := mapv(strings.ToLower(v), v); !ok {
 					} else if chain, v, ok = chain+1, mv, !strings.EqualFold(v, mv); ok {
 						continue
 					}
@@ -359,7 +365,7 @@ func (t TagMap) UpdateV(s *MonSettings, a string) TagMap {
 				if chain > 0 {
 					t[k] = v
 				} else if v == "" {
-				} else if mv, ok := mapv("*"); ok {
+				} else if mv, ok := mapv("*", v); ok {
 					t[k] = mv
 				}
 			}
