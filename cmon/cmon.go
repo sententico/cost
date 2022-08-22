@@ -295,6 +295,14 @@ func (t TagMap) Update(u TagMap) TagMap {
 	return t
 }
 
+// Update method on TagMap adds tags not in t from r (reference pointer)
+func (t TagMap) UpdateR(r *TagMap) TagMap {
+	if r == nil {
+		return t
+	}
+	return t.Update(*r)
+}
+
 // UpdateP method on TagMap adds tags not in t from u having prefix p
 func (t TagMap) UpdateP(u TagMap, p string) TagMap {
 	if p == "" {

@@ -2588,55 +2588,47 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 		}()
 		pg, trunc := smPage, float32(truncate)
 
-		// infer CUR tag gaps in EBS volume/snapshot resources using alt tags (atags) mapped by alt resources in ralt
-		ralt, atags := make(map[string]string, 8192), make(map[string]cmon.TagMap, 4096)
-		if ebs, ec2, snap := mMod["ebs.aws"].newAcc(), mMod["ec2.aws"].newAcc(), mMod["snap.aws"].newAcc(); ebs != nil && ec2 != nil && snap != nil && len(ebs.m.data) > 1 && len(ec2.m.data) > 1 && len(snap.m.data) > 1 {
-			acc.reqR()
-			for mo, hrs := range cur.Month {
-				if to >= hrs[0] && hrs[1] >= from {
-					for _, li := range cur.Line[mo] {
-						if (li.Cost > trunc || -trunc > li.Cost) && (strings.HasPrefix(li.RID, "vol-") || strings.HasPrefix(li.RID, "snapshot/")) {
-							ralt[li.RID] = ""
-						}
-					}
-				}
-			}
-			acc.rel()
+		// build itags map to infer CUR gaps in EC2/EBS volume/snapshot resource tags using their transitive relationships
+		itags := make(map[string]*cmon.TagMap, 16384)
+		if ec2, ebs, snap := mMod["ec2.aws"].newAcc(), mMod["ebs.aws"].newAcc(), mMod["snap.aws"].newAcc(); ec2 != nil && ebs != nil && snap != nil && len(ec2.m.data) > 1 && len(ebs.m.data) > 1 && len(snap.m.data) > 1 {
 			func() {
-				snap.reqR()
-				defer snap.rel()
-				for id := range ralt {
-					if !strings.HasPrefix(id, "snapshot/") {
-					} else if sd := snap.m.data[1].(*snapDetail).Snap[id[9:]]; sd != nil && sd.Vol != "" {
-						ralt[id] = sd.Vol
-					}
+				ec2.reqR()
+				defer ec2.rel()
+				for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
+					t := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
+					itags[id] = &t
 				}
 			}()
 			func() {
 				ebs.reqR()
 				defer ebs.rel()
-				for id, alt := range ralt {
-					if alt == "" {
-						alt = id
+				for id, vol := range ebs.m.data[1].(*ebsDetail).Vol {
+					var t *cmon.TagMap
+					if strings.HasPrefix(vol.Mount, "i-") {
+						t = itags[strings.SplitN(vol.Mount, ":", 2)[0]]
 					}
-					if vol := ebs.m.data[1].(*ebsDetail).Vol[alt]; vol != nil {
-						if strings.HasPrefix(vol.Mount, "i-") {
-							alt = strings.SplitN(vol.Mount, ":", 2)[0]
-						}
-						ralt[id], atags[alt] = alt, cmon.TagMap{}.UpdateP(vol.Tag, "cmon:")
+					if t == nil {
+						t = &cmon.TagMap{}
 					}
+					t.UpdateP(vol.Tag, "cmon:").UpdateN(settings, vol.Acct, "names", vol.Tag["cmon:Name"])
+					itags[id] = t
 				}
 			}()
 			func() {
-				ec2.reqR()
-				defer ec2.rel()
-				for id, t := range atags {
-					if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-						atags[id] = t.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
+				snap.reqR()
+				defer snap.rel()
+				for id, sd := range snap.m.data[1].(*snapDetail).Snap {
+					var t *cmon.TagMap
+					if sd.Vol != "" {
+						t = itags[sd.Vol]
 					}
+					if t == nil {
+						t = &cmon.TagMap{}
+					}
+					t.UpdateP(sd.Tag, "cmon:")
+					itags[id], itags["snapshot/"+id] = t, t
 				}
 			}()
-			// TODO: expand EC2 resource tagging inferences (from API sources) to gaps due to limited CUR tag columns
 		}
 
 		acc.reqR()
@@ -2674,8 +2666,8 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 						"cmon:Role": li.Role,
 						"cmon:Ver":  li.Ver,
 						"cmon:Prov": li.Prov,
-					}).UpdateN(settings, li.Acct, "names", li.Name).UpdateN(settings, li.Acct, "RIDs", li.RID).Update(
-						atags[ralt[li.RID]]).UpdateP(settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg],
+					}).UpdateN(settings, li.Acct, "names", li.Name).UpdateN(settings, li.Acct, "RIDs", li.RID).UpdateR(
+						itags[li.RID]).UpdateP(settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg],
 						"cmon:"); skip(flt, li, tag.UpdateV(settings, li.Acct), pu) {
 						continue
 					} else if item := cur.table(li, ifr, ito, units, trunc, id, tag, pu, dts, rflt); item != nil {
