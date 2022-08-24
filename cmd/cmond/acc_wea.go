@@ -451,6 +451,65 @@ func seriesExtract(metric string, span, recent int, truncate interface{}) (res c
 	return
 }
 
+// buildITags builds a map to infer CUR gaps in EC2/EBS volume/snapshot resource tags using their transitive relationships
+func buildITags(snaps int) (itags map[string]*cmon.TagMap) {
+	itags = make(map[string]*cmon.TagMap, 16384)
+
+	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
+		func() {
+			ec2.reqR()
+			defer ec2.rel()
+			for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
+				t := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
+				itags[id] = &t
+			}
+		}()
+	}
+	// TODO: add bypass for full TagMaps
+	if ebs := mMod["ebs.aws"].newAcc(); ebs != nil && len(ebs.m.data) > 1 {
+		func() {
+			ebs.reqR()
+			defer ebs.rel()
+			for id, vol := range ebs.m.data[1].(*ebsDetail).Vol {
+				var t *cmon.TagMap
+				if strings.HasPrefix(vol.Mount, "i-") {
+					t = itags[strings.SplitN(vol.Mount, ":", 2)[0]]
+				}
+				if t == nil {
+					t = &cmon.TagMap{}
+				}
+				t.UpdateP(vol.Tag, "cmon:").UpdateN(settings, vol.Acct, "names", vol.Tag["cmon:Name"])
+				itags[id] = t
+			}
+		}()
+	}
+	if snap := mMod["snap.aws"].newAcc(); snap != nil && len(snap.m.data) > 1 {
+		func() {
+			snap.reqR()
+			defer snap.rel()
+			for id, sd := range snap.m.data[1].(*snapDetail).Snap {
+				var t *cmon.TagMap
+				if sd.Vol != "" {
+					t = itags[sd.Vol]
+				}
+				if t == nil {
+					if snaps == 0 {
+						continue
+					}
+					t = &cmon.TagMap{}
+				}
+				switch t.UpdateP(sd.Tag, "cmon:").UpdateN(settings, sd.Acct, "names", sd.Tag["cmon:Name"]); snaps {
+				case 1:
+					itags[id] = t
+				case 2:
+					itags[id], itags["snapshot/"+id] = t, t
+				}
+			}
+		}()
+	}
+	return
+}
+
 func active(since, last int, ap []int) float32 {
 	var a int
 	for i := 0; i+1 < len(ap); i += 2 {
@@ -765,13 +824,13 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 }
 
 func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
-	pg := smPage
+	itags, pg := buildITags(0), smPage
 	acc.reqR()
 	for id, inst := range d.Inst {
 		if inst.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
+		tag := cmon.TagMap{}.UpdateR(itags[id])
 		if tag.UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:"); inst.AZ != "" {
 			tag.UpdateP(settings.AWS.Regions[inst.AZ[:len(inst.AZ)-1]], "cmon:")
 		}
@@ -1084,34 +1143,13 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 }
 
 func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
-	itags := make(map[string]cmon.TagMap, 4096)
-	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
-		acc.reqR()
-		for _, vol := range d.Vol {
-			if vol.Last >= cur && strings.HasPrefix(vol.Mount, "i-") {
-				itags[strings.SplitN(vol.Mount, ":", 2)[0]] = nil
-			}
-		}
-		acc.rel()
-		func() {
-			ec2.reqR()
-			defer ec2.rel()
-			for id := range itags {
-				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-					itags[id] = cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
-				}
-			}
-		}()
-	}
-
-	pg := smPage
+	itags, pg := buildITags(0), smPage
 	acc.reqR()
 	for id, vol := range d.Vol {
 		if vol.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.UpdateP(vol.Tag, "cmon:").UpdateN(settings, vol.Acct, "names", vol.Tag["cmon:Name"]).Update(
-			itags[strings.SplitN(vol.Mount, ":", 2)[0]])
+		tag := cmon.TagMap{}.UpdateR(itags[id])
 		if tag.UpdateP(settings.AWS.Accounts[vol.Acct], "cmon:"); vol.AZ != "" {
 			tag.UpdateP(settings.AWS.Regions[vol.AZ[:len(vol.AZ)-1]], "cmon:")
 		}
@@ -1757,46 +1795,14 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 }
 
 func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
-	ralt, atags := make(map[string]string, 8192), make(map[string]cmon.TagMap, 4096)
-	if ebs, ec2 := mMod["ebs.aws"].newAcc(), mMod["ec2.aws"].newAcc(); ebs != nil && ec2 != nil && len(ebs.m.data) > 1 && len(ec2.m.data) > 1 {
-		acc.reqR()
-		for _, snap := range d.Snap {
-			if snap.Last >= cur && snap.Vol != "" {
-				ralt[snap.Vol] = ""
-			}
-		}
-		acc.rel()
-		func() {
-			ebs.reqR()
-			defer ebs.rel()
-			for id := range ralt {
-				if alt, vol := id, ebs.m.data[1].(*ebsDetail).Vol[id]; vol != nil {
-					if strings.HasPrefix(vol.Mount, "i-") {
-						alt = strings.SplitN(vol.Mount, ":", 2)[0]
-					}
-					ralt[id], atags[alt] = alt, cmon.TagMap{}.UpdateP(vol.Tag, "cmon:")
-				}
-			}
-		}()
-		func() {
-			ec2.reqR()
-			defer ec2.rel()
-			for id, t := range atags {
-				if inst := ec2.m.data[1].(*ec2Detail).Inst[id]; inst != nil {
-					atags[id] = t.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
-				}
-			}
-		}()
-	} // infer tag gaps in EBS snapshot resources using alt tags (atags) mapped by alt resources in ralt
-
-	pg := smPage
+	itags, pg := buildITags(1), smPage
 	acc.reqR()
 	for id, snap := range d.Snap {
 		if snap.Last < cur {
 			continue
 		}
-		tag := cmon.TagMap{}.UpdateP(snap.Tag, "cmon:").UpdateN(settings, snap.Acct, "names", snap.Tag["cmon:Name"]).Update(
-			atags[ralt[snap.Vol]]).UpdateP(settings.AWS.Accounts[snap.Acct], "cmon:").UpdateP(settings.AWS.Regions[snap.Reg], "cmon:")
+		tag := cmon.TagMap{}.UpdateR(itags[id]).UpdateP(settings.AWS.Accounts[snap.Acct], "cmon:").UpdateP(
+			settings.AWS.Regions[snap.Reg], "cmon:")
 		if skip(flt, snap, tag.UpdateV(settings, snap.Acct)) {
 			continue
 		} else if rows--; rows == 0 {
@@ -2586,51 +2592,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				close(res)
 			}
 		}()
-		pg, trunc := smPage, float32(truncate)
-
-		// build itags map to infer CUR gaps in EC2/EBS volume/snapshot resource tags using their transitive relationships
-		itags := make(map[string]*cmon.TagMap, 16384)
-		if ec2, ebs, snap := mMod["ec2.aws"].newAcc(), mMod["ebs.aws"].newAcc(), mMod["snap.aws"].newAcc(); ec2 != nil && ebs != nil && snap != nil && len(ec2.m.data) > 1 && len(ebs.m.data) > 1 && len(snap.m.data) > 1 {
-			func() {
-				ec2.reqR()
-				defer ec2.rel()
-				for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
-					t := cmon.TagMap{}.UpdateP(inst.Tag, "cmon:").UpdateN(settings, inst.Acct, "names", inst.Tag["cmon:Name"])
-					itags[id] = &t
-				}
-			}()
-			func() {
-				ebs.reqR()
-				defer ebs.rel()
-				for id, vol := range ebs.m.data[1].(*ebsDetail).Vol {
-					var t *cmon.TagMap
-					if strings.HasPrefix(vol.Mount, "i-") {
-						t = itags[strings.SplitN(vol.Mount, ":", 2)[0]]
-					}
-					if t == nil {
-						t = &cmon.TagMap{}
-					}
-					t.UpdateP(vol.Tag, "cmon:").UpdateN(settings, vol.Acct, "names", vol.Tag["cmon:Name"])
-					itags[id] = t
-				}
-			}()
-			func() {
-				snap.reqR()
-				defer snap.rel()
-				for id, sd := range snap.m.data[1].(*snapDetail).Snap {
-					var t *cmon.TagMap
-					if sd.Vol != "" {
-						t = itags[sd.Vol]
-					}
-					if t == nil {
-						t = &cmon.TagMap{}
-					}
-					t.UpdateP(sd.Tag, "cmon:")
-					itags[id], itags["snapshot/"+id] = t, t
-				}
-			}()
-		}
-
+		pg, trunc, itags := smPage, float32(truncate), buildITags(2)
 		acc.reqR()
 	outerLoop:
 		for mo, hrs := range cur.Month {
