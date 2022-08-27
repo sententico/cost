@@ -27,10 +27,6 @@ type (
 		Alert       map[string]map[string]string
 	}
 
-	perfItem struct {
-		Period []int     `json:"P"`
-		Value  []float32 `json:"V"`
-	}
 	usageItem struct {
 		Usage uint64  `json:"U"` // total unit-seconds of usage
 		Cost  float64 `json:"C"` // total USD cost (15-digit precision)
@@ -58,10 +54,10 @@ type (
 		State  string
 		Since  int
 		Last   int
-		Active []int                `json:",omitempty"`
-		Perf   map[string]*perfItem `json:",omitempty"`
-		ORate  float32              `json:",omitempty"`
-		Rate   float32              `json:",omitempty"`
+		Active []int          `json:",omitempty"`
+		Metric cmon.MetricMap `json:",omitempty"`
+		ORate  float32        `json:",omitempty"`
+		Rate   float32        `json:",omitempty"`
 	}
 	ec2Detail struct {
 		Current int
@@ -88,9 +84,9 @@ type (
 		State  string
 		Since  int
 		Last   int
-		Active []int                `json:",omitempty"`
-		Perf   map[string]*perfItem `json:",omitempty"`
-		Rate   float32              `json:",omitempty"`
+		Active []int          `json:",omitempty"`
+		Metric cmon.MetricMap `json:",omitempty"`
+		Rate   float32        `json:",omitempty"`
 	}
 	ebsDetail struct {
 		Current int
@@ -122,9 +118,9 @@ type (
 		State   string
 		Since   int
 		Last    int
-		Active  []int                `json:",omitempty"`
-		Perf    map[string]*perfItem `json:",omitempty"`
-		Rate    float32              `json:",omitempty"`
+		Active  []int          `json:",omitempty"`
+		Metric  cmon.MetricMap `json:",omitempty"`
+		Rate    float32        `json:",omitempty"`
 	}
 	rdsDetail struct {
 		Current int
@@ -343,7 +339,7 @@ func (m *model) store(final bool) {
 func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.WriteCloser, cout io.ReadCloser, err error) {
 	var cerr io.ReadCloser
 	if cmd := func() *exec.Cmd {
-		for suffix := key; ; suffix = suffix[1:] {
+		for suffix := strings.SplitN(key, "/", 2)[0]; ; suffix = suffix[1:] {
 			if c := m[suffix]; c != "" {
 				args := []string{
 					"python3",
@@ -412,8 +408,7 @@ func (m cmdMap) new(key string, input []interface{}, opt ...string) (cin io.Writ
 	return nil, nil, err
 }
 
-// evt.cmon model core accessors
-//
+// evt.cmon model core accessors...
 func evtcmonBoot(m *model) {
 	evt := &evtModel{
 		Alert: make(map[string]map[string]string, 512),
@@ -458,8 +453,7 @@ func evtcmonTerm(m *model) {
 	m.store(true)
 }
 
-// *.aws model accessor helpers
-//
+// *.aws model accessor helpers...
 func (m hsU) add(now, dur int, k string, usage uint64, cost float32) (hr int32) {
 	var pu uint64
 	var p, pc, fd, fu, fc float64
@@ -571,8 +565,7 @@ func (m riO) clean(short, long int32) {
 	}
 }
 
-// ec2.aws model core accessors
-//
+// ec2.aws model core accessors...
 func ec2awsBoot(m *model) {
 	sum, detail, work := &ec2Sum{
 		ByAcct:   make(hsU, 2424),
@@ -601,6 +594,12 @@ func ec2awsClean(m *model, deep bool) {
 		if x := detail.Current - inst.Last; inst.State == "terminated" && inst.Last-inst.Since < 72*3600 &&
 			x > 3*fetchCycle || x > 72*3600 {
 			delete(detail.Inst, id)
+			continue
+		}
+		for me, ts := range inst.Metric {
+			if exp := len(ts) - 24*7; exp > 0 {
+				inst.Metric[me] = ts[exp:]
+			}
 		}
 	}
 	exp := sum.Current - 24*100
@@ -633,7 +632,7 @@ func ec2awsMaint(m *model) {
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
-		if modifySettings(); fetch(m.newAcc(), ec2awsInsert, false) > 0 {
+		if modifySettings(); fetch(m.newAcc(), "/metrics", ec2awsInsert, false) > 0 {
 			ec2awsClean(m, true)
 			modifySettings()
 			evt <- new(modEvt).append(m.name)
@@ -641,19 +640,22 @@ func ec2awsMaint(m *model) {
 	})
 	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
-	for f, sf, cl, st :=
-		time.NewTicker(fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second),
+	for f, fc, cl, st := time.NewTicker(fetchCycle*time.Second), uint32(0),
 		time.NewTicker(10*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.newAcc(), ec2awsInsert, false) > 0 {
+				if fetch(m.newAcc(), func() string {
+					switch fc++; fc % 20 {
+					case 0, 10:
+						return "/metrics"
+					}
+					return ""
+				}(), ec2awsInsert, false) > 0 {
 					modifySettings()
 					evt <- new(modEvt).append(m.name)
 				}
 			})
-		case <-sf.C:
-			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), ec2awsSInsert, false) })
 		case <-cl.C:
 			goaftSession((fetchCycle-42)*time.Second, (fetchCycle-40)*time.Second, func() { ec2awsClean(m, true) })
 		case <-st.C:
@@ -674,8 +676,7 @@ func ec2awsTerm(m *model) {
 	m.store(true)
 }
 
-// ebs.aws model core accessors
-//
+// ebs.aws model core accessors...
 func ebsawsBoot(m *model) {
 	sum, detail, work := &ebsSum{
 		ByAcct:   make(hsU, 2424),
@@ -703,6 +704,12 @@ func ebsawsClean(m *model, deep bool) {
 	for id, vol := range detail.Vol {
 		if x := detail.Current - vol.Last; vol.Last-vol.Since < 12*3600 && x > 3*3600 || x > 72*3600 {
 			delete(detail.Vol, id)
+			continue
+		}
+		for me, ts := range vol.Metric {
+			if exp := len(ts) - 24*7; exp > 0 {
+				vol.Metric[me] = ts[exp:]
+			}
 		}
 	}
 	exp := sum.Current - 24*100
@@ -735,7 +742,7 @@ func ebsawsMaint(m *model) {
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
-		if modifySettings(); fetch(m.newAcc(), ebsawsInsert, false) > 0 {
+		if modifySettings(); fetch(m.newAcc(), "/metrics", ebsawsInsert, false) > 0 {
 			ebsawsClean(m, true)
 			modifySettings()
 			evt <- new(modEvt).append(m.name)
@@ -743,19 +750,22 @@ func ebsawsMaint(m *model) {
 	})
 	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
-	for f, sf, cl, st :=
-		time.NewTicker(fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second),
+	for f, fc, cl, st := time.NewTicker(fetchCycle*time.Second), uint32(0),
 		time.NewTicker(10*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.newAcc(), ebsawsInsert, false) > 0 {
+				if fetch(m.newAcc(), func() string {
+					switch fc++; fc % 20 {
+					case 0, 10:
+						return "/metrics"
+					}
+					return ""
+				}(), ebsawsInsert, false) > 0 {
 					modifySettings()
 					evt <- new(modEvt).append(m.name)
 				}
 			})
-		case <-sf.C:
-			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), ebsawsSInsert, false) })
 		case <-cl.C:
 			goaftSession((fetchCycle-42)*time.Second, (fetchCycle-40)*time.Second, func() { ebsawsClean(m, true) })
 		case <-st.C:
@@ -774,8 +784,7 @@ func ebsawsTerm(m *model) {
 	m.store(true)
 }
 
-// rds.aws model core accessors
-//
+// rds.aws model core accessors...
 func rdsawsBoot(m *model) {
 	sum, detail, work := &rdsSum{
 		ByAcct:   make(hsU, 2424),
@@ -806,6 +815,12 @@ func rdsawsClean(m *model, deep bool) {
 	for id, db := range detail.DB {
 		if x := detail.Current - db.Last; db.Last-db.Since < 12*3600 && x > 3*3600 || x > 72*3600 {
 			delete(detail.DB, id)
+			continue
+		}
+		for me, ts := range db.Metric {
+			if exp := len(ts) - 24*7; exp > 0 {
+				db.Metric[me] = ts[exp:]
+			}
 		}
 	}
 	exp := sum.Current - 24*100
@@ -838,7 +853,7 @@ func rdsawsMaint(m *model) {
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
-		if modifySettings(); fetch(m.newAcc(), rdsawsInsert, false) > 0 {
+		if modifySettings(); fetch(m.newAcc(), "/metrics", rdsawsInsert, false) > 0 {
 			rdsawsClean(m, true)
 			modifySettings()
 			evt <- new(modEvt).append(m.name)
@@ -846,19 +861,22 @@ func rdsawsMaint(m *model) {
 	})
 	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(false) })
 
-	for f, sf, cl, st :=
-		time.NewTicker(fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second),
+	for f, fc, cl, st := time.NewTicker(fetchCycle*time.Second), uint32(0),
 		time.NewTicker(10*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.newAcc(), rdsawsInsert, false) > 0 {
+				if fetch(m.newAcc(), func() string {
+					switch fc++; fc % 20 {
+					case 0, 10:
+						return "/metrics"
+					}
+					return ""
+				}(), rdsawsInsert, false) > 0 {
 					modifySettings()
 					evt <- new(modEvt).append(m.name)
 				}
 			})
-		case <-sf.C:
-			//goaftSession(0, 18*time.Second, func() { fetch(m.name+"/stats", m.newAcc(), rdsawsSInsert, false) })
 		case <-cl.C:
 			goaftSession((fetchCycle-42)*time.Second, (fetchCycle-40)*time.Second, func() { rdsawsClean(m, true) })
 		case <-st.C:
@@ -877,8 +895,7 @@ func rdsawsTerm(m *model) {
 	m.store(true)
 }
 
-// snap.aws model core accessors
-//
+// snap.aws model core accessors...
 func snapawsBoot(m *model) {
 	sum, detail, work := &snapSum{
 		ByAcct:   make(hsU, 2424),
@@ -936,7 +953,7 @@ func snapawsMaint(m *model) {
 		}
 	}
 	goaftSession(0, 18*time.Second, func() {
-		if modifySettings(); fetch(m.newAcc(), snapawsInsert, false) > 0 {
+		if modifySettings(); fetch(m.newAcc(), "", snapawsInsert, false) > 0 {
 			snapawsClean(m, true)
 			modifySettings()
 			evt <- new(modEvt).append(m.name)
@@ -944,13 +961,12 @@ func snapawsMaint(m *model) {
 	})
 	goaftSession((10*fetchCycle-32)*time.Second, (10*fetchCycle-28)*time.Second, func() { m.store(false) })
 
-	for f, cl, st :=
-		time.NewTicker(10*fetchCycle*time.Second),
+	for f, cl, st := time.NewTicker(10*fetchCycle*time.Second),
 		time.NewTicker(20*fetchCycle*time.Second), time.NewTicker(20*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
-				if fetch(m.newAcc(), snapawsInsert, false) > 0 {
+				if fetch(m.newAcc(), "", snapawsInsert, false) > 0 {
 					modifySettings()
 					evt <- new(modEvt).append(m.name)
 				}
@@ -975,8 +991,7 @@ func snapawsTerm(m *model) {
 	m.store(true)
 }
 
-// cur.aws model core accessors
-//
+// cur.aws model core accessors...
 func curawsBoot(m *model) {
 	sum, detail, work := &curSum{
 		ByAcct:   make(hsA, 2424),
@@ -1034,7 +1049,7 @@ func curawsClean(m *model, deep bool) {
 func curawsMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 6*time.Second, func() {
-		if fetch(m.newAcc(), curawsInsert, true) > 0 {
+		if fetch(m.newAcc(), "", curawsInsert, true) > 0 {
 			curawsClean(m, true)
 			m.store(false)
 			evt <- new(modEvt).append(m.name)
@@ -1048,7 +1063,7 @@ func curawsMaint(m *model) {
 			goaftSession(0, 6*time.Second, func() {
 				select {
 				case <-goGo: // serialize cur.aws gophers
-					if fetch(m.newAcc(), curawsInsert, true) > 0 {
+					if fetch(m.newAcc(), "", curawsInsert, true) > 0 {
 						curawsClean(m, true)
 						m.store(false)
 						evt <- new(modEvt).append(m.name)
@@ -1067,8 +1082,7 @@ func curawsTerm(m *model) {
 	m.newAcc().reqP()
 }
 
-// *.asp model accessor helpers
-//
+// *.asp model accessor helpers...
 func (id cdrID) MarshalText() ([]byte, error) {
 	return []byte(strings.ToUpper(strconv.FormatUint(uint64(id), 16))), nil
 }
@@ -1166,8 +1180,7 @@ func (m hnC) sig(active int32, min float64) {
 	}
 }
 
-// cdr.asp model core accessors
-//
+// cdr.asp model core accessors...
 func cdraspBoot(m *model) {
 	tsum, osum, tdetail, odetail, work := &termSum{
 		ByCust: make(hsC, 2424),
@@ -1271,7 +1284,7 @@ func cdraspClean(m *model, deep bool) {
 func cdraspMaint(m *model) {
 	goGo := make(chan bool, 1)
 	goaftSession(0, 18*time.Second, func() {
-		if fetch(m.newAcc(), cdraspInsert, false) > 0 {
+		if fetch(m.newAcc(), "", cdraspInsert, false) > 0 {
 			cdraspClean(m, true)
 			evt <- new(modEvt).append(m.name)
 		}
@@ -1279,15 +1292,14 @@ func cdraspMaint(m *model) {
 	})
 	goaftSession((fetchCycle-32)*time.Second, (fetchCycle-28)*time.Second, func() { m.store(!<-goGo); goGo <- true })
 
-	for f, cl, st :=
-		time.NewTicker(fetchCycle*time.Second),
+	for f, cl, st := time.NewTicker(fetchCycle*time.Second),
 		time.NewTicker(5*fetchCycle*time.Second), time.NewTicker(40*fetchCycle*time.Second); ; {
 		select {
 		case <-f.C:
 			goaftSession(0, 18*time.Second, func() {
 				select {
 				case <-goGo: // serialize cdr.asp gophers
-					if fetch(m.newAcc(), cdraspInsert, false) > 0 {
+					if fetch(m.newAcc(), "", cdraspInsert, false) > 0 {
 						evt <- new(modEvt).append(m.name)
 					}
 					goGo <- true

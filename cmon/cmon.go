@@ -19,6 +19,9 @@ type (
 	// TagMap ...
 	TagMap map[string]string
 
+	// MetricMap ...
+	MetricMap map[string][]float32
+
 	// alertsFeature settings
 	alertsFeature struct {
 		Options             string

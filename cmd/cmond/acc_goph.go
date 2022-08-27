@@ -63,31 +63,31 @@ var (
 	snapRefs = regexp.MustCompile(`\b(snap|vol)-([0-9a-f]{8}|[0-9a-f]{17})\b`)
 )
 
-func fetch(acc *modAcc, insert func(*modAcc, map[string]string, int), meta bool) (items int) {
-	start, now, pages := int(time.Now().Unix()), 0, 0
+func fetch(acc *modAcc, alt string, insert func(*modAcc, map[string]string, int), meta bool) (items int) {
+	gopher, start, now, pages := acc.m.name+alt, int(time.Now().Unix()), 0, 0
 	csvout := csv.Resource{Typ: csv.RTcsv, Sep: '\t', Comment: "#", Shebang: "#!"}
 	defer func() {
 		if r := recover(); r != nil {
 			if acc.rel() {
 				csvout.Close()
 			}
-			logE.Printf("gopher error while fetching %q: %v", acc.m.name, r)
+			logE.Printf("gopher error while fetching %q: %v", gopher, r)
 		}
 		if items > 0 {
 			if !meta {
 				defer func() {
 					acc.rel()
 					if r := recover(); r != nil {
-						logE.Printf("gopher error finalizing %q fetch: %v", acc.m.name, r)
+						logE.Printf("gopher error finalizing %q fetch: %v", gopher, r)
 					}
 				}()
 				acc.reqW()
 				insert(acc, nil, start)
 			}
-			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, acc.m.name)
+			logI.Printf("gopher fetched %v items in %v pages for %q", items, pages, gopher)
 		}
 	}()
-	if gophin, gophout, err := gopherCmd.new(acc.m.name, nil); err != nil {
+	if gophin, gophout, err := gopherCmd.new(gopher, nil); err != nil {
 		panic(err)
 	} else if err = gophin.Close(); err != nil {
 		gophout.Close()
@@ -129,8 +129,7 @@ func fetch(acc *modAcc, insert func(*modAcc, map[string]string, int), meta bool)
 	return
 }
 
-// ec2.aws model gopher accessors
-//
+// ec2.aws model gopher accessors...
 func ec2awsHack(inst *ec2Item) {
 	switch settings.Unit {
 	case "cmon-aspect", "cmon-alvaria":
@@ -169,11 +168,21 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 	inst.VPC = item["vpc"]
 	if tag := item["tag"]; tag != "" {
 		inst.Tag = make(cmon.TagMap)
-		for t, kv := 1, strings.Split(tag, "\t"); t < len(kv); t += 2 {
-			inst.Tag[kv[t-1]] = kv[t]
+		for i, tv := 1, strings.Split(tag, "\t"); i < len(tv); i += 2 {
+			inst.Tag[tv[i-1]] = tv[i]
 		}
 	} else {
 		inst.Tag = nil
+	}
+	if metric := item["metric"]; metric != "" {
+		if inst.Metric == nil {
+			inst.Metric = make(cmon.MetricMap)
+		}
+		for i, mv := 1, strings.Split(metric, "\t"); i < len(mv); i += 2 {
+			if v, err := strconv.ParseFloat(mv[i], 32); err == nil {
+				inst.Metric[mv[i-1]] = append(inst.Metric[mv[i-1]], float32(v))
+			}
+		}
 	}
 	if !initialized {
 		ec2awsHack(inst)
@@ -227,8 +236,7 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 	inst.Last = now
 }
 
-// ebs.aws model gopher accessors
-//
+// ebs.aws model gopher accessors...
 func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 	sum, detail, work, id := acc.m.data[0].(*ebsSum), acc.m.data[1].(*ebsDetail), acc.m.data[2].(*ebsWork), item["id"]
 	if item == nil {
@@ -258,11 +266,21 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 	}
 	if tag := item["tag"]; tag != "" {
 		vol.Tag = make(cmon.TagMap)
-		for t, kv := 1, strings.Split(tag, "\t"); t < len(kv); t += 2 {
-			vol.Tag[kv[t-1]] = kv[t]
+		for i, tv := 1, strings.Split(tag, "\t"); i < len(tv); i += 2 {
+			vol.Tag[tv[i-1]] = tv[i]
 		}
 	} else {
 		vol.Tag = nil
+	}
+	if metric := item["metric"]; metric != "" {
+		if vol.Metric == nil {
+			vol.Metric = make(cmon.MetricMap)
+		}
+		for i, mv := 1, strings.Split(metric, "\t"); i < len(mv); i += 2 {
+			if v, err := strconv.ParseFloat(mv[i], 32); err == nil {
+				vol.Metric[mv[i-1]] = append(vol.Metric[mv[i-1]], float32(v))
+			}
+		}
 	}
 
 	reg := aws.Region(vol.AZ)
@@ -305,8 +323,7 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 	vol.Last = now
 }
 
-// rds.aws model gopher accessors
-//
+// rds.aws model gopher accessors...
 func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	sum, detail, work, id := acc.m.data[0].(*rdsSum), acc.m.data[1].(*rdsDetail), acc.m.data[2].(*rdsWork), item["id"]
 	if item == nil {
@@ -341,11 +358,21 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	}
 	if tag := item["tag"]; tag != "" {
 		db.Tag = make(cmon.TagMap)
-		for t, kv := 1, strings.Split(tag, "\t"); t < len(kv); t += 2 {
-			db.Tag[kv[t-1]] = kv[t]
+		for i, tv := 1, strings.Split(tag, "\t"); i < len(tv); i += 2 {
+			db.Tag[tv[i-1]] = tv[i]
 		}
 	} else {
 		db.Tag = nil
+	}
+	if metric := item["metric"]; metric != "" {
+		if db.Metric == nil {
+			db.Metric = make(cmon.MetricMap)
+		}
+		for i, mv := 1, strings.Split(metric, "\t"); i < len(mv); i += 2 {
+			if v, err := strconv.ParseFloat(mv[i], 32); err == nil {
+				db.Metric[mv[i-1]] = append(db.Metric[mv[i-1]], float32(v))
+			}
+		}
 	}
 
 	reg := aws.Region(db.AZ)
@@ -387,8 +414,7 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	db.Last = now
 }
 
-// snap.aws model gopher accessors
-//
+// snap.aws model gopher accessors...
 func snapawsInsert(acc *modAcc, item map[string]string, now int) {
 	sum, detail, work, id := acc.m.data[0].(*snapSum), acc.m.data[1].(*snapDetail), acc.m.data[2].(*snapWork), item["id"]
 	if item == nil {
@@ -475,8 +501,7 @@ func snapawsInsert(acc *modAcc, item map[string]string, now int) {
 	snap.Last = now
 }
 
-// cur.aws model gopher accessors
-//
+// cur.aws model gopher accessors...
 func curawsFinalize(acc *modAcc) {
 	psum, pdet, work, pg := acc.m.data[0].(*curSum), acc.m.data[1].(*curDetail), acc.m.data[2].(*curWork), lgPage
 	var husg []float32
@@ -689,8 +714,7 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 	work.isum.BySvc.add(hr, line.Svc, c)
 }
 
-// cdr.asp model gopher accessors
-//
+// cdr.asp model gopher accessors...
 func billmarg(brate float32, crate float32, dur uint32) (b float32, m float32) {
 	if r := dur % 60; r > 0 {
 		m = float32(dur+60-r) / 600
@@ -830,8 +854,7 @@ func cdraspInsert(acc *modAcc, item map[string]string, now int) {
 	}
 }
 
-// general accessor helpers
-//
+// general accessor helpers...
 func atoi(s string, d int) int {
 	if i, err := strconv.ParseInt(s, 0, 0); err == nil {
 		return int(i)

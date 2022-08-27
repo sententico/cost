@@ -20,7 +20,9 @@ class GError(Exception):
     pass
 
 KVP={                                   # key-value pair defaults/validators (overridden by command-line)
-    'settings':     '~stdin',
+    'settings':         '~stdin',
+    'metricsrngM':            60,       '_metricsrngM':     [int,      1,   1440],
+    'metricsperS':           180,       '_metricsperS':     [int,      1,   3600],
     }
 
 def overrideKVP(overrides):
@@ -109,9 +111,11 @@ def getTagFilter(settings):
 def gophEC2AWS(model, settings, inputs, args):
     '''Fetch EBS volume detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
-        'id','acct','type','plat','vol','az','vpc','ami','state','spot','tag',
+    metrics,tagf,pipe,flt,prof,sts = model.split('/',1)[-1]=='metrics', getTagFilter(settings), getWriter(model, [
+        'id','acct','type','plat','vol','az','vpc','ami','state','spot','tag','metric',
     ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
+    if metrics:
+        per,now = KVP['metricsperS'], datetime.utcnow(); ago = now-timedelta(minutes=KVP['metricsrngM'])
 
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
@@ -121,6 +125,7 @@ def gophEC2AWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
+        if metrics: cpu = session.resource('cloudwatch').Metric('AWS/EC2', 'CPUUtilization')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
@@ -137,15 +142,23 @@ def gophEC2AWS(model, settings, inputs, args):
                          'spot':    '' if not i.spot_instance_request_id else i.spot_instance_request_id,
                          'tag':     '' if not i.tags else '\t'.join([s.translate(flt)
                                     for kv in tagf(at, i.tags).items() for s in kv]),
+                         'metric':  '' if not metrics else '\t'.join([s for m,ts,f in [
+                                        ('cpu', [p['ExtendedStatistics']['p90'] for p in cpu.get_statistics(Dimensions=[
+                                         {'Name':'InstanceId','Value':i.id},
+                                         ], EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                         lambda v:round(max(v),1)),
+                                    ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
 
 def gophEBSAWS(model, settings, inputs, args):
     '''Fetch EC2 instance detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
-        'id','acct','type','size','iops','az','state','mount','tag',
+    metrics,tagf,pipe,flt,prof,sts = model.split('/',1)[-1]=='metrics', getTagFilter(settings), getWriter(model, [
+        'id','acct','type','size','iops','az','state','mount','tag','metric',
     ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
+    if metrics:
+        per,now = KVP['metricsperS'], datetime.utcnow(); ago = now-timedelta(minutes=KVP['metricsrngM'])
 
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
@@ -155,6 +168,7 @@ def gophEBSAWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
+        if metrics: idle = session.resource('cloudwatch').Metric('AWS/EBS', 'VolumeIdleTime')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
@@ -171,15 +185,23 @@ def gophEBSAWS(model, settings, inputs, args):
                                     '{} attachments'.format(len(v.attachments)),
                          'tag':     '' if not v.tags else '\t'.join([s.translate(flt)
                                     for kv in tagf(at, v.tags).items() for s in kv]),
+                         'metric':  '' if not metrics else '\t'.join([s for m,ts,f in [
+                                        ('idle', [p['Sum'] for p in idle.get_statistics(Dimensions=[
+                                         {'Name':'VolumeId','Value':v.id},
+                                         ], EndTime=now, StartTime=ago, Period=per, Statistics=['Sum']).get('Datapoints',[])],
+                                         lambda v:round(min(v)*100.0/per,1)),
+                                    ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
 
 def gophRDSAWS(model, settings, inputs, args):
     '''Fetch RDS database detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
-    tagf,pipe,flt,prof,sts = getTagFilter(settings), getWriter(model, [
-        'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','vpc','state','tag',
+    metrics,tagf,pipe,flt,prof,sts = model.split('/',1)[-1]=='metrics', getTagFilter(settings), getWriter(model, [
+        'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','vpc','state','tag','metric',
     ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
+    if metrics:
+        per,now = KVP['metricsperS'], datetime.utcnow(); ago = now-timedelta(minutes=KVP['metricsrngM'])
 
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
@@ -189,6 +211,7 @@ def gophRDSAWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
+        if metrics: conn = session.resource('cloudwatch').Metric('AWS/RDS', 'DatabaseConnections')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             rds, s = session.client('rds', region_name=r), a+':'+r
@@ -212,6 +235,12 @@ def gophRDSAWS(model, settings, inputs, args):
                          'state':   d.get('DBInstanceStatus',''),
                          'tag':     '' if not dtags else '\t'.join([s.translate(flt)
                                     for kv in tagf(at, dtags).items() for s in kv]),
+                         'metric':  '' if not metrics else '\t'.join([s for m,ts,f in [
+                                        ('conn', [p['Average'] for p in conn.get_statistics(Dimensions=[
+                                         {'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']},
+                                         ], EndTime=now, StartTime=ago, Period=per, Statistics=['Average']).get('Datapoints',[])],
+                                         lambda v:round(max(v),2)),
+                                    ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
 
@@ -432,6 +461,9 @@ def gophCURAWS(model, settings, inputs, args):
                                 'transfer',             'xfer'  ).replace(
                                 'thereafter',           'after' ).replace(
                                 'us-east-1',            'USE1'  ).replace(
+                                'us-east-2',            'USE2'  ).replace(
+                                'us-west-2',            'USW2'  ).replace(
+                                'eu-central-1',         'EUC1'  ).replace(
                                 'eu-west-1',            'EUW1'  ).replace(
                                 'eu-west-2',            'EUW2'  ).replace(
                                 'Virginia',             'VA'    ).replace(
@@ -458,11 +490,14 @@ def gophCURAWS(model, settings, inputs, args):
 def main():
     '''Parse command line args and release the gopher'''
     gophModels = {                      # gopher model map
-        'ec2.aws':      [gophEC2AWS,    'fetch EC2 instances from AWS'],
-        'ebs.aws':      [gophEBSAWS,    'fetch EBS volumes from AWS'],
-        'rds.aws':      [gophRDSAWS,    'fetch RDS databases from AWS'],
-        'snap.aws':     [gophSNAPAWS,   'fetch EBS snapshots from AWS'],
-        'cur.aws':      [gophCURAWS,    'fetch CUR line items from AWS'],
+        'ec2.aws':                      [gophEC2AWS,            'fetch EC2 instances from AWS'],
+        'ec2.aws/metrics':              [gophEC2AWS,            'fetch EC2 instances from AWS with metrics'],
+        'ebs.aws':                      [gophEBSAWS,            'fetch EBS volumes from AWS'],
+        'ebs.aws/metrics':              [gophEBSAWS,            'fetch EBS volumes from AWS with metrics'],
+        'rds.aws':                      [gophRDSAWS,            'fetch RDS databases from AWS'],
+        'rds.aws/metrics':              [gophRDSAWS,            'fetch RDS databases from AWS with metrics'],
+        'snap.aws':                     [gophSNAPAWS,           'fetch EBS snapshots from AWS'],
+        'cur.aws':                      [gophCURAWS,            'fetch CUR line items from AWS'],
     }
                                         # define and parse command line parameters
     parser = argparse.ArgumentParser(description='''This gopher agent fetches Cloud Monitor content for an AWS model''')
