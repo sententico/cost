@@ -120,7 +120,7 @@ def gophEC2AWS(model, settings, inputs, args):
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
-            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=a)['Credentials']
             session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
@@ -163,7 +163,7 @@ def gophEBSAWS(model, settings, inputs, args):
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
-            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=a)['Credentials']
             session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
@@ -206,7 +206,7 @@ def gophRDSAWS(model, settings, inputs, args):
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
-            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=a)['Credentials']
             session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
@@ -254,7 +254,7 @@ def gophSNAPAWS(model, settings, inputs, args):
     for a,at in settings['AWS']['Accounts'].items():
         if not at.get('~profile') or not prof.get(at['~profile']): continue
         if at.get('~arn'):
-            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=model)['Credentials']
+            cred = sts.assume_role(RoleArn=at['~arn'], RoleSessionName=a)['Credentials']
             session =   boto3.Session(aws_access_key_id=cred['AccessKeyId'],
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
