@@ -125,7 +125,9 @@ def gophEC2AWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
-        if metrics: cpu = session.resource('cloudwatch').Metric('AWS/EC2', 'CPUUtilization')
+        if metrics:
+            cw = session.resource('cloudwatch')
+            cpu = cw.Metric('AWS/EC2','CPUUtilization')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
@@ -168,7 +170,9 @@ def gophEBSAWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
-        if metrics: idle = session.resource('cloudwatch').Metric('AWS/EBS', 'VolumeIdleTime')
+        if metrics:
+            cw = session.resource('cloudwatch')
+            idle,ioq = cw.Metric('AWS/EBS','VolumeIdleTime'), cw.Metric('AWS/EBS','VolumeQueueLength')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
@@ -190,6 +194,10 @@ def gophEBSAWS(model, settings, inputs, args):
                                          {'Name':'VolumeId','Value':v.id},
                                          ], EndTime=now, StartTime=ago, Period=per, Statistics=['Sum']).get('Datapoints',[])],
                                          lambda v:round(min(v)*100.0/per,1)),
+                                        ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=[
+                                         {'Name':'VolumeId','Value':v.id},
+                                         ], EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                         lambda v:round(max(v),1)),
                                     ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
@@ -211,7 +219,9 @@ def gophRDSAWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
-        if metrics: conn = session.resource('cloudwatch').Metric('AWS/RDS', 'DatabaseConnections')
+        if metrics:
+            cw = session.resource('cloudwatch')
+            conn,cpu,ioq = cw.Metric('AWS/RDS','DatabaseConnections'), cw.Metric('AWS/RDS','CPUUtilization'), cw.Metric('AWS/RDS','DiskQueueDepth')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             rds, s = session.client('rds', region_name=r), a+':'+r
@@ -240,6 +250,14 @@ def gophRDSAWS(model, settings, inputs, args):
                                          {'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']},
                                          ], EndTime=now, StartTime=ago, Period=per, Statistics=['Average']).get('Datapoints',[])],
                                          lambda v:round(max(v),2)),
+                                        ('cpu', [p['ExtendedStatistics']['p90'] for p in cpu.get_statistics(Dimensions=[
+                                         {'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']},
+                                         ], EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                         lambda v:round(max(v),1)),
+                                        ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=[
+                                         {'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']},
+                                         ], EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                         lambda v:round(max(v),1)),
                                     ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
