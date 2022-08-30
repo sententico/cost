@@ -227,6 +227,7 @@ def gophRDSAWS(model, settings, inputs, args):
             rds, s = session.client('rds', region_name=r), a+':'+r
             for d in rds.describe_db_instances().get('DBInstances',[]):
                 arn = d['DBInstanceArn']
+                if metrics: dim = [{'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']}]
                 try:    dtags = rds.list_tags_for_resource(ResourceName=arn)['TagList']
                 except  KeyboardInterrupt: raise
                 except: dtags = None
@@ -246,18 +247,18 @@ def gophRDSAWS(model, settings, inputs, args):
                          'tag':     '' if not dtags else '\t'.join([s.translate(flt)
                                     for kv in tagf(at, dtags).items() for s in kv]),
                          'metric':  '' if not metrics else '\t'.join([s for m,ts,f in [
-                                        ('conn', [p['Average'] for p in conn.get_statistics(Dimensions=[
-                                         {'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']},
-                                         ], EndTime=now, StartTime=ago, Period=per, Statistics=['Average']).get('Datapoints',[])],
+                                    #   ('conn', [p['Average'] for p in conn.get_statistics(Dimensions=dim,
+                                    #    EndTime=now, StartTime=ago, Period=per, Statistics=['Average']).get('Datapoints',[])],
+                                    #    lambda v:round(max(v),2)),
+                                        ('conn', [p['ExtendedStatistics']['p90'] for p in conn.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
                                          lambda v:round(max(v),2)),
-                                        ('cpu', [p['ExtendedStatistics']['p90'] for p in cpu.get_statistics(Dimensions=[
-                                         {'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']},
-                                         ], EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                        ('cpu', [p['ExtendedStatistics']['p90'] for p in cpu.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
                                          lambda v:round(max(v),1)),
-                                        ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=[
-                                         {'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']},
-                                         ], EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
-                                         lambda v:round(max(v),1)),
+                                        ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                         lambda v:round(max(v),2)),
                                     ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
