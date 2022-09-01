@@ -22,7 +22,7 @@ class GError(Exception):
 KVP={                                   # key-value pair defaults/validators (overridden by command-line)
     'settings':         '~stdin',
     'metricsrngM':            60,       '_metricsrngM':     [int,      1,   1440],
-    'metricsperS':           180,       '_metricsperS':     [int,      1,   3600],
+    'metricsperS':           300,       '_metricsperS':     [int,      1,   3600],
     }
 
 def overrideKVP(overrides):
@@ -125,12 +125,12 @@ def gophEC2AWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
-        if metrics:
-            cw = session.resource('cloudwatch')
-            cpu = cw.Metric('AWS/EC2','CPUUtilization')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
+            if metrics:
+                cw = session.resource('cloudwatch', region_name=r)
+                cpu = cw.Metric('AWS/EC2','CPUUtilization')
             for i in ec2.instances.all():
                 pipe(s, {'id':      i.id,
                          'acct':    a,
@@ -170,12 +170,12 @@ def gophEBSAWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
-        if metrics:
-            cw = session.resource('cloudwatch')
-            idle,ioq = cw.Metric('AWS/EBS','VolumeIdleTime'), cw.Metric('AWS/EBS','VolumeQueueLength')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             ec2, s = session.resource('ec2', region_name=r), a+':'+r
+            if metrics:
+                cw = session.resource('cloudwatch', region_name=r)
+                idle,ioq = cw.Metric('AWS/EBS','VolumeIdleTime'), cw.Metric('AWS/EBS','VolumeQueueLength')
             for v in ec2.volumes.all():
                 pipe(s, {'id':      v.id,
                          'acct':    a,
@@ -219,12 +219,12 @@ def gophRDSAWS(model, settings, inputs, args):
                                       aws_secret_access_key=cred['SecretAccessKey'],
                                       aws_session_token=cred['SessionToken'])
         else: session = boto3.Session(profile_name=a)
-        if metrics:
-            cw = session.resource('cloudwatch')
-            conn,cpu,ioq = cw.Metric('AWS/RDS','DatabaseConnections'), cw.Metric('AWS/RDS','CPUUtilization'), cw.Metric('AWS/RDS','DiskQueueDepth')
         for r,u in prof[at['~profile']].items():
             if u < 1.0 and u <= random.random(): continue
             rds, s = session.client('rds', region_name=r), a+':'+r
+            if metrics:
+                cw = session.resource('cloudwatch', region_name=r)
+                conn,cpu,ioq = cw.Metric('AWS/RDS','DatabaseConnections'), cw.Metric('AWS/RDS','CPUUtilization'), cw.Metric('AWS/RDS','DiskQueueDepth')
             for d in rds.describe_db_instances().get('DBInstances',[]):
                 arn = d['DBInstanceArn']
                 if metrics: dim = [{'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']}]
