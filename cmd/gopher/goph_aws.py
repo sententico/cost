@@ -224,7 +224,9 @@ def gophRDSAWS(model, settings, inputs, args):
             rds, s = session.client('rds', region_name=r), a+':'+r
             if metrics:
                 cw = session.resource('cloudwatch', region_name=r)
-                conn,cpu,ioq = cw.Metric('AWS/RDS','DatabaseConnections'), cw.Metric('AWS/RDS','CPUUtilization'), cw.Metric('AWS/RDS','DiskQueueDepth')
+                conn,cpu,ioq,mem,sto = (cw.Metric('AWS/RDS','DatabaseConnections'), cw.Metric('AWS/RDS','CPUUtilization'),
+                                        cw.Metric('AWS/RDS','DiskQueueDepth'), cw.Metric('AWS/RDS','FreeableMemory'),
+                                        cw.Metric('AWS/RDS','FreeStorageSpace'),)
             for d in rds.describe_db_instances().get('DBInstances',[]):
                 arn = d['DBInstanceArn']
                 if metrics: dim = [{'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']}]
@@ -259,6 +261,12 @@ def gophRDSAWS(model, settings, inputs, args):
                                         ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
                                          lambda v:round(max(v),2)),
+                                        ('mem', [p['ExtendedStatistics']['p10'] for p in mem.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
+                                         lambda v:round(min(v)/1024.0,1)),
+                                        ('sto', [p['ExtendedStatistics']['p10'] for p in sto.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
+                                         lambda v:round(min(v)/1024.0,0)),
                                     ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
