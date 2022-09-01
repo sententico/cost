@@ -263,10 +263,10 @@ def gophRDSAWS(model, settings, inputs, args):
                                          lambda v:round(max(v),2)),
                                         ('mem', [p['ExtendedStatistics']['p10'] for p in mem.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
-                                         lambda v:round(min(v)/1024.0,1)),
+                                         lambda v:round(min(v)/1024.0/1024.0/1024.0,1)),
                                         ('sto', [p['ExtendedStatistics']['p10'] for p in sto.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
-                                         lambda v:round(min(v)/1024.0,0)),
+                                         lambda v:round(min(v)/1e9,0)),
                                     ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
