@@ -612,13 +612,13 @@ func tstos(ts []float32) string {
 
 func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var col, attr, op, opd string
 	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		col, attr, op, opd := ct[1], ct[2], ct[3], ct[4]
+		switch col {
 		case "Acct", "account", "acct":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
@@ -1007,13 +1007,13 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var col, attr, op, opd string
 	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		col, attr, op, opd := ct[1], ct[2], ct[3], ct[4]
+		switch col {
 		case "Acct", "account", "acct":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
@@ -1385,13 +1385,13 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var col, attr, op, opd string
 	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		col, attr, op, opd := ct[1], ct[2], ct[3], ct[4]
+		switch col {
 		case "Acct", "account", "acct":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
@@ -1857,13 +1857,13 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
-	var col, attr, op, opd string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		col, attr, op, opd := ct[1], ct[2], ct[3], ct[4]
+		switch col {
 		case "Acct", "account", "acct":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
@@ -2141,13 +2141,13 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 
 func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
-	var col, attr, op, opd string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		col, attr, op, opd := ct[1], ct[2], ct[3], ct[4]
+		switch col {
 		case "Loc", "loc":
 			if attr != "" {
 				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
@@ -2443,13 +2443,13 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 
 func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
-	var col, attr, op, opd string
 	flt, xc := make([]func(...interface{}) bool, 0, 32), 0
 	for nc, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		col, attr, op, opd := ct[1], ct[2], ct[3], ct[4]
+		switch col {
 		case "AWS Account", "account", "acct":
 			if attr != "" {
 				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
@@ -2721,13 +2721,13 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 
 func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
-	var col, attr, op, opd string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for _, c := range criteria {
 		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		col, attr, op, opd := ct[1], ct[2], ct[3], ct[4]
+		switch col {
 		case "Recs", "recs", "rec":
 			if attr != "" {
 				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
