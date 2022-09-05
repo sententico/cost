@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// DefaultRDSEBSRates ... requires maintenance updates (last Feb22)
+	// DefaultRDSEBSRates ... requires maintenance updates (last Sep22)
 	DefaultRDSEBSRates = `[
 		{"Rg":"us-east-1",	"T":"gp2",		"SZ":0.115,	"IO":0},
 		{"Rg":"us-east-1",	"T":"io1",		"SZ":0.125,	"IO":0.1},
@@ -41,11 +41,11 @@ const (
 		{"Rg":"eu-west-2",	"T":"standard",	"SZ":0.116,	"IO":0},
 		{"Rg":"eu-west-2",	"T":"aurora",	"SZ":0.1,	"IO":0},
 
-		{"Rg":"eu-central-1","T":"gp2",		"SZ":0.133,	"IO":0},
-		{"Rg":"eu-central-1","T":"io1",		"SZ":0.145,	"IO":0.116},
-		{"Rg":"eu-central-1","T":"io2",		"SZ":0.145,	"IO":0.116},
-		{"Rg":"eu-central-1","T":"st1",		"SZ":0.116,	"IO":0},
-		{"Rg":"eu-central-1","T":"standard","SZ":0.116,	"IO":0},
+		{"Rg":"eu-central-1","T":"gp2",		"SZ":0.137,	"IO":0},
+		{"Rg":"eu-central-1","T":"io1",		"SZ":0.149,	"IO":0.119},
+		{"Rg":"eu-central-1","T":"io2",		"SZ":0.149,	"IO":0.119},
+		{"Rg":"eu-central-1","T":"st1",		"SZ":0.119,	"IO":0},
+		{"Rg":"eu-central-1","T":"standard","SZ":0.119,	"IO":0},
 		{"Rg":"eu-central-1","T":"aurora",	"SZ":0.119,	"IO":0}
 	]`
 )
