@@ -105,7 +105,7 @@ type (
 	}
 )
 
-// requires maintenance updates (last Feb22)
+// requires maintenance updates (last Sep22)
 var (
 	platMap = map[string]string{
 		"":                  "Lin", // or macOS
