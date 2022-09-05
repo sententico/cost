@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ var (
 	//  < less/before	> greater/after
 	//  [ prefix		] suffix
 	//  ~ regex match	^ regex non-match
-	fltC = regexp.MustCompile(`^\s*(?P<col>\w[ \w:%]*?)\s*(?P<op>[=!<>[\]~^])(?P<opd>.*)$`)
+	fltC = regexp.MustCompile(`^\s*(?P<col>[\w#$%(+"'-][ \w#$%&()+:;"',.?/-]*?)(?:\s*@(?P<attr>length|len|samples|samp|last|recent|avg|average|mean|mu|med|median|min|minimum|max|maximum|sdev|stdev|stddev|sigma)\b)?\s*(?P<op>[=!<>[\]~^])(?P<opd>.*)$`)
 )
 
 func ec2awsLookupX(m *model, v url.Values, res chan<- interface{}) {
@@ -510,6 +511,64 @@ func globalTags(snaps int) (tags map[string]*cmon.TagMap) {
 	return
 }
 
+func tsattr(ts []float32, a string, minl, maxl float32) float32 {
+	if len(ts) > 0 {
+		switch a {
+		case "length", "len", "samples", "samp":
+			return float32(len(ts))
+		case "last", "recent":
+			return ts[len(ts)-1]
+		case "median", "med":
+			ss := make([]float32, len(ts))
+			copy(ss, ts)
+			sort.Slice(ss, func(i, j int) bool { return ss[i] < ss[j] })
+			if m := len(ss) / 2; m*2 < len(ss) {
+				return ss[m]
+			} else {
+				return (ss[m] + ss[m-1]) / 2
+			}
+		case "minimum", "min":
+			min := maxl
+			for _, v := range ts {
+				if v <= minl {
+					return minl
+				} else if v < min {
+					min = v
+				}
+			}
+			return min
+		case "maximum", "max":
+			max := minl
+			for _, v := range ts {
+				if v >= maxl {
+					return maxl
+				} else if v > max {
+					max = v
+				}
+			}
+			return max
+		case "stddev", "stdev", "sdev", "sigma":
+			var mean, d, sdev float32
+			for _, v := range ts {
+				mean += v
+			}
+			mean /= float32(len(ts))
+			for _, v := range ts {
+				d = v - mean
+				sdev += d * d
+			}
+			return float32(math.Sqrt(float64(sdev) / float64(len(ts))))
+		case "avg", "average", "mean", "mu", "":
+			var sum float32
+			for _, v := range ts {
+				sum += v
+			}
+			return sum / float32(len(ts))
+		}
+	}
+	return 0
+}
+
 func active(since, last int, ap []int) float32 {
 	var a int
 	for i := 0; i+1 < len(ap); i += 2 {
@@ -539,16 +598,31 @@ func skip(flt []func(...interface{}) bool, v ...interface{}) bool {
 	return false
 }
 
+func tstos(ts []float32) string {
+	if len(ts) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%g", ts[0])
+	for _, v := range ts[1:] {
+		fmt.Fprintf(&b, " %g", v)
+	}
+	return b.String()
+}
+
 func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
+	var col, attr, op, opd string
 	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
-		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := ct[1], ct[2], ct[3]
-		switch col {
+		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
 		case "Acct", "account", "acct":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -580,6 +654,9 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Type", "type", "typ":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Typ == opd })
@@ -603,6 +680,9 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Plat", "platform", "plat":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Plat == opd })
@@ -626,7 +706,11 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Vol", "volume", "vol":
-			if n, err := strconv.Atoi(opd); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Vol == n })
@@ -637,10 +721,11 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Vol > n })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "AZ", "az":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AZ == opd })
@@ -664,6 +749,9 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "VPC", "vpc":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).VPC == opd })
@@ -671,6 +759,9 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).VPC != opd })
 			}
 		case "AMI", "ami":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AMI == opd })
@@ -678,13 +769,19 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).AMI != opd })
 			}
 		case "Spot", "spot":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Spot == opd })
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Spot != opd })
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -707,7 +804,25 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
+		case "CPU%", "CPU", "cpu%", "cpu":
+			if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
+				switch col = "cpu"; op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ec2Item).Metric[col], attr, 0, 100) == float32(f) })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ec2Item).Metric[col], attr, 0, 100) != float32(f) })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ec2Item).Metric[col], attr, 0, 100) < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ec2Item).Metric[col], attr, 0, 100) > float32(f) })
+				}
+			}
 		case "State", "state", "stat", "st":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).State == opd })
@@ -715,18 +830,24 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).State != opd })
 			}
 		case "Since", "since":
-			if s := atos(opd); s > 0 {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if s := atos(opd); s <= 0 {
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Since < int(s) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Since > int(s) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
 		case "Active%", "active%", "act%":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool {
@@ -737,11 +858,13 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 						return active(v[0].(*ec2Item).Since, v[0].(*ec2Item).Last, v[0].(*ec2Item).Active) > float32(f)
 					})
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Active", "active", "act":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
 				case "=": // active opd*3600 seconds ago
 					if flt = append(flt, func(v ...interface{}) bool {
@@ -788,30 +911,32 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 						return false
 					})
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
-		case "Rate", "rate", "ra":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+		case "Rate", "rate":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Rate < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Rate > float32(f) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
-		case "ORate", "orate", "ora":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+		case "ORate", "orate":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).ORate < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).ORate > float32(f) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
 			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
@@ -853,11 +978,12 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			tag["cmon:Name"],
 			tag["cmon:Env"],
 			tag["cmon:Cust"],
-			tag["cmon:Oper"],
 			tag["cmon:Prod"],
+			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tstos(inst.Metric["cpu"]),
 			inst.State,
 			time.Unix(int64(inst.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(inst.Since, inst.Last, inst.Active)), 'g', -1, 32),
@@ -881,14 +1007,17 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
+	var col, attr, op, opd string
 	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
-		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := ct[1], ct[2], ct[3]
-		switch col {
+		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
 		case "Acct", "account", "acct":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -920,6 +1049,9 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Type", "type", "typ":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Typ == opd })
@@ -943,7 +1075,11 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Size", "size", "siz":
-			if n, err := strconv.Atoi(opd); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Size == n })
@@ -954,11 +1090,13 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Size > n })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "IOPS", "iops":
-			if n, err := strconv.Atoi(opd); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).IOPS == n })
@@ -969,10 +1107,11 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).IOPS > n })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "AZ", "az":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).AZ == opd })
@@ -996,6 +1135,9 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Mount", "mount", "mnt":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*ebsItem).Mount, opd) })
@@ -1014,7 +1156,10 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -1037,7 +1182,40 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
+		case "IO%", "IO", "io%", "io":
+			if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
+				switch col = "io"; op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 100) == float32(f) })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 100) != float32(f) })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 100) < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 100) > float32(f) })
+				}
+			}
+		case "IOQ", "ioq":
+			if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
+				switch col = strings.ToLower(col); op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 1e9) == float32(f) })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 1e9) != float32(f) })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 1e9) < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*ebsItem).Metric[col], attr, 0, 1e9) > float32(f) })
+				}
+			}
 		case "State", "state", "stat", "st":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).State == opd })
@@ -1045,18 +1223,24 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).State != opd })
 			}
 		case "Since", "since":
-			if s := atos(opd); s > 0 {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if s := atos(opd); s <= 0 {
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Since < int(s) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Since > int(s) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
 		case "Active%", "active%", "act%":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool {
@@ -1067,11 +1251,13 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 						return active(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) > float32(f)
 					})
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Active", "active", "act":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
 				case "=": // active opd*3600 seconds ago
 					if flt = append(flt, func(v ...interface{}) bool {
@@ -1118,19 +1304,19 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 						return false
 					})
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
-		case "Rate", "rate", "ra":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+		case "Rate", "rate":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Rate < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Rate > float32(f) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
 			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
@@ -1170,11 +1356,13 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			tag["cmon:Name"],
 			tag["cmon:Env"],
 			tag["cmon:Cust"],
-			tag["cmon:Oper"],
 			tag["cmon:Prod"],
+			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tstos(vol.Metric["io"]),
+			tstos(vol.Metric["ioq"]),
 			vol.State,
 			time.Unix(int64(vol.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
@@ -1197,14 +1385,17 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
+	var col, attr, op, opd string
 	flt, adj := make([]func(...interface{}) bool, 0, 32), 3*fetchCycle
 	for nc, c := range criteria {
-		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := ct[1], ct[2], ct[3]
-		switch col {
+		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
 		case "Acct", "account", "acct":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -1236,6 +1427,9 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Type", "type", "typ":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Typ == opd })
@@ -1258,7 +1452,10 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Sto", "storage", "sto", "stype", "styp":
+		case "SType", "stype", "styp":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).STyp == opd })
@@ -1270,7 +1467,11 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).STyp, opd) })
 			}
 		case "Size", "size", "siz":
-			if n, err := strconv.Atoi(opd); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Size == n })
@@ -1281,11 +1482,13 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Size > n })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "IOPS", "iops":
-			if n, err := strconv.Atoi(opd); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).IOPS == n })
@@ -1296,10 +1499,11 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).IOPS > n })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "Engine", "engine", "eng":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Engine == opd })
@@ -1323,6 +1527,9 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "EngVer", "engver", "engv":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Ver == opd })
@@ -1346,6 +1553,9 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "Lic", "license", "lic":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Lic == opd })
@@ -1369,6 +1579,9 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "AZ", "az":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(string) == opd })
@@ -1392,6 +1605,9 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				}
 			}
 		case "VPC", "vpc":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).VPC == opd })
@@ -1399,6 +1615,9 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).VPC != opd })
 			}
 		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[2].(cmon.TagMap)[col] == opd })
@@ -1421,7 +1640,40 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
+		case "CPU%", "CPU", "cpu%", "cpu":
+			if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
+				switch col = "cpu"; op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 100) == float32(f) })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 100) != float32(f) })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 100) < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 100) > float32(f) })
+				}
+			}
+		case "IOQ", "ioq", "Conn", "conn", "Mem", "mem", "Sto", "sto":
+			if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
+				switch col = strings.ToLower(col); op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 1e9) == float32(f) })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 1e9) != float32(f) })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 1e9) < float32(f) })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return tsattr(v[0].(*rdsItem).Metric[col], attr, 0, 1e9) > float32(f) })
+				}
+			}
 		case "State", "state", "stat", "st":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).State == opd })
@@ -1429,18 +1681,24 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).State != opd })
 			}
 		case "Since", "since":
-			if s := atos(opd); s > 0 {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if s := atos(opd); s <= 0 {
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Since < int(s) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Since > int(s) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
 		case "Active%", "active%", "act%":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool {
@@ -1451,11 +1709,13 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 						return active(v[0].(*rdsItem).Since, v[0].(*rdsItem).Last, v[0].(*rdsItem).Active) > float32(f)
 					})
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Active", "active", "act":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch s, now := int(f*3600+0.5), int(time.Now().Unix()); op {
 				case "=": // active opd*3600 seconds ago
 					if flt = append(flt, func(v ...interface{}) bool {
@@ -1502,19 +1762,19 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 						return false
 					})
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
-		case "Rate", "rate", "ra":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+		case "Rate", "rate":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Rate < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Rate > float32(f) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
 			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
@@ -1565,11 +1825,16 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			tag["cmon:Name"],
 			tag["cmon:Env"],
 			tag["cmon:Cust"],
-			tag["cmon:Oper"],
 			tag["cmon:Prod"],
+			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tstos(db.Metric["cpu"]),
+			tstos(db.Metric["ioq"]),
+			tstos(db.Metric["conn"]),
+			tstos(db.Metric["mem"]),
+			tstos(db.Metric["sto"]),
 			db.State,
 			time.Unix(int64(db.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(active(db.Since, db.Last, db.Active)), 'g', -1, 32),
@@ -1592,14 +1857,17 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 
 func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
 	var ct []string
+	var col, attr, op, opd string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
-		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return 0, nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := ct[1], ct[2], ct[3]
-		switch col {
+		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
 		case "Acct", "account", "acct":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -1631,6 +1899,9 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 				}
 			}
 		case "Type", "type", "typ":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Typ == opd })
@@ -1654,18 +1925,24 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 				}
 			}
 		case "Size", "size", "siz":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Size < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Size > float32(f) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
-		case "VSiz", "vsize", "vsiz", "vs":
-			if n, err := strconv.Atoi(opd); err == nil {
+		case "VSize", "vsize", "vsiz":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).VSiz == n })
@@ -1676,10 +1953,11 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).VSiz > n })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "Reg", "region", "reg":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Reg == opd })
@@ -1703,6 +1981,9 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 				}
 			}
 		case "Vol", "volume", "vol":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Vol == opd })
@@ -1710,6 +1991,9 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Vol != opd })
 			}
 		case "Par", "parent", "par":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Par == opd })
@@ -1717,6 +2001,9 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Par != opd })
 			}
 		case "Desc", "description", "desc":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Desc == opd })
@@ -1739,7 +2026,10 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -1763,26 +2053,30 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 				}
 			}
 		case "Since", "since":
-			if s := atos(opd); s > 0 {
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if s := atos(opd); s <= 0 {
+				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Since < int(s) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Since > int(s) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
-		case "Rate", "rate", "ra":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+		case "Rate", "rate":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Rate < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*snapItem).Rate > float32(f) })
 				}
-			} else {
-				return 0, nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
 			return 0, nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
@@ -1822,8 +2116,8 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 			tag["cmon:Name"],
 			tag["cmon:Env"],
 			tag["cmon:Cust"],
-			tag["cmon:Oper"],
 			tag["cmon:Prod"],
+			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
@@ -1847,14 +2141,17 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 
 func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
+	var col, attr, op, opd string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for nc, c := range criteria {
-		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := ct[1], ct[2], ct[3]
-		switch col {
+		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
 		case "Loc", "loc":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			var sl tel.SLmap
 			switch sl.Load(nil); op {
 			case "=":
@@ -1863,6 +2160,9 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				flt = append(flt, func(v ...interface{}) bool { return sl.Name(v[0].(*cdrItem).Info>>locShift) != opd })
 			}
 		case "To", "to":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).To.String() == opd })
@@ -1886,6 +2186,9 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				}
 			}
 		case "From", "from", "fr":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).From.String() == opd })
@@ -1909,6 +2212,9 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				}
 			}
 		case "Prov", "prov", "sp":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			var sp tel.SPmap
 			switch sp.Load(nil); op {
 			case "=":
@@ -1921,6 +2227,9 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(sp.Name(v[0].(*cdrItem).Info&spMask), opd) })
 			}
 		case "CustApp", "custapp", "cust":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).Cust == opd })
@@ -1944,29 +2253,37 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				}
 			}
 		case "Start", "start", "time":
-			if s := atos(opd); s > 0 {
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if s := atos(opd); s <= 0 {
+				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[1].(int64)+int64(v[0].(*cdrItem).Time&offMask) < s })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[1].(int64)+int64(v[0].(*cdrItem).Time&offMask) > s })
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
 		case "Min", "min", "dur":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return float32(v[0].(*cdrItem).Time>>durShift)/600 < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return float32(v[0].(*cdrItem).Time>>durShift)/600 > float32(f) })
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q isn't a timestamp", c, opd)
 			}
 		case "Tries", "tries":
-			if n, err := strconv.Atoi(opd); err == nil {
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(*cdrItem).Info>>triesShift&triesMask) == n })
@@ -1977,30 +2294,32 @@ func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(*cdrItem).Info>>triesShift&triesMask) > n })
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "Billable", "billable", "bill":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).Bill < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).Bill > float32(f) })
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		case "Margin", "margin", "marg":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).Marg < float32(f) })
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*cdrItem).Marg > float32(f) })
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		default:
 			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
@@ -2124,14 +2443,17 @@ func tableExtract(n string, rows int, criteria []string) (res chan []string, err
 
 func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
+	var col, attr, op, opd string
 	flt, xc := make([]func(...interface{}) bool, 0, 32), 0
 	for nc, c := range criteria {
-		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := ct[1], ct[2], ct[3]
-		switch col {
+		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
 		case "AWS Account", "account", "acct":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "[":
 				flt = append(flt, func(v ...interface{}) bool {
@@ -2163,6 +2485,9 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				}
 			}
 		case "Type", "type", "typ":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Typ == opd })
@@ -2186,6 +2511,9 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				}
 			}
 		case "Service", "service", "serv", "svc":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Svc == opd })
@@ -2209,6 +2537,9 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				}
 			}
 		case "Usage Type", "utype", "utyp", "ut":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UTyp == opd })
@@ -2232,6 +2563,9 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				}
 			}
 		case "Operation", "operation", "oper", "op":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).UOp == opd })
@@ -2255,6 +2589,9 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				}
 			}
 		case "Region", "region", "reg":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Reg == opd })
@@ -2277,7 +2614,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Resource ID", "rid":
+		case "Resource ID", "resource", "rid":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).RID == opd })
@@ -2301,6 +2641,9 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				}
 			}
 		case "Item Description", "description", "descr", "desc":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			}
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Desc == opd })
@@ -2323,30 +2666,10 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "cmon:Name", "Name", "name":
-			switch op {
-			case "=":
-				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Name == opd })
-			case "!":
-				flt = append(flt, func(v ...interface{}) bool { return v[0].(*curItem).Name != opd })
-			case "[":
-				flt = append(flt, func(v ...interface{}) bool { return strings.HasPrefix(v[0].(*curItem).Name, opd) })
-			case "]":
-				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*curItem).Name, opd) })
-			case "~":
-				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Name) != "" })
-				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
-				}
-			case "^":
-				if re, err := regexp.Compile(opd); err == nil {
-					flt = append(flt, func(v ...interface{}) bool { return re.FindString(v[0].(*curItem).Name) == "" })
-				} else {
-					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
-				}
+		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			}
-		case "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
 			switch op {
 			case "=":
 				flt = append(flt, func(v ...interface{}) bool { return v[1].(cmon.TagMap)[col] == opd })
@@ -2370,7 +2693,11 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				}
 			}
 		case "PU", "pu":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[2].(float32) < float32(f) })
@@ -2379,10 +2706,8 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool { return v[2].(float32) > float32(f) })
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
-		case "Recs", "recs", "Usage", "usage", "usg":
+		case "Recs", "recs", "rec", "Usage", "usage", "usg":
 			xc++
 		default:
 			return nil, fmt.Errorf("unknown column %q in criteria %q", col, c)
@@ -2396,15 +2721,19 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 
 func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, error) {
 	var ct []string
+	var col, attr, op, opd string
 	flt := make([]func(...interface{}) bool, 0, 32)
 	for _, c := range criteria {
-		if ct = fltC.FindStringSubmatch(c); len(ct) <= 3 {
+		if ct = fltC.FindStringSubmatch(c); len(ct) <= 4 {
 			return nil, fmt.Errorf("invalid criteria syntax: %q", c)
 		}
-		col, op, opd := ct[1], ct[2], ct[3]
-		switch col {
-		case "Recs", "recs":
-			if n, err := strconv.Atoi(opd); err == nil {
+		switch col, attr, op, opd = ct[1], ct[2], ct[3], ct[4]; col {
+		case "Recs", "recs", "rec":
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
 				switch op {
 				case "=":
 					flt = append(flt, func(v ...interface{}) bool { return int(v[0].(int16)) == n })
@@ -2417,11 +2746,13 @@ func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, er
 				default:
 					return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
 			}
 		case "Usage", "usage", "usg":
-			if f, err := strconv.ParseFloat(opd, 32); err == nil {
+			if attr != "" {
+				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
+				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
+			} else {
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool { return v[1].(float32) < float32(f) })
@@ -2430,8 +2761,6 @@ func (d *curDetail) rfilters(criteria []string) ([]func(...interface{}) bool, er
 				default:
 					return nil, fmt.Errorf("%q operator not supported for %q column", op, col)
 				}
-			} else {
-				return nil, fmt.Errorf("%q operand %q is non-float", c, opd)
 			}
 		}
 	}
@@ -2545,11 +2874,11 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 			li.Reg,
 			li.RID,
 			li.Desc,
-			li.Name,
+			tag["cmon:Name"],
 			tag["cmon:Env"],
 			tag["cmon:Cust"],
-			tag["cmon:Oper"],
 			tag["cmon:Prod"],
+			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
@@ -2621,10 +2950,11 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 						}
 					}
 					if pu, tag := sum.Hist.ppuse(li.RID, from, to), (cmon.TagMap{
+						"cmon:Name": li.Name,
 						"cmon:Env":  li.Env,
 						"cmon:Cust": li.Cust,
-						"cmon:Oper": li.Oper,
 						"cmon:Prod": li.Prod,
+						"cmon:Oper": li.Oper,
 						"cmon:Role": li.Role,
 						"cmon:Ver":  li.Ver,
 						"cmon:Prov": li.Prov,

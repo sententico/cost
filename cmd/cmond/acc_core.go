@@ -178,8 +178,8 @@ type (
 		Name string    `json:"N,omitempty"`
 		Env  string    `json:"E,omitempty"`
 		Cust string    `json:"Cu,omitempty"`
-		Oper string    `json:"O,omitempty"`
 		Prod string    `json:"P,omitempty"`
+		Oper string    `json:"O,omitempty"`
 		Role string    `json:"Ro,omitempty"`
 		Ver  string    `json:"V,omitempty"`
 		Prov string    `json:"Pv,omitempty"`

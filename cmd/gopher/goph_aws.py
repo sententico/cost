@@ -177,6 +177,7 @@ def gophEBSAWS(model, settings, inputs, args):
                 cw = session.resource('cloudwatch', region_name=r)
                 idle,ioq = cw.Metric('AWS/EBS','VolumeIdleTime'), cw.Metric('AWS/EBS','VolumeQueueLength')
             for v in ec2.volumes.all():
+                if metrics: dim = [{'Name':'VolumeId','Value':v.id}]
                 pipe(s, {'id':      v.id,
                          'acct':    a,
                          'type':    v.volume_type,
@@ -190,13 +191,11 @@ def gophEBSAWS(model, settings, inputs, args):
                          'tag':     '' if not v.tags else '\t'.join([s.translate(flt)
                                     for kv in tagf(at, v.tags).items() for s in kv]),
                          'metric':  '' if not metrics else '\t'.join([s for m,ts,f in [
-                                        ('idle', [p['Sum'] for p in idle.get_statistics(Dimensions=[
-                                         {'Name':'VolumeId','Value':v.id},
-                                         ], EndTime=now, StartTime=ago, Period=per, Statistics=['Sum']).get('Datapoints',[])],
-                                         lambda v:round(min(v)*100.0/per,1)),
-                                        ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=[
-                                         {'Name':'VolumeId','Value':v.id},
-                                         ], EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                        ('io', [p['Sum'] for p in idle.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, Statistics=['Sum']).get('Datapoints',[])],
+                                         lambda v:round(100.0-min(v)*100.0/per,1)),
+                                        ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
                                          lambda v:round(max(v),1)),
                                     ] if ts for s in [m, str(f(ts))]]),
                         })
@@ -224,9 +223,9 @@ def gophRDSAWS(model, settings, inputs, args):
             rds, s = session.client('rds', region_name=r), a+':'+r
             if metrics:
                 cw = session.resource('cloudwatch', region_name=r)
-                conn,cpu,ioq,mem,sto = (cw.Metric('AWS/RDS','DatabaseConnections'), cw.Metric('AWS/RDS','CPUUtilization'),
-                                        cw.Metric('AWS/RDS','DiskQueueDepth'), cw.Metric('AWS/RDS','FreeableMemory'),
-                                        cw.Metric('AWS/RDS','FreeStorageSpace'),)
+                cpu,ioq,conn,mem,sto = cw.Metric('AWS/RDS','CPUUtilization'),       cw.Metric('AWS/RDS','DiskQueueDepth'),\
+                                       cw.Metric('AWS/RDS','DatabaseConnections'),  cw.Metric('AWS/RDS','FreeableMemory'),\
+                                       cw.Metric('AWS/RDS','FreeStorageSpace')
             for d in rds.describe_db_instances().get('DBInstances',[]):
                 arn = d['DBInstanceArn']
                 if metrics: dim = [{'Name':'DBInstanceIdentifier','Value':d['DBInstanceIdentifier']}]
@@ -249,16 +248,16 @@ def gophRDSAWS(model, settings, inputs, args):
                          'tag':     '' if not dtags else '\t'.join([s.translate(flt)
                                     for kv in tagf(at, dtags).items() for s in kv]),
                          'metric':  '' if not metrics else '\t'.join([s for m,ts,f in [
-                                    #   ('conn', [p['Average'] for p in conn.get_statistics(Dimensions=dim,
-                                    #    EndTime=now, StartTime=ago, Period=per, Statistics=['Average']).get('Datapoints',[])],
-                                    #    lambda v:round(max(v),2)),
-                                        ('conn', [p['ExtendedStatistics']['p90'] for p in conn.get_statistics(Dimensions=dim,
-                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
-                                         lambda v:round(max(v),2)),
                                         ('cpu', [p['ExtendedStatistics']['p90'] for p in cpu.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
                                          lambda v:round(max(v),1)),
                                         ('ioq', [p['ExtendedStatistics']['p90'] for p in ioq.get_statistics(Dimensions=dim,
+                                         EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
+                                         lambda v:round(max(v),2)),
+                                    #   ('conn', [p['Average'] for p in conn.get_statistics(Dimensions=dim,
+                                    #    EndTime=now, StartTime=ago, Period=per, Statistics=['Average']).get('Datapoints',[])],
+                                    #    lambda v:round(max(v),2)),
+                                        ('conn', [p['ExtendedStatistics']['p90'] for p in conn.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p90']).get('Datapoints',[])],
                                          lambda v:round(max(v),2)),
                                         ('mem', [p['ExtendedStatistics']['p10'] for p in mem.get_statistics(Dimensions=dim,

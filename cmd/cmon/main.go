@@ -251,15 +251,15 @@ func tableCmd() {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	if client.Close(); len(r) > 0 {
-		switch tags := ",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov"; args.model {
+		switch tags := ",cmon:Name,cmon:Env,cmon:Cust,cmon:Prod,cmon:Oper,cmon:Role,cmon:Ver,cmon:Prov"; args.model {
 		case "ec2.aws":
-			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,VPC,AMI,Spot" + tags + ",State,Since,Active%,ORate,Rate")
+			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,VPC,AMI,Spot" + tags + ",CPU%,State,Since,Active%,ORate,Rate")
 		case "ebs.aws":
-			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount" + tags + ",State,Since,Active%,Rate")
+			fmt.Println("Vol,Acct,Type,Size,IOPS,AZ,Mount" + tags + ",IO%,IOQ,State,Since,Active%,Rate")
 		case "rds.aws":
-			fmt.Println("DB,Acct,Type,Sto,Size,IOPS,Engine,EngVer,Lic,AZ,VPC" + tags + ",State,Since,Active%,Rate")
+			fmt.Println("DB,Acct,Type,SType,Size,IOPS,Engine,EngVer,Lic,AZ,VPC" + tags + ",CPU%,IOQ,Conn,Mem,Sto,State,Since,Active%,Rate")
 		case "snap.aws":
-			fmt.Println("Snap,Acct,Type,Size,VSiz,Reg,Vol,Par,Desc" + tags + ",Since,Rate")
+			fmt.Println("Snap,Acct,Type,Size,VSize,Reg,Vol,Par,Desc" + tags + ",Since,Rate")
 		case "cdr.asp/term", "cdr.asp/orig":
 			fmt.Println("CDR,Loc,To,From,Prov,Cust/App,Start,Min,Tries,Billable,Margin")
 		}
@@ -300,7 +300,7 @@ func curtabCmd() {
 			warn = " [row max]"
 		}
 		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description"+
-			",cmon:Name,cmon:Env,cmon:Cust,cmon:Oper,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov,Recs,PU,Usage,Billed\n", warn, unit)
+			",cmon:Name,cmon:Env,cmon:Cust,cmon:Prod,cmon:Oper,cmon:Role,cmon:Ver,cmon:Prov,Recs,PU,Usage,Billed\n", warn, unit)
 		for _, row := range r {
 			fmt.Println(escapeQ(row))
 		}
