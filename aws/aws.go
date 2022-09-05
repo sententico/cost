@@ -122,6 +122,7 @@ var (
 		"oracle-se":         "MSQL",  // BYOL matches MySQL pricing; deprecated
 		"oracle-se1":        "ORLs1", // deprecated
 		"oracle-se2":        "ORLs2",
+		"oracle-se2-cdb":    "ORLs2",
 		"sqlserver-ee":      "SQLe",
 		"sqlserver-se":      "SQLs",
 		"sqlserver-web":     "SQLw",
