@@ -13,9 +13,9 @@ ACCT=$1                 # default
 BUCKET=$2               # cost-reporting/CUR/hourly
 LABEL="20????_$3-0*"    # hourly
 
-find . -maxdepth 1 -name "$LABEL" -mmin +90720 -delete
+find . -maxdepth 1 -name "$LABEL" -mmin +133920 -delete
 prior="$(ls -l $LABEL~link)"
-/opt/sententix/bin/s3sync -p $ACCT -k sinceD=60 -lm $BUCKET &
+/opt/sententix/bin/s3sync -p $ACCT -k sinceD=90 -lm $BUCKET &
 wait
 
 if [ -n "$prior" ] && [ "$prior" = "$(ls -l $LABEL~link)" ]; then

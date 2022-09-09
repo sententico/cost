@@ -568,9 +568,9 @@ func (m riO) clean(short, long int32) {
 // ec2.aws model core accessors...
 func ec2awsBoot(m *model) {
 	sum, detail, work := &ec2Sum{
-		ByAcct:   make(hsU, 2424),
-		ByRegion: make(hsU, 2424),
-		BySKU:    make(hsU, 2424),
+		ByAcct:   make(hsU, 3144),
+		ByRegion: make(hsU, 3144),
+		BySKU:    make(hsU, 3144),
 	}, &ec2Detail{
 		Inst: make(map[string]*ec2Item, 512),
 	}, &ec2Work{}
@@ -602,7 +602,7 @@ func ec2awsClean(m *model, deep bool) {
 			}
 		}
 	}
-	exp := sum.Current - 24*100
+	exp := sum.Current - 24*130
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
@@ -679,9 +679,9 @@ func ec2awsTerm(m *model) {
 // ebs.aws model core accessors...
 func ebsawsBoot(m *model) {
 	sum, detail, work := &ebsSum{
-		ByAcct:   make(hsU, 2424),
-		ByRegion: make(hsU, 2424),
-		BySKU:    make(hsU, 2424),
+		ByAcct:   make(hsU, 3144),
+		ByRegion: make(hsU, 3144),
+		BySKU:    make(hsU, 3144),
 	}, &ebsDetail{
 		Vol: make(map[string]*ebsItem, 1024),
 	}, &ebsWork{}
@@ -712,7 +712,7 @@ func ebsawsClean(m *model, deep bool) {
 			}
 		}
 	}
-	exp := sum.Current - 24*100
+	exp := sum.Current - 24*130
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
@@ -787,9 +787,9 @@ func ebsawsTerm(m *model) {
 // rds.aws model core accessors...
 func rdsawsBoot(m *model) {
 	sum, detail, work := &rdsSum{
-		ByAcct:   make(hsU, 2424),
-		ByRegion: make(hsU, 2424),
-		BySKU:    make(hsU, 2424),
+		ByAcct:   make(hsU, 3144),
+		ByRegion: make(hsU, 3144),
+		BySKU:    make(hsU, 3144),
 	}, &rdsDetail{
 		DB: make(map[string]*rdsItem, 128),
 	}, &rdsWork{}
@@ -823,7 +823,7 @@ func rdsawsClean(m *model, deep bool) {
 			}
 		}
 	}
-	exp := sum.Current - 24*100
+	exp := sum.Current - 24*130
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 	sum.BySKU.clean(exp)
@@ -898,8 +898,8 @@ func rdsawsTerm(m *model) {
 // snap.aws model core accessors...
 func snapawsBoot(m *model) {
 	sum, detail, work := &snapSum{
-		ByAcct:   make(hsU, 2424),
-		ByRegion: make(hsU, 2424),
+		ByAcct:   make(hsU, 3144),
+		ByRegion: make(hsU, 3144),
 	}, &snapDetail{
 		Snap: make(map[string]*snapItem, 4096),
 	}, &snapWork{}
@@ -924,7 +924,7 @@ func snapawsClean(m *model, deep bool) {
 			delete(detail.Snap, id)
 		}
 	}
-	exp := sum.Current - 24*100
+	exp := sum.Current - 24*130
 	sum.ByAcct.clean(exp)
 	sum.ByRegion.clean(exp)
 
@@ -994,10 +994,10 @@ func snapawsTerm(m *model) {
 // cur.aws model core accessors...
 func curawsBoot(m *model) {
 	sum, detail, work := &curSum{
-		ByAcct:   make(hsA, 2424),
-		ByRegion: make(hsA, 2424),
-		ByTyp:    make(hsA, 2424),
-		BySvc:    make(hsA, 2424),
+		ByAcct:   make(hsA, 3144),
+		ByRegion: make(hsA, 3144),
+		ByTyp:    make(hsA, 3144),
+		BySvc:    make(hsA, 3144),
 		Hist:     make(riO, 16384),
 	}, &curDetail{
 		Month: make(map[string]*[2]int32, 6),
@@ -1027,14 +1027,14 @@ func curawsClean(m *model, deep bool) {
 		for sum.Current = hrs[1]; sum.Current > hrs[0] && sum.ByTyp[sum.Current]["usage"] == 0; sum.Current-- {
 		}
 		sum.Current -= 3 // account for unstable trailing hours of reported usage
-		exp := sum.Current - 24*100
+		exp := sum.Current - 24*130
 		sum.ByAcct.clean(exp)
 		sum.ByRegion.clean(exp)
 		sum.ByTyp.clean(exp)
 		sum.BySvc.clean(exp)
 		sum.Hist.clean(sum.Current-24*3, exp)
-		if len(sm) > 3 {
-			for _, m := range sm[:len(sm)-3] {
+		if len(sm) > 4 {
+			for _, m := range sm[:len(sm)-4] {
 				for hrs = detail.Month[m]; hrs[0] <= hrs[1] && sum.ByTyp[hrs[0]] == nil; hrs[0]++ {
 				}
 				if delete(detail.Line, m); hrs[0] > hrs[1] {
@@ -1183,19 +1183,19 @@ func (m hnC) sig(active int32, min float64) {
 // cdr.asp model core accessors...
 func cdraspBoot(m *model) {
 	tsum, osum, tdetail, odetail, work := &termSum{
-		ByCust: make(hsC, 2424),
-		ByGeo:  make(hsC, 2424),
-		BySP:   make(hsC, 2424),
-		ByLoc:  make(hsC, 2424),
-		ByTo:   make(hnC, 2424),
-		ByFrom: make(hnC, 2424),
+		ByCust: make(hsC, 3144),
+		ByGeo:  make(hsC, 3144),
+		BySP:   make(hsC, 3144),
+		ByLoc:  make(hsC, 3144),
+		ByTo:   make(hnC, 3144),
+		ByFrom: make(hnC, 3144),
 	}, &origSum{
-		ByCust: make(hsC, 2424),
-		ByGeo:  make(hsC, 2424),
-		BySP:   make(hsC, 2424),
-		ByLoc:  make(hsC, 2424),
-		ByTo:   make(hnC, 2424),
-		ByFrom: make(hnC, 2424),
+		ByCust: make(hsC, 3144),
+		ByGeo:  make(hsC, 3144),
+		BySP:   make(hsC, 3144),
+		ByLoc:  make(hsC, 3144),
+		ByTo:   make(hnC, 3144),
+		ByFrom: make(hnC, 3144),
 	}, &termDetail{
 		CDR: make(hiD, 60),
 	}, &origDetail{
@@ -1265,7 +1265,7 @@ func cdraspClean(m *model, deep bool) {
 	osum.ByCust.sig(oexp, "other", 1.00)
 	osum.ByTo.sig(oexp, 1.00)
 	osum.ByFrom.sig(oexp, 1.00)
-	texp, oexp = tsum.Current-24*100, osum.Current-24*100
+	texp, oexp = tsum.Current-24*130, osum.Current-24*130
 	tsum.ByCust.clean(texp)
 	tsum.ByGeo.clean(texp)
 	tsum.BySP.clean(texp)
