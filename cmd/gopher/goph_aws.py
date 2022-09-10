@@ -309,10 +309,10 @@ def gophCURAWS(model, settings, inputs, args):
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     if not settings.get('AWS',{}).get('CUR'): raise GError('no CUR settings for {}'.format(model))
     tlist = ['cmon:Name','cmon:Env','cmon:Cust','cmon:Oper','cmon:Prod','cmon:Role','cmon:Ver','cmon:Prov',]
-    cur,accts,rules,edp,pipe,flt,head,ids,s = settings['AWS']['CUR'], settings['AWS'].get('Accounts',{}), settings[
-        'AWS'].get('TagRules',{}), settings['AWS'].get('EDPAdj',1.0), getWriter(model, [
-        'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
-    ]+tlist), str.maketrans('\t',' '), {}, {}, ""
+    cur,accts,rules,edp,pipe,flt,head,ids,s = settings['AWS']['CUR'], settings['AWS'].get('Accounts',
+        {}), settings['AWS'].get('TagRules',{}), settings['AWS'].get('EDPAdj',1.0), getWriter(model, [
+            'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
+        ]+tlist), str.maketrans('\t',' '), {}, {}, ""
 
     def getcid(id):
         '''Return cached compact line item ID with new-reference flag; full IDs unnecessarily large'''
@@ -329,7 +329,7 @@ def gophCURAWS(model, settings, inputs, args):
             if o >= 0 and c[o] not in ex: return c[o]
         return c[dc]
 
-    with subprocess.Popen([settings.get('BinDir').rstrip('/')+'/goph_curaws.sh',
+    with subprocess.Popen([settings['BinDir'].rstrip('/')+'/goph_curaws.sh',
             cur.get('account','default'), cur.get('bucket','cost-reporting/CUR/hourly'), cur.get('label','hourly')],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
         for l in p.stdout:

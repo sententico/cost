@@ -15,14 +15,14 @@ LABEL="20????_$3-0*"    # hourly
 
 find . -maxdepth 1 -name "$LABEL" -mmin +133920 -delete
 prior="$(ls -l $LABEL~link)"
-/opt/sententix/bin/s3sync -p $ACCT -k sinceD=90 -lm $BUCKET &
+${0%/*}/s3sync -p $ACCT -k sinceD=90 -lm $BUCKET &
 wait
 
 if [ -n "$prior" ] && [ "$prior" = "$(ls -l $LABEL~link)" ]; then
     links="$(ls $LABEL~link)"
     for f in $links; do
         echo "#!begin $f"
-        zcat $f     # TODO: handle non-gzip inputs
+        zcat $f         # TODO: handle non-gzip inputs
         echo "#!end $f"
     done
     trap '' 1 2 3 15; rm $links
