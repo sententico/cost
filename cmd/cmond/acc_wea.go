@@ -452,8 +452,8 @@ func seriesExtract(metric string, span, recent int, truncate interface{}) (res c
 	return
 }
 
-// globalTags builds a global map to flesh out EC2/EBS/snapshot tags by leveraging their transitive relationships
-func globalTags(snaps int) (tags map[string]*cmon.TagMap) {
+// globalTags builds a global map in part to flesh out EC2/EBS/snapshot tags by leveraging their transitive relationships
+func globalTags(snaps, dbs int) (tags map[string]*cmon.TagMap) {
 	tags = make(map[string]*cmon.TagMap, 32768)
 
 	if ec2 := mMod["ec2.aws"].newAcc(); ec2 != nil && len(ec2.m.data) > 1 {
@@ -505,6 +505,22 @@ func globalTags(snaps int) (tags map[string]*cmon.TagMap) {
 				case 2:
 					tags[id], tags["snapshot/"+id] = t, t
 				}
+			}
+		}()
+	}
+	if rds := mMod["rds.aws"].newAcc(); dbs > 0 && rds != nil && len(rds.m.data) > 1 {
+		func() {
+			rds.reqR()
+			defer rds.rel()
+			for id, db := range rds.m.data[1].(*rdsDetail).DB {
+				t := cmon.TagMap{}.UpdateP(db.Tag, "cmon:")
+				if t["cmon:Name"] == "" {
+					if i := strings.LastIndexByte(id, ':') + 1; i > 0 {
+						t.UpdateT("cmon:Name", id[i:])
+					}
+				}
+				t.UpdateN(settings, db.Acct, "names", t["cmon:Name"])
+				tags[id] = &t
 			}
 		}()
 	}
@@ -949,7 +965,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 }
 
 func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
-	tags, pg := globalTags(0), smPage
+	tags, pg := globalTags(0, 0), smPage
 	acc.reqR()
 	for id, inst := range d.Inst {
 		if inst.Last < cur {
@@ -1329,7 +1345,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 }
 
 func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
-	tags, pg := globalTags(0), smPage
+	tags, pg := globalTags(0, 0), smPage
 	acc.reqR()
 	for id, vol := range d.Vol {
 		if vol.Last < cur {
@@ -1798,8 +1814,9 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		}
 		tag := cmon.TagMap{}.UpdateP(db.Tag, "cmon:")
 		if tag["cmon:Name"] == "" {
-			s := strings.Split(id, ":")
-			tag.UpdateT("cmon:Name", s[len(s)-1])
+			if i := strings.LastIndexByte(id, ':') + 1; i > 0 {
+				tag.UpdateT("cmon:Name", id[i:])
+			}
 		}
 		if tag.UpdateN(settings, db.Acct, "names", tag["cmon:Name"]).UpdateP(settings.AWS.Accounts[db.Acct], "cmon:"); db.AZ != "" {
 			tag.UpdateP(settings.AWS.Regions[db.AZ[:len(db.AZ)-1]], "cmon:")
@@ -2089,7 +2106,7 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 }
 
 func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
-	tags, pg := globalTags(1), smPage
+	tags, pg := globalTags(1, 0), smPage
 	acc.reqR()
 	for id, snap := range d.Snap {
 		if snap.Last < cur {
@@ -2921,7 +2938,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				close(res)
 			}
 		}()
-		pg, trunc, tags := smPage, float32(truncate), globalTags(2)
+		pg, trunc, tags := smPage, float32(truncate), globalTags(2, 1)
 		acc.reqR()
 	outerLoop:
 		for mo, hrs := range cur.Month {
@@ -2949,7 +2966,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 							continue
 						}
 					}
-					if pu, tag := sum.Hist.ppuse(li.RID, from, to), (cmon.TagMap{
+					if pu, tag := sum.Hist.ppuse(li.RID, from, to), (cmon.TagMap{}).UpdateR(tags[li.RID]).Update(cmon.TagMap{
 						"cmon:Name": li.Name,
 						"cmon:Env":  li.Env,
 						"cmon:Cust": li.Cust,
@@ -2958,9 +2975,9 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 						"cmon:Role": li.Role,
 						"cmon:Ver":  li.Ver,
 						"cmon:Prov": li.Prov,
-					}).UpdateN(settings, li.Acct, "names", li.Name).UpdateN(settings, li.Acct, "RIDs", li.RID).UpdateR(
-						tags[li.RID]).UpdateP(settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg],
-						"cmon:"); skip(flt, li, tag.UpdateV(settings, li.Acct), pu) {
+					}).UpdateN(settings, li.Acct, "names", li.Name).UpdateN(settings, li.Acct, "RIDs", li.RID).UpdateP(
+						settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg], "cmon:"); skip(flt, li,
+						tag.UpdateV(settings, li.Acct), pu) {
 						continue
 					} else if item := cur.table(li, ifr, ito, units, trunc, id, tag, pu, dts, rflt); item != nil {
 						for row := item(); row != nil; row = item() {

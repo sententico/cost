@@ -262,10 +262,11 @@ def gophRDSAWS(model, settings, inputs, args):
                                          lambda v:round(max(v),2)),
                                         ('mem', [p['ExtendedStatistics']['p10'] for p in mem.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
-                                         lambda v:round(min(v)/1024.0/1024.0/1024.0,1)),
+                                         lambda v:round(min(v)/float(2**30),1)),
+                                    #   express 'sto' in GiB to match 'size' units
                                         ('sto', [p['ExtendedStatistics']['p10'] for p in sto.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
-                                         lambda v:round(min(v)/1e9,0)),
+                                         lambda v:round(min(v)/float(2**30),0)),
                                     ] if ts for s in [m, str(f(ts))]]),
                         })
     pipe(None, None)
@@ -434,7 +435,9 @@ def gophCURAWS(model, settings, inputs, args):
                                  'eu-west-2':           'EUW2', 'af-south-1':           'CPT',
                                  'eu-west-3':           'EUW3', 'me-south-1':           'MES1',
                                 }.get(az,az),                                   # service region
-                        'rid':  rid.split(':', 5)[-1]   if      rid.startswith('arn:')
+                        'rid':  rid.split(':', 5)[-1]   if      rid.startswith('arn:') and not rid.startswith((
+                                                                'arn:aws:rds:',
+                                                                ))
                                                         else    rid,            # resource ID (i-, vol-, ...)
                         'desc': col[head['lineItem/LineItemDescription']].replace(
                                 'USD',                  '$'     ).replace(
