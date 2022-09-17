@@ -486,6 +486,7 @@ def gophCURAWS(model, settings, inputs, args):
                                 'SQL Std',              'SQL SE').replace(
                                 'SQL Enterprise',       'SQL EE').replace(
                                 'SQL Express',          'SQL EX').replace(
+                                'SQL Exp',              'SQL EX').replace(
                                 '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
                                 'thereafter',           'after' ).replace(
@@ -502,7 +503,7 @@ def gophCURAWS(model, settings, inputs, args):
                                 'Asia Pacific',         'APAC'  ).replace(
                                 'Northern ',            ''      ).replace(
                                 'N. ',                  ''      ).replace(
-                                'N.',                   ''      ),              # service description
+                                'N.',                   ''      ),              # service description (abbreviated)
                         'ivl':  str(ivl),                                       # usage interval (seconds)
                     })                                                          # cmon tags or mappings...
                     rs = rules.get(accts.get(acct,{}).get('~tagrules','default'),{})

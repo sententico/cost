@@ -580,7 +580,7 @@ func ec2awsFeedback(m *model, event *modEvt) {
 			}
 		}()
 		func() {
-			cur, now, pmap := mMod[event.name].newAcc(), "", map[string]string{
+			cur, now, pg, pmap := mMod[event.name].newAcc(), "", lgPage, map[string]string{
 				"RHEL":                 "rhel",
 				"Windows":              "windows",
 				"Windows Spot":         "windows",
@@ -601,6 +601,12 @@ func ec2awsFeedback(m *model, event *modEvt) {
 				}
 			}
 			for _, item := range cur.m.data[1].(*curDetail).Line[now] {
+				if pg--; pg <= 0 { // pagination provides cooperative access and avoids token expiration
+					cur.rel()
+					pg = lgPage
+					cur.reqR()
+				}
+
 				if f, found := active[item.RID]; found {
 					if f == nil {
 						f = &feedback{cost: item.Cost}
@@ -662,7 +668,14 @@ func snapawsFeedback(m *model, event *modEvt) {
 					now = mo
 				}
 			}
+			pg := lgPage
 			for _, item := range cur.m.data[1].(*curDetail).Line[now] {
+				if pg--; pg <= 0 { // pagination provides cooperative access and avoids token expiration
+					cur.rel()
+					pg = lgPage
+					cur.reqR()
+				}
+
 				if item.UOp != "CreateSnapshot" || !strings.HasPrefix(item.RID, "snapshot/") {
 				} else if ss, found := size[item.RID[9:]]; !found {
 				} else if cs := item.Usg / float32(item.Recs>>recsShift+1) * 365 / 12; cs > ss {

@@ -119,6 +119,7 @@ var (
 		"mysql":             "MSQL",
 		"postgres":          "PSQL",
 		"oracle-ee":         "MSQL",  // BYOL matches MySQL pricing
+		"oracle-ee-cdb":     "MSQL",  // BYOL matches MySQL pricing
 		"oracle-se":         "MSQL",  // BYOL matches MySQL pricing; deprecated
 		"oracle-se1":        "ORLs1", // deprecated
 		"oracle-se2":        "ORLs2",
