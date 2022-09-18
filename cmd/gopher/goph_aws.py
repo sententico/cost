@@ -487,6 +487,7 @@ def gophCURAWS(model, settings, inputs, args):
                                 'SQL Enterprise',       'SQL EE').replace(
                                 'SQL Express',          'SQL EX').replace(
                                 'SQL Exp',              'SQL EX').replace(
+                                'License Included',     'LI'    ).replace(
                                 '(Amazon VPC)',         'VPC'   ).replace(
                                 'transfer',             'xfer'  ).replace(
                                 'thereafter',           'after' ).replace(

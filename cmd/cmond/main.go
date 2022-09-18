@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/gob"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -16,18 +18,22 @@ import (
 )
 
 type (
-	modSt  uint8
-	accTok uint32
-	model  struct {
-		name              string           // model name of the form <type>.<domain>
-		state             modSt            // model state
-		immed             bool             // immediate maintenance accessor start
-		reqP, reqR, reqW  chan chan accTok // priority/read/write access channels
-		rel               chan accTok      // access release channel
-		evt               chan *modEvt     // event notification channel
-		boot, term, maint func(*model)     // boot/termination/maintenance accessors
-		persist           int              // slice of persisted data blocks [:persist]
-		data              []interface{}    // super slice of model data blocks (references to these stable after boot)
+	modSt  uint8    // model state type
+	accTok uint32   // model access token type
+	accReq struct { // model access request type
+		tc   chan accTok // fulfillment token channel
+		orig string      // request origin
+	}
+	model struct {
+		name              string        // model name of the form <type>.<domain>
+		state             modSt         // model state
+		immed             bool          // immediate maintenance accessor start
+		reqP, reqR, reqW  chan *accReq  // priority/read/write access channels
+		rel               chan accTok   // access release channel
+		evt               chan *modEvt  // event notification channel
+		boot, term, maint func(*model)  // boot/termination/maintenance accessors
+		persist           int           // slice of persisted data blocks [:persist]
+		data              []interface{} // super slice of model data blocks (references to these stable after boot)
 	}
 	modAcc struct { // model accessor type
 		m   *model      // model to access
@@ -150,23 +156,27 @@ func init() {
 }
 
 func modManager(m *model) {
-	m.reqP, m.reqR, m.reqW = make(chan chan accTok, 16), make(chan chan accTok, 16), make(chan chan accTok, 16)
+	m.reqP, m.reqR, m.reqW = make(chan *accReq, 16), make(chan *accReq, 16), make(chan *accReq, 16)
 	m.rel = make(chan accTok, 16)
 	m.evt = make(chan *modEvt, 4)
 	m.boot(m)
 	ctl <- m.name // signal boot complete; enter model access manager loop
 
-	var tc chan accTok
+	type reqRef struct {
+		ttl  int16
+		orig string
+	}
+	var req *accReq
 	var tok, write, tokseq accTok
-	reqw, read, ttl := m.reqW, make(map[accTok]int16), int16(0)
+	reqw, read, rr, ttl := m.reqW, make(map[accTok]*reqRef), &reqRef{}, int16(0)
 	for tick, tock := time.NewTicker(1*time.Second), func() {
-		for tok, ttl = range read {
-			if ttl > 1 {
-				read[tok]--
+		for tok, rr = range read {
+			if rr.ttl > 1 {
+				rr.ttl--
 				continue
 			}
 			delete(read, tok)
-			logE.Printf("%q read access token expired", m.name)
+			logE.Printf("%q read access token request from %v expired", m.name, rr.orig)
 		}
 	}; ; {
 		select {
@@ -174,16 +184,16 @@ func modManager(m *model) {
 			if tock(); len(read) == 0 {
 				reqw = m.reqW
 			}
-		case tc = <-m.reqR:
+		case req = <-m.reqR:
 			tok = tokseq | atRD
-			tc <- tok
+			req.tc <- tok
 			tokseq += atSEQ
-			read[tok], reqw = tokReadExp+1, nil
+			read[tok], reqw = &reqRef{tokReadExp + 1, req.orig}, nil
 		case tok = <-m.rel:
 			if delete(read, tok); len(read) == 0 {
 				reqw = m.reqW
 			}
-		case tc = <-m.reqP:
+		case req = <-m.reqP:
 			for len(read) > 0 {
 				select {
 				case <-tick.C:
@@ -193,13 +203,13 @@ func modManager(m *model) {
 				}
 			}
 			write = tokseq | atWR
-			tc <- write
+			req.tc <- write
 			tokseq += atSEQ
 			for reqw = m.reqW; <-m.rel != write; {
 			}
-		case tc = <-reqw:
+		case req = <-reqw:
 			write = tokseq | atWR
-			tc <- write
+			req.tc <- write
 			tokseq += atSEQ
 			for ttl = tokWriteExp + 1; ; {
 				select {
@@ -207,7 +217,7 @@ func modManager(m *model) {
 					if ttl--; ttl > 0 {
 						continue
 					}
-					logE.Printf("%q write access token expired", m.name)
+					logE.Printf("%q write access token request from %v expired", m.name, req.orig)
 				case tok = <-m.rel:
 					if tok != write {
 						continue
@@ -236,7 +246,11 @@ func (acc *modAcc) reqP() {
 			acc.rel()
 			fallthrough
 		case atNIL:
-			acc.m.reqP <- acc.tc
+			if _, f, ln, ok := runtime.Caller(1); ok {
+				acc.m.reqP <- &accReq{acc.tc, fmt.Sprint(f, ":", ln)}
+			} else {
+				acc.m.reqP <- &accReq{acc.tc, "unknown origin"}
+			}
 			acc.tok = <-acc.tc
 		}
 	}
@@ -249,7 +263,11 @@ func (acc *modAcc) reqR() {
 			acc.rel()
 			fallthrough
 		case atNIL:
-			acc.m.reqR <- acc.tc
+			if _, f, ln, ok := runtime.Caller(1); ok {
+				acc.m.reqR <- &accReq{acc.tc, fmt.Sprint(f, ":", ln)}
+			} else {
+				acc.m.reqR <- &accReq{acc.tc, "unknown origin"}
+			}
 			acc.tok = <-acc.tc
 		}
 	}
@@ -262,7 +280,11 @@ func (acc *modAcc) reqW() {
 			acc.rel()
 			fallthrough
 		case atNIL:
-			acc.m.reqW <- acc.tc
+			if _, f, ln, ok := runtime.Caller(1); ok {
+				acc.m.reqW <- &accReq{acc.tc, fmt.Sprint(f, ":", ln)}
+			} else {
+				acc.m.reqW <- &accReq{acc.tc, "unknown origin"}
+			}
 			acc.tok = <-acc.tc
 		}
 	}

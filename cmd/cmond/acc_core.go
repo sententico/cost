@@ -301,6 +301,7 @@ func (m *model) store(final bool) {
 		acc.reqP()
 	} else {
 		acc.reqR()
+		defer acc.rel()
 	}
 
 	pr, pw := io.Pipe()
@@ -330,9 +331,6 @@ func (m *model) store(final bool) {
 		f.Close()
 	} else {
 		f.Close()
-	}
-	if !final {
-		acc.rel()
 	}
 }
 

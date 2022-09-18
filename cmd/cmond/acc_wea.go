@@ -967,6 +967,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	tags, pg := globalTags(0, 0), smPage
 	acc.reqR()
+	defer acc.rel()
 	for id, inst := range d.Inst {
 		if inst.Last < cur {
 			continue
@@ -1018,7 +1019,6 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		pg = smPage
 		acc.reqR()
 	}
-	acc.rel()
 }
 
 func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
@@ -1347,6 +1347,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	tags, pg := globalTags(0, 0), smPage
 	acc.reqR()
+	defer acc.rel()
 	for id, vol := range d.Vol {
 		if vol.Last < cur {
 			continue
@@ -1396,7 +1397,6 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		pg = smPage
 		acc.reqR()
 	}
-	acc.rel()
 }
 
 func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
@@ -1806,6 +1806,7 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 	var az string
 	pg := smPage
 	acc.reqR()
+	defer acc.rel()
 	for id, db := range d.DB {
 		if db.Last < cur {
 			continue
@@ -1869,7 +1870,6 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 		pg = smPage
 		acc.reqR()
 	}
-	acc.rel()
 }
 
 func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) bool, error) {
@@ -2108,6 +2108,7 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []func(...interface{}) bool) {
 	tags, pg := globalTags(1, 0), smPage
 	acc.reqR()
+	defer acc.rel()
 	for id, snap := range d.Snap {
 		if snap.Last < cur {
 			continue
@@ -2153,7 +2154,6 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 		pg = smPage
 		acc.reqR()
 	}
-	acc.rel()
 }
 
 func (d *hiD) filters(criteria []string) ([]func(...interface{}) bool, error) {
@@ -2355,6 +2355,7 @@ func (d *hiD) table(acc *modAcc, res chan []string, rows int, flt []func(...inte
 	sl.Load(nil)
 	pg := smPage
 	acc.reqR()
+	defer acc.rel()
 outerLoop:
 	for h, hm := range *d {
 		t := int64(h) * 3600
@@ -2391,7 +2392,6 @@ outerLoop:
 			acc.reqR()
 		}
 	}
-	acc.rel()
 }
 
 func tableExtract(n string, rows int, criteria []string) (res chan []string, err error) {
