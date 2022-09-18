@@ -22,6 +22,7 @@ type (
 	accTok uint32   // model access token type
 	accReq struct { // model access request type
 		tc   chan accTok // fulfillment token channel
+		ttl  int16       // request ttl (seconds)
 		orig string      // request origin
 	}
 	model struct {
@@ -168,7 +169,7 @@ func modManager(m *model) {
 	}
 	var req *accReq
 	var tok, write, tokseq accTok
-	reqw, read, rr, ttl := m.reqW, make(map[accTok]*reqRef), &reqRef{}, int16(0)
+	reqw, read, rr := m.reqW, make(map[accTok]*reqRef), &reqRef{}
 	for tick, tock := time.NewTicker(1*time.Second), func() {
 		for tok, rr = range read {
 			if rr.ttl > 1 {
@@ -188,7 +189,7 @@ func modManager(m *model) {
 			tok = tokseq | atRD
 			req.tc <- tok
 			tokseq += atSEQ
-			read[tok], reqw = &reqRef{tokReadExp + 1, req.orig}, nil
+			read[tok], reqw = &reqRef{req.ttl + 1, req.orig}, nil
 		case tok = <-m.rel:
 			if delete(read, tok); len(read) == 0 {
 				reqw = m.reqW
@@ -211,10 +212,10 @@ func modManager(m *model) {
 			write = tokseq | atWR
 			req.tc <- write
 			tokseq += atSEQ
-			for ttl = tokWriteExp + 1; ; {
+			for req.ttl++; ; {
 				select {
 				case <-tick.C:
-					if ttl--; ttl > 0 {
+					if req.ttl--; req.ttl > 0 {
 						continue
 					}
 					logE.Printf("%q write access token request from %v expired", m.name, req.orig)
@@ -246,11 +247,7 @@ func (acc *modAcc) reqP() {
 			acc.rel()
 			fallthrough
 		case atNIL:
-			if _, f, ln, ok := runtime.Caller(1); ok {
-				acc.m.reqP <- &accReq{acc.tc, fmt.Sprint(f, ":", ln)}
-			} else {
-				acc.m.reqP <- &accReq{acc.tc, "unknown origin"}
-			}
+			acc.m.reqP <- &accReq{acc.tc, -1, ""}
 			acc.tok = <-acc.tc
 		}
 	}
@@ -264,9 +261,26 @@ func (acc *modAcc) reqR() {
 			fallthrough
 		case atNIL:
 			if _, f, ln, ok := runtime.Caller(1); ok {
-				acc.m.reqR <- &accReq{acc.tc, fmt.Sprint(f, ":", ln)}
+				acc.m.reqR <- &accReq{acc.tc, tokReadExp, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
 			} else {
-				acc.m.reqR <- &accReq{acc.tc, "unknown origin"}
+				acc.m.reqR <- &accReq{acc.tc, tokReadExp, "unknown origin"}
+			}
+			acc.tok = <-acc.tc
+		}
+	}
+}
+func (acc *modAcc) reqRt(t int16) {
+	if acc != nil {
+		switch acc.tok & atTYP {
+		case atRD:
+		case atWR:
+			acc.rel()
+			fallthrough
+		case atNIL:
+			if _, f, ln, ok := runtime.Caller(1); ok {
+				acc.m.reqR <- &accReq{acc.tc, t, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
+			} else {
+				acc.m.reqR <- &accReq{acc.tc, t, "unknown origin"}
 			}
 			acc.tok = <-acc.tc
 		}
@@ -281,9 +295,26 @@ func (acc *modAcc) reqW() {
 			fallthrough
 		case atNIL:
 			if _, f, ln, ok := runtime.Caller(1); ok {
-				acc.m.reqW <- &accReq{acc.tc, fmt.Sprint(f, ":", ln)}
+				acc.m.reqW <- &accReq{acc.tc, tokWriteExp, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
 			} else {
-				acc.m.reqW <- &accReq{acc.tc, "unknown origin"}
+				acc.m.reqW <- &accReq{acc.tc, tokWriteExp, "unknown origin"}
+			}
+			acc.tok = <-acc.tc
+		}
+	}
+}
+func (acc *modAcc) reqWt(t int16) {
+	if acc != nil {
+		switch acc.tok & atTYP {
+		case atWR:
+		case atRD:
+			acc.rel()
+			fallthrough
+		case atNIL:
+			if _, f, ln, ok := runtime.Caller(1); ok {
+				acc.m.reqW <- &accReq{acc.tc, t, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
+			} else {
+				acc.m.reqW <- &accReq{acc.tc, t, "unknown origin"}
 			}
 			acc.tok = <-acc.tc
 		}

@@ -300,7 +300,7 @@ func (m *model) store(final bool) {
 	if final {
 		acc.reqP()
 	} else {
-		acc.reqR()
+		acc.reqRt(60)
 		defer acc.rel()
 	}
 
