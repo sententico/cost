@@ -64,10 +64,13 @@ const (
 )
 
 const (
-	tokReadExp  = 30   // model read access token expiration (seconds)
-	tokWriteExp = 6    // model write access token expiration (seconds)
-	smPage      = 512  // model access small page size (gopher/weasel access with I/O)
-	lgPage      = 4096 // model access large page size (access without I/O)
+	tokXRmax = 120  // model read access token expiration max (seconds)
+	tokXWmax = 60   // model write access token expiration max (seconds)
+	tokXmin  = 2    // model access token expiration min (seconds)
+	tokXR    = 12   // model read access token expiration default (seconds)
+	tokXW    = 6    // model write access token expiration default (seconds)
+	smPage   = 512  // model access small page size (gopher/weasel access with I/O)
+	lgPage   = 4096 // model access large page size (access without I/O)
 )
 
 var (
@@ -261,9 +264,9 @@ func (acc *modAcc) reqR() {
 			fallthrough
 		case atNIL:
 			if _, f, ln, ok := runtime.Caller(1); ok {
-				acc.m.reqR <- &accReq{acc.tc, tokReadExp, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
+				acc.m.reqR <- &accReq{acc.tc, tokXR, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
 			} else {
-				acc.m.reqR <- &accReq{acc.tc, tokReadExp, "unknown origin"}
+				acc.m.reqR <- &accReq{acc.tc, tokXR, "unknown origin"}
 			}
 			acc.tok = <-acc.tc
 		}
@@ -277,6 +280,11 @@ func (acc *modAcc) reqRt(t int16) {
 			acc.rel()
 			fallthrough
 		case atNIL:
+			if t < tokXmin {
+				t = tokXmin
+			} else if t > tokXRmax {
+				t = tokXRmax
+			}
 			if _, f, ln, ok := runtime.Caller(1); ok {
 				acc.m.reqR <- &accReq{acc.tc, t, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
 			} else {
@@ -295,9 +303,9 @@ func (acc *modAcc) reqW() {
 			fallthrough
 		case atNIL:
 			if _, f, ln, ok := runtime.Caller(1); ok {
-				acc.m.reqW <- &accReq{acc.tc, tokWriteExp, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
+				acc.m.reqW <- &accReq{acc.tc, tokXW, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
 			} else {
-				acc.m.reqW <- &accReq{acc.tc, tokWriteExp, "unknown origin"}
+				acc.m.reqW <- &accReq{acc.tc, tokXW, "unknown origin"}
 			}
 			acc.tok = <-acc.tc
 		}
@@ -311,6 +319,11 @@ func (acc *modAcc) reqWt(t int16) {
 			acc.rel()
 			fallthrough
 		case atNIL:
+			if t < tokXmin {
+				t = tokXmin
+			} else if t > tokXWmax {
+				t = tokXWmax
+			}
 			if _, f, ln, ok := runtime.Caller(1); ok {
 				acc.m.reqW <- &accReq{acc.tc, t, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
 			} else {
