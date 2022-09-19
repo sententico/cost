@@ -280,10 +280,10 @@ func (acc *modAcc) reqRt(t int16) {
 			acc.rel()
 			fallthrough
 		case atNIL:
-			if t < tokXmin {
-				t = tokXmin
-			} else if t > tokXRmax {
+			if t < 0 || t > tokXRmax {
 				t = tokXRmax
+			} else if t < tokXmin {
+				t = tokXmin
 			}
 			if _, f, ln, ok := runtime.Caller(1); ok {
 				acc.m.reqR <- &accReq{acc.tc, t, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}
@@ -319,10 +319,10 @@ func (acc *modAcc) reqWt(t int16) {
 			acc.rel()
 			fallthrough
 		case atNIL:
-			if t < tokXmin {
-				t = tokXmin
-			} else if t > tokXWmax {
+			if t < 0 || t > tokXWmax {
 				t = tokXWmax
+			} else if t < tokXmin {
+				t = tokXmin
 			}
 			if _, f, ln, ok := runtime.Caller(1); ok {
 				acc.m.reqW <- &accReq{acc.tc, t, fmt.Sprint(f[strings.LastIndexAny(f, `/\`)+1:], ":", ln)}

@@ -2924,7 +2924,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 	}
 
 	if res = make(chan []string, 32); from <= 0 {
-		acc.reqR()
+		acc.reqRt(0)
 		from += sum.Current
 		to += sum.Current
 		acc.rel()
