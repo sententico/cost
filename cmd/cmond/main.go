@@ -175,8 +175,7 @@ func modManager(m *model) {
 	reqw, read, rr := m.reqW, make(map[accTok]*reqRef), &reqRef{}
 	for tick, tock := time.NewTicker(1*time.Second), func() {
 		for tok, rr = range read {
-			if rr.ttl > 1 {
-				rr.ttl--
+			if rr.ttl--; rr.ttl > 0 {
 				continue
 			}
 			delete(read, tok)
