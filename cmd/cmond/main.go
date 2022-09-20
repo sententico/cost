@@ -166,67 +166,71 @@ func modManager(m *model) {
 	m.boot(m)
 	ctl <- m.name // signal boot complete; enter model access manager loop
 
-	type reqRef struct {
-		ttl  int16
-		orig string
-	}
 	var req *accReq
 	var tok, write, tokseq accTok
-	reqw, read, rr := m.reqW, make(map[accTok]*reqRef), &reqRef{}
+	reqw, reads := m.reqW, make(map[accTok]*accReq)
 	for tick, tock := time.NewTicker(1*time.Second), func() {
-		for tok, rr = range read {
-			if rr.ttl--; rr.ttl > 0 {
+		for tok, req := range reads {
+			if req.ttl--; req.ttl > 0 {
 				continue
 			}
-			delete(read, tok)
-			logE.Printf("%q read access token request from %v expired", m.name, rr.orig)
+			delete(reads, tok)
+			logE.Printf("%q read access token request from %v expired", m.name, req.orig)
 		}
 	}; ; {
 		select {
 		case <-tick.C:
-			if tock(); len(read) == 0 {
+			if tock(); len(reads) == 0 {
 				reqw = m.reqW
 			}
 		case req = <-m.reqR:
 			tok = tokseq | atRD
 			req.tc <- tok
 			tokseq += atSEQ
-			read[tok], reqw = &reqRef{req.ttl + 1, req.orig}, nil
+			req.ttl++
+			reads[tok], reqw = req, nil
 		case tok = <-m.rel:
-			if delete(read, tok); len(read) == 0 {
+			if delete(reads, tok); len(reads) == 0 {
 				reqw = m.reqW
 			}
 		case req = <-m.reqP:
-			for len(read) > 0 {
+			for write = tokseq | atWR; len(reads) > 0; {
 				select {
 				case <-tick.C:
 					tock()
 				case tok = <-m.rel:
-					delete(read, tok)
+					delete(reads, tok)
 				}
 			}
-			write = tokseq | atWR
 			req.tc <- write
 			tokseq += atSEQ
-			for reqw = m.reqW; <-m.rel != write; {
+		nextPrel:
+			for reqw = m.reqW; ; {
+				select {
+				case <-tick.C:
+				case tok = <-m.rel:
+					if tok == write {
+						break nextPrel
+					}
+				}
 			}
 		case req = <-reqw:
 			write = tokseq | atWR
 			req.tc <- write
 			tokseq += atSEQ
+		nextWrel:
 			for req.ttl++; ; {
 				select {
 				case <-tick.C:
-					if req.ttl--; req.ttl > 0 {
-						continue
+					if req.ttl--; req.ttl <= 0 {
+						logE.Printf("%q write access token request from %v expired", m.name, req.orig)
+						break nextWrel
 					}
-					logE.Printf("%q write access token request from %v expired", m.name, req.orig)
 				case tok = <-m.rel:
-					if tok != write {
-						continue
+					if tok == write {
+						break nextWrel
 					}
 				}
-				break
 			}
 		}
 	}
