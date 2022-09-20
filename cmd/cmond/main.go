@@ -248,8 +248,7 @@ func (m *model) newAcc() *modAcc {
 func (acc *modAcc) reqP() {
 	if acc != nil {
 		switch acc.tok & atTYP {
-		case atWR:
-		case atRD:
+		case atRD, atWR:
 			acc.rel()
 			fallthrough
 		case atNIL:
