@@ -76,7 +76,7 @@ type (
 	ebsItem struct {
 		Acct   string
 		Typ    string
-		Size   int         `json:",omitempty"`
+		GiB    int         `json:",omitempty"`
 		IOPS   int         `json:",omitempty"`
 		MiBps  int         `json:",omitempty"`
 		AZ     string      `json:",omitempty"`
@@ -107,7 +107,7 @@ type (
 		Acct    string
 		Typ     string
 		STyp    string      `json:",omitempty"`
-		Size    int         `json:",omitempty"`
+		GiB     int         `json:",omitempty"`
 		IOPS    int         `json:",omitempty"`
 		Engine  string      `json:",omitempty"`
 		Ver     string      `json:",omitempty"`

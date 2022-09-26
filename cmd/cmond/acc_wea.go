@@ -1090,7 +1090,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "Size", "size", "siz":
+		case "GiB", "GB", "Size", "gib", "gb", "size", "siz":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			} else if n, err := strconv.Atoi(opd); err != nil {
@@ -1098,13 +1098,13 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 			} else {
 				switch op {
 				case "=":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Size == n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).GiB == n })
 				case "!":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Size != n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).GiB != n })
 				case "<":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Size < n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).GiB < n })
 				case ">":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Size > n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).GiB > n })
 				}
 			}
 		case "IOPS", "iops":
@@ -1383,7 +1383,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			id,
 			vol.Acct + " " + settings.AWS.Accounts[vol.Acct]["~name"],
 			vol.Typ,
-			strconv.FormatInt(int64(vol.Size), 10),
+			strconv.FormatInt(int64(vol.GiB), 10),
 			strconv.FormatInt(int64(vol.IOPS), 10),
 			strconv.FormatInt(int64(vol.MiBps), 10),
 			vol.AZ,
@@ -1500,7 +1500,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 			case "]":
 				flt = append(flt, func(v ...interface{}) bool { return strings.HasSuffix(v[0].(*rdsItem).STyp, opd) })
 			}
-		case "Size", "size", "siz":
+		case "GiB", "GB", "Size", "gib", "gb", "size", "siz":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			} else if n, err := strconv.Atoi(opd); err != nil {
@@ -1508,13 +1508,13 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 			} else {
 				switch op {
 				case "=":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Size == n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).GiB == n })
 				case "!":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Size != n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).GiB != n })
 				case "<":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Size < n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).GiB < n })
 				case ">":
-					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).Size > n })
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).GiB > n })
 				}
 			}
 		case "IOPS", "iops":
@@ -1851,7 +1851,7 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			db.Acct + " " + settings.AWS.Accounts[db.Acct]["~name"],
 			db.Typ,
 			db.STyp,
-			strconv.FormatInt(int64(db.Size), 10),
+			strconv.FormatInt(int64(db.GiB), 10),
 			strconv.FormatInt(int64(db.IOPS), 10),
 			db.Engine,
 			db.Ver,

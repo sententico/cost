@@ -109,7 +109,7 @@ def getTagFilter(settings):
     return filterTags
 
 def gophEC2AWS(model, settings, inputs, args):
-    '''Fetch EBS volume detail from AWS'''
+    '''Fetch EC2 instance detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     metrics,tagf,pipe,flt,prof,sts = model.split('/',1)[-1]=='metrics', getTagFilter(settings), getWriter(model, [
         'id','acct','type','plat','vol','az','vpc','ami','state','spot','tag','metric',
@@ -154,10 +154,10 @@ def gophEC2AWS(model, settings, inputs, args):
     pipe(None, None)
 
 def gophEBSAWS(model, settings, inputs, args):
-    '''Fetch EC2 instance detail from AWS'''
+    '''Fetch EBS volume detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     metrics,tagf,pipe,flt,prof,sts = model.split('/',1)[-1]=='metrics', getTagFilter(settings), getWriter(model, [
-        'id','acct','type','size','iops','az','state','mount','tag','metric',
+        'id','acct','type','gib','iops','mibps','az','state','mount','tag','metric',
     ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
     if metrics:
         per,now = KVP['metricsperS'], datetime.utcnow(); ago = now-timedelta(minutes=KVP['metricsrngM'])
@@ -181,9 +181,9 @@ def gophEBSAWS(model, settings, inputs, args):
                 pipe(s, {'id':      v.id,
                          'acct':    a,
                          'type':    v.volume_type,
-                         'size':    str(v.size),
-                         'iops':    str(v.iops),
-                         'mibps':   str(v.throughput),
+                         'gib':     str(v.size),
+                         'iops':    str(v.iops) if v.iops else "",
+                         'mibps':   str(v.throughput) if v.throughput else "",
                          'az':      v.availability_zone,
                          'state':   v.state,
                          'mount':   '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],
@@ -206,7 +206,7 @@ def gophRDSAWS(model, settings, inputs, args):
     '''Fetch RDS database detail from AWS'''
     if not settings.get('AWS'): raise GError('no AWS settings for {}'.format(model))
     metrics,tagf,pipe,flt,prof,sts = model.split('/',1)[-1]=='metrics', getTagFilter(settings), getWriter(model, [
-        'id','acct','type','stype','size','iops','engine','ver','lic','az','multiaz','vpc','state','tag','metric',
+        'id','acct','type','stype','gib','iops','engine','ver','lic','az','multiaz','vpc','state','tag','metric',
     ]), str.maketrans('\t',' '), settings['AWS']['Profiles'], boto3.client('sts')
     if metrics:
         per,now = KVP['metricsperS'], datetime.utcnow(); ago = now-timedelta(minutes=KVP['metricsrngM'])
@@ -237,7 +237,7 @@ def gophRDSAWS(model, settings, inputs, args):
                          'acct':    a,
                          'type':    d.get('DBInstanceClass'),
                          'stype':   d.get('StorageType'),
-                         'size':    str(d.get('AllocatedStorage',0)),
+                         'gib':     str(d.get('AllocatedStorage',0)),
                          'iops':    str(d.get('Iops',0)),
                          'engine':  d.get('Engine',''),
                          'ver':     d.get('EngineVersion',''),
@@ -264,7 +264,7 @@ def gophRDSAWS(model, settings, inputs, args):
                                         ('mem', [p['ExtendedStatistics']['p10'] for p in mem.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
                                          lambda v:round(min(v)/float(2**30),1)),
-                                    #   express 'sto' in GiB to match 'size' units
+                                    #   express 'sto' in GiB to match 'gib' (allocated size) units
                                         ('sto', [p['ExtendedStatistics']['p10'] for p in sto.get_statistics(Dimensions=dim,
                                          EndTime=now, StartTime=ago, Period=per, ExtendedStatistics=['p10']).get('Datapoints',[])],
                                          lambda v:round(min(v)/float(2**30),0)),

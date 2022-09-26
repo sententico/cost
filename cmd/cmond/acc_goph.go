@@ -258,7 +258,7 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 	}
 	vol.Acct = item["acct"]
 	vol.Typ = item["type"]
-	vol.Size = atoi(item["size"], 0)
+	vol.GiB = atoi(item["gib"], 0)
 	vol.IOPS = atoi(item["iops"], 0)
 	vol.MiBps = atoi(item["mibps"], 0)
 	vol.AZ = item["az"]
@@ -305,18 +305,18 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 		switch vol.Typ {
 		case "gp3":
 			if vol.IOPS > 3000 {
-				vol.Rate, c = (r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS-3000))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
+				vol.Rate, c = (r.SZrate*float32(vol.GiB)+r.IOrate*float32(vol.IOPS-3000))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
 			} else {
-				vol.Rate, c = r.SZrate*float32(vol.Size)*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
+				vol.Rate, c = r.SZrate*float32(vol.GiB)*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
 			}
 		default:
-			vol.Rate, c = (r.SZrate*float32(vol.Size)+r.IOrate*float32(vol.IOPS))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
+			vol.Rate, c = (r.SZrate*float32(vol.GiB)+r.IOrate*float32(vol.IOPS))*settings.AWS.UsageAdj, vol.Rate*float32(dur)/3600
 		}
 	default:
 		vol.Rate = 0
 	}
 	if c > 0 {
-		u := uint64(vol.Size * dur)
+		u := uint64(vol.GiB * dur)
 		sum.Current = sum.ByAcct.add(now, dur, vol.Acct, u, c)
 		sum.ByRegion.add(now, dur, reg, u, c)
 		sum.BySKU.add(now, dur, reg+" "+k.Typ, u, c)
@@ -348,7 +348,7 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 		dur = now - db.Last
 	}
 	db.Acct = item["acct"]
-	db.Size = atoi(item["size"], 0)
+	db.GiB = atoi(item["gib"], 0)
 	db.IOPS = atoi(item["iops"], 0)
 	db.Ver = item["ver"]
 	db.AZ = item["az"]
@@ -400,9 +400,9 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 		} else {
 			db.Active[len(db.Active)-1], u = now, uint64(az*dur)
 		}
-		db.Rate, c = (r.Rate*float32(az)+s.SZrate*float32(az*db.Size)+s.IOrate*float32(az*db.IOPS))*settings.AWS.UsageAdj, db.Rate*float32(dur)/3600
+		db.Rate, c = (r.Rate*float32(az)+s.SZrate*float32(az*db.GiB)+s.IOrate*float32(az*db.IOPS))*settings.AWS.UsageAdj, db.Rate*float32(dur)/3600
 	case "stopped", "stopping":
-		db.Rate = (s.SZrate*float32(az*db.Size) + s.IOrate*float32(az*db.IOPS)) * settings.AWS.UsageAdj
+		db.Rate = (s.SZrate*float32(az*db.GiB) + s.IOrate*float32(az*db.IOPS)) * settings.AWS.UsageAdj
 		c = db.Rate * float32(dur) / 3600
 	default:
 		db.Rate = 0
