@@ -183,6 +183,7 @@ def gophEBSAWS(model, settings, inputs, args):
                          'type':    v.volume_type,
                          'size':    str(v.size),
                          'iops':    str(v.iops),
+                         'mibps':   str(v.throughput),
                          'az':      v.availability_zone,
                          'state':   v.state,
                          'mount':   '{}:{}:{}'.format(v.attachments[0]['InstanceId'],v.attachments[0]['Device'],

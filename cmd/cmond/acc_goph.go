@@ -260,6 +260,7 @@ func ebsawsInsert(acc *modAcc, item map[string]string, now int) {
 	vol.Typ = item["type"]
 	vol.Size = atoi(item["size"], 0)
 	vol.IOPS = atoi(item["iops"], 0)
+	vol.MiBps = atoi(item["mibps"], 0)
 	vol.AZ = item["az"]
 	if vol.Mount = item["mount"]; vol.Mount == "0 attachments" {
 		vol.Mount = ""

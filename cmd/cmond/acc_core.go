@@ -78,6 +78,7 @@ type (
 		Typ    string
 		Size   int         `json:",omitempty"`
 		IOPS   int         `json:",omitempty"`
+		MiBps  int         `json:",omitempty"`
 		AZ     string      `json:",omitempty"`
 		Mount  string      `json:",omitempty"`
 		Tag    cmon.TagMap `json:",omitempty"`

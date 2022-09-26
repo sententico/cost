@@ -1124,6 +1124,23 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).IOPS > n })
 				}
 			}
+		case "MiBps", "MBps", "mibps", "mbps":
+			if attr != "" {
+				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
+			} else if n, err := strconv.Atoi(opd); err != nil {
+				return 0, nil, fmt.Errorf("%q operand %q is non-integer", c, opd)
+			} else {
+				switch op {
+				case "=":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).MiBps == n })
+				case "!":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).MiBps != n })
+				case "<":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).MiBps < n })
+				case ">":
+					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).MiBps > n })
+				}
+			}
 		case "AZ", "az":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
@@ -1368,6 +1385,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			vol.Typ,
 			strconv.FormatInt(int64(vol.Size), 10),
 			strconv.FormatInt(int64(vol.IOPS), 10),
+			strconv.FormatInt(int64(vol.MiBps), 10),
 			vol.AZ,
 			vol.Mount,
 			tag["cmon:Name"],
