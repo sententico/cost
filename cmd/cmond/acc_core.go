@@ -121,6 +121,7 @@ type (
 		Last    int
 		Active  []int          `json:",omitempty"`
 		Metric  cmon.MetricMap `json:",omitempty"`
+		ORate   float32        `json:",omitempty"`
 		Rate    float32        `json:",omitempty"`
 	}
 	rdsDetail struct {
@@ -885,6 +886,8 @@ func rdsawsMaint(m *model) {
 			switch event.name {
 			case "settings":
 				goaftSession(0, 0, func() { modifySettings() })
+			case "cur.aws":
+				goaftSession(0, 0, func() { rdsawsFeedback(m, event); evt <- event.append(m.name) })
 			}
 		}
 	}

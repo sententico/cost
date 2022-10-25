@@ -642,6 +642,19 @@ func ec2awsFeedback(m *model, event *modEvt) {
 	}
 }
 
+func rdsawsFeedback(m *model, event *modEvt) {
+	defer func() {
+		if r := recover(); r != nil {
+			logE.Printf("error looping in %q feedback for %q: %v", event.name, m.name, r)
+		}
+	}()
+
+	switch event.name {
+	case "cur.aws":
+		// TODO: handle CUR feedback for RDS
+	}
+}
+
 func snapawsFeedback(m *model, event *modEvt) {
 	defer func() {
 		if r := recover(); r != nil {

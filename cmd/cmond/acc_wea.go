@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	maxTableRows = 4e6 // maximum table extract rows allowed
+	maxTableRows = 8e6 // maximum table extract rows allowed
 	maxPctMargin = 10  // maximum magnitude of %margin for non-billed amounts
 )
 
@@ -1124,7 +1124,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).IOPS > n })
 				}
 			}
-		case "MiBps", "MBps", "mibps", "mbps":
+		case "MiBps", "MBps", "mibps", "mbps", "throughput", "thru":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			} else if n, err := strconv.Atoi(opd); err != nil {
