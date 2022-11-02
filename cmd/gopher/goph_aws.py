@@ -375,7 +375,9 @@ def gophCURAWS(model, settings, inputs, args):
                                                       col[head['savingsPlan/UsedCommitment']]))
                     except ValueError: continue
                 else:                   rec['cost'] = col[head['lineItem/UnblendedCost']] if (
-                                                      col[head['lineItem/LineItemDescription']]!='Enterprise Program Discount' or
+                                                                                # TODO: remove following line after Dec22
+                                                      col[head['lineItem/LineItemDescription']]!='Enterprise Program Discount' and
+                                                      col[head['lineItem/LineItemType']]!='EdpDiscount' or
                                                       edp==1.0) else str(float(
                                                       col[head['lineItem/UnblendedCost']])*edp)
 
@@ -441,6 +443,7 @@ def gophCURAWS(model, settings, inputs, args):
                                                                 ))
                                                         else    rid,            # resource ID (i-, vol-, ...)
                         'desc': col[head['lineItem/LineItemDescription']].replace(
+                                'Enterprise Discount Program','EDP').replace(
                                 'USD',                  '$'     ).replace(
                                 '$ ',                   '$'     ).replace(
                                 '$0.0000 ',             '$0 '   ).replace(
