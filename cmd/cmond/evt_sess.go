@@ -563,10 +563,10 @@ func ec2awsFeedback(m *model, event *modEvt) {
 	switch event.name {
 	case "cur.aws":
 		type feedback struct {
-			off         uint32
-			plat        string
-			spot        bool
-			usage, cost float32
+			off           uint32
+			plat          string
+			spot          bool
+			usage, charge float32
 		}
 		ec2, det, active := m.newAcc(), m.data[1].(*ec2Detail), make(map[string]*feedback, 4096)
 		func() {
@@ -609,10 +609,10 @@ func ec2awsFeedback(m *model, event *modEvt) {
 
 				if f, found := active[item.RID]; found {
 					if f == nil {
-						f = &feedback{cost: item.Cost}
+						f = &feedback{charge: item.Chg}
 						active[item.RID] = f
 					} else {
-						f.cost += item.Cost
+						f.charge += item.Chg
 					}
 					if p := ec2P.FindString(item.Desc); p != "" {
 						if off := item.Recs & toffMask; off >= f.off {
@@ -632,7 +632,7 @@ func ec2awsFeedback(m *model, event *modEvt) {
 				if f == nil || f.usage == 0 {
 				} else if inst := det.Inst[id]; inst != nil {
 					inst.Plat = f.plat
-					inst.ORate = f.cost / f.usage
+					inst.ORate = f.charge / f.usage
 					if f.spot && inst.Spot == "" {
 						inst.Spot = "unknown SIR" // TODO: not known to occur in practice
 					}

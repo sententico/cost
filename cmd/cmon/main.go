@@ -251,7 +251,7 @@ func tableCmd() {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	if client.Close(); len(r) > 0 {
-		switch tags := ",cmon:Name,cmon:Env,cmon:Cust,cmon:Prod,cmon:Oper,cmon:Role,cmon:Ver,cmon:Prov"; args.model {
+		switch tags := ",cmon:Name,cmon:Env,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov,cmon:Oper,cmon:Bill,cmon:Cust"; args.model {
 		case "ec2.aws":
 			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,VPC,AMI,Spot" + tags + ",CPU%,State,Since,Active%,ORate,Rate")
 		case "ebs.aws":
@@ -300,7 +300,7 @@ func curtabCmd() {
 			warn = " [row max]"
 		}
 		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description"+
-			",cmon:Name,cmon:Env,cmon:Cust,cmon:Prod,cmon:Oper,cmon:Role,cmon:Ver,cmon:Prov,Recs,PU,Usage,Billed\n", warn, unit)
+			",cmon:Name,cmon:Env,cmon:Prod,cmon:Role,cmon:Ver,cmon:Prov,cmon:Oper,cmon:Bill,cmon:Cust,Recs,PU,Usage,Charges\n", warn, unit)
 		for _, row := range r {
 			fmt.Println(escapeQ(row))
 		}

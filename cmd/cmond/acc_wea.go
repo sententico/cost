@@ -794,7 +794,7 @@ func (d *ec2Detail) filters(criteria []string) (int, []func(...interface{}) bool
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*ec2Item).Spot != opd })
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov", "cmon:Oper", "cmon:Bill", "cmon:Cust":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			}
@@ -994,12 +994,13 @@ func (d *ec2Detail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			inst.Spot,
 			tag["cmon:Name"],
 			tag["cmon:Env"],
-			tag["cmon:Cust"],
 			tag["cmon:Prod"],
-			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tag["cmon:Oper"],
+			tag["cmon:Bill"],
+			tag["cmon:Cust"],
 			tstos(inst.Metric["cpu"]),
 			inst.State,
 			time.Unix(int64(inst.Since), 0).UTC().Format("2006-01-02 15:04:05"),
@@ -1189,7 +1190,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov", "cmon:Oper", "cmon:Bill", "cmon:Cust":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			}
@@ -1390,12 +1391,13 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			vol.Mount,
 			tag["cmon:Name"],
 			tag["cmon:Env"],
-			tag["cmon:Cust"],
 			tag["cmon:Prod"],
-			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tag["cmon:Oper"],
+			tag["cmon:Bill"],
+			tag["cmon:Cust"],
 			tstos(vol.Metric["io"]),
 			tstos(vol.Metric["ioq"]),
 			vol.State,
@@ -1648,7 +1650,7 @@ func (d *rdsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 			case "!":
 				flt = append(flt, func(v ...interface{}) bool { return v[0].(*rdsItem).VPC != opd })
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Oper", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov", "cmon:Oper", "cmon:Bill", "cmon:Cust":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			}
@@ -1860,12 +1862,13 @@ func (d *rdsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			db.VPC,
 			tag["cmon:Name"],
 			tag["cmon:Env"],
-			tag["cmon:Cust"],
 			tag["cmon:Prod"],
-			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tag["cmon:Oper"],
+			tag["cmon:Bill"],
+			tag["cmon:Cust"],
 			tstos(db.Metric["cpu"]),
 			tstos(db.Metric["ioq"]),
 			tstos(db.Metric["conn"]),
@@ -2061,7 +2064,7 @@ func (d *snapDetail) filters(criteria []string) (int, []func(...interface{}) boo
 					return 0, nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov", "cmon:Oper", "cmon:Bill", "cmon:Cust":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			}
@@ -2151,12 +2154,13 @@ func (d *snapDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []
 			snap.Desc,
 			tag["cmon:Name"],
 			tag["cmon:Env"],
-			tag["cmon:Cust"],
 			tag["cmon:Prod"],
-			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tag["cmon:Oper"],
+			tag["cmon:Bill"],
+			tag["cmon:Cust"],
 			time.Unix(int64(snap.Since), 0).UTC().Format("2006-01-02 15:04:05"),
 			strconv.FormatFloat(float64(snap.Rate), 'g', -1, 32),
 		}
@@ -2701,7 +2705,7 @@ func (d *curDetail) filters(criteria []string) ([]func(...interface{}) bool, err
 					return nil, fmt.Errorf("%q regex operand %q is invalid", c, opd)
 				}
 			}
-		case "cmon:Name", "cmon:Env", "cmon:Cust", "cmon:Prod", "cmon:Oper", "cmon:Role", "cmon:Ver", "cmon:Prov":
+		case "cmon:Name", "cmon:Env", "cmon:Prod", "cmon:Role", "cmon:Ver", "cmon:Prov", "cmon:Oper", "cmon:Bill", "cmon:Cust":
 			if attr != "" {
 				return nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			}
@@ -2806,7 +2810,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 	var husg func(int32) float32
 	var rate float32
 	if un < 720 {
-		switch rate = li.Cost / li.Usg; {
+		switch rate = li.Chg / li.Usg; {
 		case len(li.HMap) > 0 && li.HMap[0]>>hrBMShift == hrBitmap:
 			off := int32(li.Recs>>foffShift&foffMask) - 32 + hrBMShift
 			u := li.Usg / float32(li.Recs>>recsShift+1)
@@ -2856,7 +2860,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 
 	return func() []string {
 		var rec int16
-		var usg, cost float32
+		var usg, chg float32
 		if from > to {
 			return nil
 		}
@@ -2864,7 +2868,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 		case 1: // hourly
 			for rec = 1; ; {
 				if usg = husg(from); usg != 0 {
-					if cost = usg * rate; (cost > tr || -tr > cost) && !skip(flt, rec, usg) {
+					if chg = usg * rate; (chg > tr || -tr > chg) && !skip(flt, rec, usg) {
 						dts = dts[:8] + fmt.Sprintf("%02d %02d:00", from/24+1, from%24)
 						from++
 						break
@@ -2885,7 +2889,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 						usg += u
 					}
 				}
-				if cost = usg * rate; (cost > tr || -tr > cost) && !skip(flt, rec, usg) {
+				if chg = usg * rate; (chg > tr || -tr > chg) && !skip(flt, rec, usg) {
 					dts = dts[:8] + fmt.Sprintf("%02d", day/24+1)
 					break
 				} else if from > to {
@@ -2893,7 +2897,7 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 				}
 			}
 		default: // monthly
-			if rec, usg, cost, from = int16(li.Recs>>recsShift+1), li.Usg, li.Cost, to+1; skip(flt, rec, usg) {
+			if rec, usg, chg, from = int16(li.Recs>>recsShift+1), li.Usg, li.Chg, to+1; skip(flt, rec, usg) {
 				return nil
 			}
 		}
@@ -2911,16 +2915,17 @@ func (d *curDetail) table(li *curItem, from, to int32, un int16, tr float32, id 
 			li.Desc,
 			tag["cmon:Name"],
 			tag["cmon:Env"],
-			tag["cmon:Cust"],
 			tag["cmon:Prod"],
-			tag["cmon:Oper"],
 			tag["cmon:Role"],
 			tag["cmon:Ver"],
 			tag["cmon:Prov"],
+			tag["cmon:Oper"],
+			tag["cmon:Bill"],
+			tag["cmon:Cust"],
 			strconv.FormatInt(int64(rec), 10),
 			pu,
 			strconv.FormatFloat(float64(usg), 'g', -1, 32),
-			strconv.FormatFloat(float64(cost), 'g', -1, 32),
+			strconv.FormatFloat(float64(chg), 'g', -1, 32),
 		}
 	}
 }
@@ -2971,7 +2976,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				mto -= hrs[0]
 				ifr, ito := mfr, mto
 				for id, li := range cur.Line[mo] {
-					if li.Cost <= trunc && -trunc <= li.Cost {
+					if li.Chg <= trunc && -trunc <= li.Chg {
 						continue
 					} else if units < 720 {
 						if ifr = int32(li.Recs >> foffShift & foffMask); mfr > ifr {
@@ -2987,12 +2992,13 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 					if pu, tag := sum.Hist.ppuse(li.RID, from, to), (cmon.TagMap{}).UpdateR(tags[li.RID]).Update(cmon.TagMap{
 						"cmon:Name": li.Name,
 						"cmon:Env":  li.Env,
-						"cmon:Cust": li.Cust,
 						"cmon:Prod": li.Prod,
-						"cmon:Oper": li.Oper,
 						"cmon:Role": li.Role,
 						"cmon:Ver":  li.Ver,
 						"cmon:Prov": li.Prov,
+						"cmon:Oper": li.Oper,
+						"cmon:Bill": li.Bill,
+						"cmon:Cust": li.Cust,
 					}).UpdateN(settings, li.Acct, "names", li.Name).UpdateN(settings, li.Acct, "RIDs", li.RID).UpdateP(
 						settings.AWS.Accounts[li.Acct], "cmon:").UpdateP(settings.AWS.Regions[li.Reg], "cmon:"); skip(flt, li,
 						tag.UpdateV(settings, li.Acct), pu) {

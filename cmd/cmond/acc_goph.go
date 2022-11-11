@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	curItemMin = 1e-7 // minimum CUR line item cost to avoid truncation
-	curItemDev = 0.02 // deviation limit from mean hourly line item cost to elide usage detail
+	curItemMin = 1e-7 // minimum CUR line item charge to avoid truncation
+	curItemDev = 0.02 // deviation limit from mean hourly line item charge to elide usage detail
 
 	rangeShift = 32 - 10 // CUR hour map range (hours - 1)
 	usgShift   = 22 - 12 // CUR hour map usage reference (index/value)
@@ -516,9 +516,9 @@ func curawsFinalize(acc *modAcc) {
 				acc.reqW()
 			}
 
-			if line.Cost <= curItemMin && -curItemMin <= line.Cost || line.Recs == 0 || line.Usg == 0 || len(line.HMap) == 0 {
+			if line.Chg <= curItemMin && -curItemMin <= line.Chg || line.Recs == 0 || line.Usg == 0 || len(line.HMap) == 0 {
 				delete(wm, id)
-				tc += float64(line.Cost)
+				tc += float64(line.Chg)
 				tl++
 			} else if line.Recs == 1 {
 				line.HMap, line.HUsg, line.Recs = nil, nil, line.HMap[0]&baseMask<<foffShift|line.HMap[0]&baseMask+1
@@ -563,7 +563,7 @@ func curawsFinalize(acc *modAcc) {
 				if uv = avg - min; max-avg > uv {
 					uv = max - avg
 				}
-				return f, t, r, uv * line.Cost / line.Usg
+				return f, t, r, uv * line.Chg / line.Usg
 			}(); to-fr == line.Recs && dev <= curItemDev && -curItemDev <= dev {
 				line.HMap, line.HUsg, line.Recs = nil, nil, (line.Recs-1)<<recsShift|fr<<foffShift|to
 			} else if bw := int(to-fr+31+32-hrBMShift) >> 5; bw <= rw+len(line.HUsg) && dev <= curItemDev && -curItemDev <= dev {
@@ -663,8 +663,8 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 		}
 	}
 	u, _ := strconv.ParseFloat(item["usg"], 32)
-	c, _ := strconv.ParseFloat(item["cost"], 64)
-	line, hr, r, us, ur, co := work.idetm[id], int32(h+work.ihr), 0, float32(u), uint32(0), float32(c)
+	c, _ := strconv.ParseFloat(item["chg"], 64)
+	line, hr, r, us, ur, ch := work.idetm[id], int32(h+work.ihr), 0, float32(u), uint32(0), float32(c)
 	if line == nil {
 		line = &curItem{
 			Acct: item["acct"],
@@ -677,12 +677,13 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 			Desc: item["desc"],
 			Name: item["cmon:Name"],
 			Env:  item["cmon:Env"],
-			Cust: item["cmon:Cust"],
-			Oper: item["cmon:Oper"],
 			Prod: item["cmon:Prod"],
 			Role: item["cmon:Role"],
 			Ver:  item["cmon:Ver"],
 			Prov: item["cmon:Prov"],
+			Oper: item["cmon:Oper"],
+			Bill: item["cmon:Bill"],
+			Cust: item["cmon:Cust"],
 		}
 		work.idetm[id] = line
 	}
@@ -706,9 +707,9 @@ func curawsInsert(acc *modAcc, item map[string]string, now int) {
 	}
 
 	line.Usg += us
-	line.Cost += co
+	line.Chg += ch
 	line.Recs++
-	// TODO: fix cost/usage clumping for day/mo (non-hourly) reporting
+	// TODO: fix charge/usage clumping for day/mo (non-hourly) reporting
 	work.isum.ByAcct.add(hr, line.Acct, c)
 	work.isum.ByRegion.add(hr, line.Reg, c)
 	work.isum.ByTyp.add(hr, line.Typ, c)

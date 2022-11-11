@@ -310,10 +310,10 @@ def gophCURAWS(model, settings, inputs, args):
     '''Fetch CUR (Cost & Usage Report) line item detail from AWS'''
     if not settings.get('BinDir'): raise GError('no bin directory for {}'.format(model))
     if not settings.get('AWS',{}).get('CUR'): raise GError('no CUR settings for {}'.format(model))
-    tlist = ['cmon:Name','cmon:Env','cmon:Cust','cmon:Oper','cmon:Prod','cmon:Role','cmon:Ver','cmon:Prov',]
+    tlist = ['cmon:Name','cmon:Env','cmon:Prod','cmon:Role','cmon:Ver','cmon:Prov','cmon:Oper','cmon:Bill','cmon:Cust',]
     cur,accts,rules,edp,pipe,flt,head,ids,s = settings['AWS']['CUR'], settings['AWS'].get('Accounts',
         {}), settings['AWS'].get('TagRules',{}), settings['AWS'].get('EDPAdj',1.0), getWriter(model, [
-            'id','hour','usg','cost','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
+            'id','hour','usg','chg','acct','typ','svc','utyp','uop','reg','rid','desc','ivl',
         ]+tlist), str.maketrans('\t',' '), {}, {}, ""
 
     def getcid(id):
@@ -362,24 +362,24 @@ def gophCURAWS(model, settings, inputs, args):
                     'hour':     hour,                                           # GMT timestamp (YYYY-MM-DDThh:mm:ssZ)
                     'usg':      col[head['lineItem/UsageAmount']],              # default usage quantity
                 }
-                if   typ == 'RI usage': rec['cost'] = col[head['reservation/EffectiveCost']]
+                if   typ == 'RI usage': rec['chg'] = col[head['reservation/EffectiveCost']]
                 elif typ == 'RI unused':
-                    try:    rec['usg'], rec['cost'] = col[head['reservation/UnusedQuantity']], str(float(
-                                                      col[head['reservation/UnusedAmortizedUpfrontFeeForBillingPeriod']])+float(
-                                                      col[head['reservation/UnusedRecurringFee']]))
+                    try:    rec['usg'], rec['chg'] = col[head['reservation/UnusedQuantity']], str(float(
+                                                     col[head['reservation/UnusedAmortizedUpfrontFeeForBillingPeriod']])+float(
+                                                     col[head['reservation/UnusedRecurringFee']]))
                     except ValueError: continue
-                elif typ == 'SP usage': rec['cost'] = col[head['savingsPlan/SavingsPlanEffectiveCost']]
+                elif typ == 'SP usage': rec['chg'] = col[head['savingsPlan/SavingsPlanEffectiveCost']]
                 elif typ == 'SP unused':
-                    try:                rec['cost'] = str(float(
-                                                      col[head['savingsPlan/TotalCommitmentToDate']])-float(
-                                                      col[head['savingsPlan/UsedCommitment']]))
+                    try:                rec['chg'] = str(float(
+                                                     col[head['savingsPlan/TotalCommitmentToDate']])-float(
+                                                     col[head['savingsPlan/UsedCommitment']]))
                     except ValueError: continue
-                else:                   rec['cost'] = col[head['lineItem/UnblendedCost']] if (
+                else:                   rec['chg'] = col[head['lineItem/UnblendedCost']] if (
                                                                                 # TODO: remove following line after Dec22
-                                                      col[head['lineItem/LineItemDescription']]!='Enterprise Program Discount' and
-                                                      col[head['lineItem/LineItemType']]!='EdpDiscount' or
-                                                      edp==1.0) else str(float(
-                                                      col[head['lineItem/UnblendedCost']])*edp)
+                                                     col[head['lineItem/LineItemDescription']]!='Enterprise Program Discount' and
+                                                     col[head['lineItem/LineItemType']]!='EdpDiscount' or
+                                                     edp==1.0) else str(float(
+                                                     col[head['lineItem/UnblendedCost']])*edp)
 
                 if new:
                     acct,svc,uop,az,rid,end=\
