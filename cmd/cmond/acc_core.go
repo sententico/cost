@@ -598,7 +598,7 @@ func ec2awsClean(m *model, deep bool) {
 			continue
 		}
 		for me, ts := range inst.Metric {
-			if exp := len(ts) - 24*14; exp > 0 {
+			if exp := len(ts) - 24*30; exp > 0 {
 				inst.Metric[me] = ts[exp:]
 			}
 		}
@@ -708,7 +708,7 @@ func ebsawsClean(m *model, deep bool) {
 			continue
 		}
 		for me, ts := range vol.Metric {
-			if exp := len(ts) - 24*14; exp > 0 {
+			if exp := len(ts) - 24*30; exp > 0 {
 				vol.Metric[me] = ts[exp:]
 			}
 		}
@@ -819,7 +819,7 @@ func rdsawsClean(m *model, deep bool) {
 			continue
 		}
 		for me, ts := range db.Metric {
-			if exp := len(ts) - 24*14; exp > 0 {
+			if exp := len(ts) - 24*30; exp > 0 {
 				db.Metric[me] = ts[exp:]
 			}
 		}
