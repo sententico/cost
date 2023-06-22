@@ -116,6 +116,12 @@ type (
 		Truncate float64  // filter items with costs below this in absolute value
 		Criteria []string // filter criteria (column/operator/operand tuples)
 	}
+
+	// VarianceArgs ...
+	VarianceArgs struct {
+		Token string // Admin.Auth access token (renew hourly to avoid expiration)
+		Rows  int    // maximum rows
+	}
 )
 
 var (

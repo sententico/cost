@@ -3029,3 +3029,47 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 	}()
 	return
 }
+
+func varianceExtract(rows int) (res chan []string, err error) {
+	var ec2, ebs *modAcc
+	var step string
+	if rows++; rows < 0 || rows == 1 || rows > maxTableRows+1 {
+		return nil, fmt.Errorf("invalid argument(s)")
+	} else if ec2 = mMod["ec2.aws"].newAcc(); ec2 == nil {
+		return nil, fmt.Errorf("\"ec2.aws\" model not found")
+	} else if ebs = mMod["ebs.aws"].newAcc(); ebs == nil {
+		return nil, fmt.Errorf("\"ebs.aws\" model not found")
+	}
+
+	res, step = make(chan []string, 32), "building variance structure"
+	go func() {
+		defer func() {
+			ec2.rel()
+			ebs.rel()
+			if e := recover(); e != nil && !strings.HasSuffix(e.(error).Error(), "closed channel") {
+				logE.Printf("error while %v: %v", step, e)
+				defer recover()
+				close(res)
+			}
+		}()
+		// build variance structure from JSON templates
+
+		step = "scanning instances"
+		ec2.reqR()
+		// isum, inst := ec2.m.data[0].(*ec2Sum), ec2.m.data[1].(*ec2Detail)
+		// scan instances, updating variance structure
+		ec2.rel()
+
+		step = "scanning volumes"
+		ebs.reqR()
+		// vsum, vol := ebs.m.data[0].(*ebsSum), ebs.m.data[1].(*ebsDetail)
+		// scan volumes, updating variance structure
+		ebs.rel()
+
+		step = "outputting variances"
+		// output variance structure as CSV to res channel
+		res <- []string{"hello", "world", "variance", "row"}
+		close(res)
+	}()
+	return
+}

@@ -37,7 +37,7 @@ var (
 		tableSet   *flag.FlagSet
 		taInterval intHours // from/to/units hours
 		model      string   // table object model
-		rows       int      // maximum table rows
+		taRows     int      // maximum table rows
 		taTrunc    float64  // row cost truncation filter
 
 		optimizeSet *flag.FlagSet
@@ -46,6 +46,9 @@ var (
 		bracket     float64  // hourly commit bracket output surrounding optimum
 		step        float64  // output granularity within bracket
 		plan        string   // savings plan type ("3nc", "1ns", ...)
+
+		varianceSet *flag.FlagSet
+		vaRows      int // maximum variance rows
 	}
 	address  string            // cmon server address (args override settings file)
 	settings *cmon.MonSettings // settings
@@ -89,7 +92,7 @@ func init() {
 	args.taInterval = intHours{int32(t.AddDate(0, -1, 0).Unix() / 3600), int32((t.Unix() - 1) / 3600), 720}
 	args.tableSet.Var(&args.taInterval, "interval", "`YYYY-MM[-DD[Thh]][+r]` month/day/hour +range to return, if applicable")
 	args.tableSet.StringVar(&args.model, "model", "cur.aws", "table object model `name`")
-	args.tableSet.IntVar(&args.rows, "rows", 1e6, "`maximum` table rows to return")
+	args.tableSet.IntVar(&args.taRows, "rows", 1e6, "`maximum` table rows to return")
 	args.tableSet.Float64Var(&args.taTrunc, "truncate", 0.001, "row `cost` filter threshold, if applicable")
 	args.tableSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
@@ -115,6 +118,15 @@ func init() {
 				"\ncommits in -bracket by -step are also returned."+
 				"\n  Usage: cmon optimize [<optimize arg> ...]\n\n")
 		args.optimizeSet.PrintDefaults()
+	}
+
+	args.varianceSet = flag.NewFlagSet("variance", flag.ExitOnError)
+	args.varianceSet.IntVar(&args.vaRows, "rows", 1e5, "`maximum` variances to return")
+	args.varianceSet.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(),
+			"\nThe \"variance\" subcommand returns ... in table/CSV form ..."+
+				"\n  Usage: cmon variance [<variance arg> ...]\n\n")
+		args.varianceSet.PrintDefaults()
 	}
 }
 
@@ -245,7 +257,7 @@ func tableCmd() {
 	if err = client.Call("API.Table", &cmon.TableArgs{
 		Token:    "placeholder_access_token",
 		Model:    args.model,
-		Rows:     args.rows,
+		Rows:     args.taRows,
 		Criteria: args.more,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
@@ -282,7 +294,7 @@ func curtabCmd() {
 		From:     args.taInterval.from,
 		To:       args.taInterval.to,
 		Units:    args.taInterval.units,
-		Rows:     args.rows,
+		Rows:     args.taRows,
 		Truncate: args.taTrunc,
 		Criteria: args.more,
 	}, &r); err != nil {
@@ -296,7 +308,7 @@ func curtabCmd() {
 		case 24:
 			unit = "Day"
 		}
-		if len(r) == args.rows {
+		if len(r) == args.taRows {
 			warn = " [row max]"
 		}
 		fmt.Printf("Invoice Item%s,%s,AWS Account,Type,Service,Usage Type,Operation,Region,Resource ID,Item Description"+
@@ -306,6 +318,29 @@ func curtabCmd() {
 		}
 	} else {
 		fatal(1, "no items returned")
+	}
+}
+
+func varianceCmd() {
+	client, err := rpc.DialHTTPPath("tcp", address, "/gorpc/v0")
+	if err != nil {
+		fatal(1, "error dialing GoRPC server: %v", err)
+	}
+	var r [][]string
+	if err = client.Call("API.Variance", &cmon.VarianceArgs{
+		Token: "placeholder_access_token",
+		Rows:  args.vaRows,
+	}, &r); err != nil {
+		fatal(1, "error calling GoRPC: %v", err)
+	}
+	if client.Close(); len(r) > 0 {
+		fmt.Printf("Col1,Col2,..." +
+			",ColN\n")
+		for _, row := range r {
+			fmt.Println(escapeQ(row))
+		}
+	} else {
+		fatal(1, "no variances returned")
 	}
 }
 
@@ -320,6 +355,9 @@ func main() {
 	case "optimize":
 		args.optimizeSet.Parse(flag.Args()[1:])
 		command, args.more = "optimize "+args.opMetric+" "+args.plan, args.seriesSet.Args()
+	case "variance":
+		args.varianceSet.Parse(flag.Args()[1:])
+		command, args.more = "variance", args.varianceSet.Args()
 	case "":
 		args.more = flag.Args()
 	default:
@@ -347,6 +385,7 @@ func main() {
 		"optimize ec2.aws/sku/n 3nc": optimizeCmd,
 		"optimize ec2.aws/sku/n 3pc": optimizeCmd,
 		"optimize ec2.aws/sku/n 3ac": optimizeCmd,
+		"variance":                   varianceCmd,
 		"":                           defaultCmd,
 	}[command]; cfn == nil {
 		fatal(1, "%q subcommand not supported", command)

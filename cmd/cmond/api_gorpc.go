@@ -161,3 +161,29 @@ func (s *API) CURtab(args *cmon.CURtabArgs, r *[][]string) (err error) {
 	}
 	return
 }
+
+// Variance method of API service ...
+func (s *API) Variance(args *cmon.VarianceArgs, r *[][]string) (err error) {
+	defer func() {
+		if re := recover(); re != nil {
+			err = re.(error)
+		}
+	}()
+
+	switch authVer(args.Token, 0, s.Ver) {
+	case 0:
+		var c chan []string
+		if c, err = varianceExtract(args.Rows); err != nil {
+			return
+		}
+		*r = make([][]string, 0, args.Rows)
+		for s := range c {
+			*r = append(*r, s)
+		}
+	case auNOAUTH:
+		return fmt.Errorf("method access not allowed")
+	default:
+		return fmt.Errorf("method version %v unimplemented", s.Ver)
+	}
+	return
+}
