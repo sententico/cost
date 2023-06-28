@@ -3109,6 +3109,7 @@ func varianceExtract(rows int) (res chan []string, err error) {
 							}
 						}
 					}
+					logD.Printf("name=%q rref=%q tref=%q", name, rref, e.tref)
 					if rref == "" {
 						rref = "~"
 					}
