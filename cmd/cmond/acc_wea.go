@@ -3100,21 +3100,18 @@ func varianceExtract(rows int) (res chan []string, err error) {
 				continue
 			}
 			tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
-			if e, name, rref := env[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
+			if e, name, match := env[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
 				if name != "" {
-					for _, rref = range settings.Variance.Templates[e.tref].EC2 {
+					for _, rref := range settings.Variance.Templates[e.tref].EC2 {
 						if r := settings.Variance.EC2[rref]; r != nil {
 							if r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name {
+								match = rref
 								break
 							}
 						}
 					}
-					logD.Printf("name=%q rref=%q tref=%q", name, rref, e.tref)
-					if rref == "" {
-						rref = "~"
-					}
 				}
-				e.ec2[rref] = append(e.ec2[rref], varexInst{
+				e.ec2[match] = append(e.ec2[match], varexInst{
 					id:    id,
 					name:  name,
 					itype: inst.Typ,
