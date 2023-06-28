@@ -125,7 +125,7 @@ func init() {
 	args.varianceSet.IntVar(&args.vaRows, "rows", 1e5, "`maximum` variances to return")
 	args.varianceSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"variance\" subcommand returns resource variances against template specifications in table/CSV form."+
+			"\nThe \"variance\" subcommand returns resource variants against template specifications in table/CSV form."+
 				"\n  Usage: cmon variance [<variance arg> ...]\n\n")
 		args.varianceSet.PrintDefaults()
 	}
@@ -341,7 +341,7 @@ func varianceCmd() {
 			fmt.Println(escapeQ(row))
 		}
 	} else {
-		fatal(1, "no variances returned")
+		fatal(1, "no variants returned")
 	}
 }
 

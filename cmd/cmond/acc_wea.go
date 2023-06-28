@@ -3083,8 +3083,8 @@ func varianceExtract(rows int) (res chan []string, err error) {
 				close(res)
 			}
 		}()
-		env := make(map[string]*varexEnv, 1024) // build variance map from JSON templates
-		for tref, t := range settings.Variance.Templates {
+		env, tags := make(map[string]*varexEnv, 1024), globalTags(0, 0)
+		for tref, t := range settings.Variance.Templates { // build variance map from JSON templates
 			for _, eref := range t.Envs {
 				if eref != "" {
 					e := varexEnv{tref: tref, ec2: make(map[string][]varexInst, 32)}
@@ -3096,9 +3096,11 @@ func varianceExtract(rows int) (res chan []string, err error) {
 		step = "scanning EC2 instances" // update variance map with scanned instances
 		ec2.reqR()
 		for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
-			// check for "running" State?
-			eref, name := inst.Tag["cmon:Env"], inst.Tag["cmon:Name"]
-			if e, rref := env[eref], "~"; e != nil {
+			if inst.State == "terminated" {
+				continue
+			}
+			tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
+			if e, name, rref := env[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
 				if name != "" {
 					for _, rref = range settings.Variance.Templates[e.tref].EC2 {
 						if r := settings.Variance.EC2[rref]; r != nil {
@@ -3148,7 +3150,7 @@ func varianceExtract(rows int) (res chan []string, err error) {
 		}
 		ebs.rel()
 
-		step = "enumerating variances" // output variants in variance map as CSV to res channel
+		step = "enumerating variants" // output variants in variance map as CSV to res channel
 		variance(rows, env, res)
 		close(res)
 	}()
