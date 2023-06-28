@@ -14,6 +14,27 @@ import (
 	"github.com/sententico/cost/tel"
 )
 
+type (
+	varexVol struct {
+		id    string
+		stype string
+		gib   float32
+		rate  float32
+	}
+	varexInst struct {
+		id    string
+		name  string
+		itype string
+		plat  string
+		rate  float32
+		vols  map[string]*varexVol
+	}
+	varexEnv struct {
+		tref string
+		ec2  map[string][]varexInst
+	}
+)
+
 const (
 	maxTableRows = 1e7 // maximum table extract rows allowed
 	maxPctMargin = 10  // maximum magnitude of %margin for non-billed amounts
@@ -3030,6 +3051,16 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 	return
 }
 
+func variance(rows int, env map[string]*varexEnv, res chan []string) {
+	res <- []string{
+		fmt.Sprintf("rows=%v", rows),
+		fmt.Sprintf("len(env)=%v", len(env)),
+		fmt.Sprintf("env[a69].tref=%v", env["WFE VCS a69 Safelite"].tref),
+		fmt.Sprintf("len(env[a69].ec2)=%v", len(env["WFE VCS a69 Safelite"].ec2)),
+		fmt.Sprintf("len(env[a69].ec2[~])=%v", len(env["WFE VCS a69 Safelite"].ec2["~"])),
+	}
+}
+
 func varianceExtract(rows int) (res chan []string, err error) {
 	var ec2, ebs *modAcc
 	var step string
@@ -3052,23 +3083,73 @@ func varianceExtract(rows int) (res chan []string, err error) {
 				close(res)
 			}
 		}()
-		// build variance structure from JSON templates
+		env := make(map[string]*varexEnv, 1024) // build variance map from JSON templates
+		for tref, t := range settings.Variance.Templates {
+			for _, eref := range t.Envs {
+				if eref != "" {
+					e := varexEnv{tref: tref, ec2: make(map[string][]varexInst, 32)}
+					env[eref] = &e
+				}
+			}
+		}
 
-		step = "scanning instances"
+		step = "scanning EC2 instances" // update variance map with scanned instances
 		ec2.reqR()
-		// isum, inst := ec2.m.data[0].(*ec2Sum), ec2.m.data[1].(*ec2Detail)
-		// scan instances, updating variance structure
+		for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
+			// check for "running" State?
+			eref, name := inst.Tag["cmon:Env"], inst.Tag["cmon:Name"]
+			if e, rref := env[eref], "~"; e != nil {
+				if name != "" {
+					for _, rref = range settings.Variance.Templates[e.tref].EC2 {
+						if r := settings.Variance.EC2[rref]; r != nil {
+							if r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name {
+								break
+							}
+						}
+					}
+					if rref == "" {
+						rref = "~"
+					}
+				}
+				e.ec2[rref] = append(e.ec2[rref], varexInst{
+					id:    id,
+					name:  name,
+					itype: inst.Typ,
+					plat:  inst.Plat,
+					rate:  inst.Rate,
+					vols:  make(map[string]*varexVol),
+				})
+			}
+		}
 		ec2.rel()
 
-		step = "scanning volumes"
+		step = "scanning EBS volumes"              // update instances in variance map with scanned volumes
+		rloc := make(map[string]*varexInst, 16384) // build temp resource locator
+		for _, e := range env {
+			for _, rs := range e.ec2 {
+				for o, r := range rs {
+					rloc[r.id] = &rs[o]
+				}
+			}
+		}
 		ebs.reqR()
-		// vsum, vol := ebs.m.data[0].(*ebsSum), ebs.m.data[1].(*ebsDetail)
-		// scan volumes, updating variance structure
+		for id, vol := range ebs.m.data[1].(*ebsDetail).Vol {
+			if ms := strings.SplitN(vol.Mount, ":", 3); len(ms) > 2 {
+				if r := rloc[ms[0]]; r != nil {
+					mount, _ := strings.CutPrefix(ms[1], "/dev/")
+					r.vols[mount] = &varexVol{
+						id:    id,
+						stype: vol.Typ,
+						gib:   float32(vol.GiB),
+						rate:  vol.Rate,
+					}
+				}
+			}
+		}
 		ebs.rel()
 
-		step = "outputting variances"
-		// output variance structure as CSV to res channel
-		res <- []string{"hello", "world", "variance", "row"}
+		step = "enumerating variances" // output variants in variance map as CSV to res channel
+		variance(rows, env, res)
 		close(res)
 	}()
 	return

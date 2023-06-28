@@ -70,6 +70,7 @@ func init() {
 		args.seriesSet.Usage()
 		args.tableSet.Usage()
 		args.optimizeSet.Usage()
+		args.varianceSet.Usage()
 		fmt.Fprintln(flag.CommandLine.Output())
 	}
 
@@ -124,7 +125,7 @@ func init() {
 	args.varianceSet.IntVar(&args.vaRows, "rows", 1e5, "`maximum` variances to return")
 	args.varianceSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			"\nThe \"variance\" subcommand returns ... in table/CSV form ..."+
+			"\nThe \"variance\" subcommand returns resource variances against template specifications in table/CSV form."+
 				"\n  Usage: cmon variance [<variance arg> ...]\n\n")
 		args.varianceSet.PrintDefaults()
 	}

@@ -28,6 +28,28 @@ type (
 		Profiles, Customers map[string]map[string]string
 	}
 
+	// varianceFeature settings
+	varTemplate struct {
+		Envs []string
+		EC2  []string
+	}
+	varVolume struct {
+		SType string
+		GiB   float32
+	}
+	varInstance struct {
+		Match string
+		Plat  string
+		IType string
+		Vols  map[string]*varVolume
+		Mre   *regexp.Regexp
+	}
+	varianceFeature struct {
+		Options   string
+		Templates map[string]*varTemplate
+		EC2       map[string]*varInstance
+	}
+
 	// awsService settings
 	awsService struct {
 		Options                            string
@@ -60,6 +82,7 @@ type (
 		WorkDir, BinDir string
 		Models          map[string]string
 		Alerts          alertsFeature
+		Variance        varianceFeature
 		AWS             awsService
 		Datadog         datadogService
 		Slack           slackService
@@ -224,6 +247,10 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		return false, fmt.Errorf("unknown settings source")
 	}
 
+	for _, i := range new.Variance.EC2 { // compile regexes used to match template instance references
+		i.Mre, _ = regexp.Compile(i.Match)
+	}
+
 	new.AWS.tcmap = make(map[string]map[string]map[string][2]string) // build tag content map from TagRules to speed lookups
 	new.AWS.tpmap = make(map[string]map[string][]*regexp.Regexp)     // build tag parser map from conventions in TagRules
 	for k, v := range new.AWS.TagRules {
@@ -267,6 +294,7 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 			}
 		}
 	}
+
 	*cur, loaded = new, true // TODO: assumes atomicity of pointer assignment; consider using atomic.Value()
 	return
 }
