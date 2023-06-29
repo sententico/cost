@@ -335,8 +335,8 @@ func varianceCmd() {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
 	if client.Close(); len(r) > 0 {
-		fmt.Printf("Col1,Col2,..." +
-			",ColN\n")
+		fmt.Printf("Resource ID,Template,Resource,Env,Name,Variance,Value,Spec" +
+			",CostV\n")
 		for _, row := range r {
 			fmt.Println(escapeQ(row))
 		}

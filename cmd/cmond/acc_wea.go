@@ -3070,23 +3070,25 @@ func variance(rows int, env map[string]*varexEnv, res chan []string) {
 					itype,
 					"0",
 				}
-				//for mount, v := range i.vols {
-				//	stype := "unknown"
-				//	if vs := settings.Variance.EC2[rref].Vols[mount]; vs != nil {
-				//		stype = vs.SType
-				//	}
-				//	res <- []string{
-				//		v.id,
-				//		e.tref,
-				//		fmt.Sprintf("EC2:%v:%v", rref, mount),
-				//		eref,
-				//		i.name,
-				//		"vtest",
-				//		v.stype,
-				//		stype,
-				//		"0",
-				//	}
-				//}
+				for mount, v := range i.vols {
+					stype := "unknown"
+					if rs := settings.Variance.EC2[rref]; rs != nil {
+						if vs := rs.Vols[mount]; vs != nil {
+							stype = vs.SType
+						}
+					}
+					res <- []string{
+						v.id,
+						e.tref,
+						fmt.Sprintf("EC2:%v:%v", rref, mount),
+						eref,
+						i.name,
+						"vtest",
+						v.stype,
+						stype,
+						"0",
+					}
+				}
 			}
 		}
 	}
