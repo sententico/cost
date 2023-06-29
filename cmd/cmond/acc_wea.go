@@ -3055,6 +3055,10 @@ func variance(rows int, env map[string]*varexEnv, res chan []string) {
 	for eref, e := range env {
 		for rref, is := range e.ec2 {
 			for _, i := range is {
+				itype := "unknown"
+				if rs := settings.Variance.EC2[rref]; rs != nil {
+					itype = rs.IType
+				}
 				res <- []string{
 					i.id,
 					e.tref,
@@ -3063,26 +3067,26 @@ func variance(rows int, env map[string]*varexEnv, res chan []string) {
 					i.name,
 					"itest",
 					i.itype,
-					settings.Variance.EC2[rref].IType,
+					itype,
 					"0",
 				}
-				for mount, v := range i.vols {
-					stype := "unknown"
-					if vs := settings.Variance.EC2[rref].Vols[mount]; vs != nil {
-						stype = vs.SType
-					}
-					res <- []string{
-						v.id,
-						e.tref,
-						fmt.Sprintf("EC2:%v:%v", rref, mount),
-						eref,
-						i.name,
-						"vtest",
-						v.stype,
-						stype,
-						"0",
-					}
-				}
+				//for mount, v := range i.vols {
+				//	stype := "unknown"
+				//	if vs := settings.Variance.EC2[rref].Vols[mount]; vs != nil {
+				//		stype = vs.SType
+				//	}
+				//	res <- []string{
+				//		v.id,
+				//		e.tref,
+				//		fmt.Sprintf("EC2:%v:%v", rref, mount),
+				//		eref,
+				//		i.name,
+				//		"vtest",
+				//		v.stype,
+				//		stype,
+				//		"0",
+				//	}
+				//}
 			}
 		}
 	}
