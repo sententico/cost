@@ -31,7 +31,7 @@ type (
 	// varianceFeature settings
 	varTemplate struct {
 		Envs []string
-		EC2  []string
+		EC2  map[string][2]int
 	}
 	varVolume struct {
 		SType string
@@ -247,8 +247,24 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		return false, fmt.Errorf("unknown settings source")
 	}
 
-	for _, i := range new.Variance.EC2 { // compile regexes used to match template instance references
+	for _, i := range new.Variance.EC2 { // finish/clean variance EC2 resourcce map
 		i.Mre, _ = regexp.Compile(i.Match)
+		switch i.Plat {
+		case "linux", "Linux":
+			i.Plat = ""
+		case "Windows":
+			i.Plat = "windows"
+		}
+	}
+	for _, t := range new.Variance.Templates { // finish/clean variance template map
+		for _, mm := range t.EC2 {
+			if mm[0] < 0 {
+				mm[0] = 0
+			}
+			if mm[1] < mm[0] {
+				mm[1] = mm[0]
+			}
+		}
 	}
 
 	new.AWS.tcmap = make(map[string]map[string]map[string][2]string) // build tag content map from TagRules to speed lookups

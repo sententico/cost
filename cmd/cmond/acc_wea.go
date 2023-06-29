@@ -3052,12 +3052,39 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 }
 
 func variance(rows int, env map[string]*varexEnv, res chan []string) {
-	res <- []string{
-		fmt.Sprintf("rows=%v", rows),
-		fmt.Sprintf("len(env)=%v", len(env)),
-		fmt.Sprintf("env[a69].tref=%v", env["WFE VCS a69 Safelite"].tref),
-		fmt.Sprintf("len(env[a69].ec2)=%v", len(env["WFE VCS a69 Safelite"].ec2)),
-		fmt.Sprintf("len(env[a69].ec2[~])=%v", len(env["WFE VCS a69 Safelite"].ec2["~"])),
+	for eref, e := range env {
+		for rref, is := range e.ec2 {
+			for _, i := range is {
+				res <- []string{
+					i.id,
+					e.tref,
+					fmt.Sprintf("EC2:%v", rref),
+					eref,
+					i.name,
+					"itest",
+					i.itype,
+					settings.Variance.EC2[rref].IType,
+					"0",
+				}
+				for mount, v := range i.vols {
+					stype := "unknown"
+					if vs := settings.Variance.EC2[rref].Vols[mount]; vs != nil {
+						stype = vs.SType
+					}
+					res <- []string{
+						v.id,
+						e.tref,
+						fmt.Sprintf("EC2:%v:%v", rref, mount),
+						eref,
+						i.name,
+						"vtest",
+						v.stype,
+						stype,
+						"0",
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -3102,9 +3129,9 @@ func varianceExtract(rows int) (res chan []string, err error) {
 			tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
 			if e, name, match := env[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
 				if name != "" {
-					for _, rref := range settings.Variance.Templates[e.tref].EC2 {
+					for rref := range settings.Variance.Templates[e.tref].EC2 {
 						if r := settings.Variance.EC2[rref]; r != nil {
-							if r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name {
+							if r.Plat == inst.Plat && (r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name) {
 								match = rref
 								break
 							}
