@@ -3059,33 +3059,48 @@ func variance(rows int, env map[string]*varexEnv, res chan []string) {
 				if rs := settings.Variance.EC2[rref]; rs != nil {
 					itype = rs.IType
 				}
+				fmt.Printf("Resource ID,Name,Resource Type,Env,Template,Variance,Value,Spec" +
+					",CostV\n")
+
 				res <- []string{
 					i.id,
-					e.tref,
+					i.name,
 					fmt.Sprintf("EC2:%v", rref),
 					eref,
-					i.name,
-					"itest",
+					e.tref,
+					"itype",
 					i.itype,
 					itype,
 					"0",
 				}
 				for mount, v := range i.vols {
-					stype := "unknown"
+					stype, gib := "unknown", 0
 					if rs := settings.Variance.EC2[rref]; rs != nil {
 						if vs := rs.Vols[mount]; vs != nil {
 							stype = vs.SType
+							gib = int(vs.GiB)
 						}
 					}
 					res <- []string{
 						v.id,
-						e.tref,
-						fmt.Sprintf("EC2:%v:%v", rref, mount),
-						eref,
 						i.name,
-						"vtest",
+						fmt.Sprintf("EBS:%v:%v", rref, mount),
+						eref,
+						e.tref,
+						"stype",
 						v.stype,
 						stype,
+						"0",
+					}
+					res <- []string{
+						v.id,
+						i.name,
+						fmt.Sprintf("EBS:%v:%v", rref, mount),
+						eref,
+						e.tref,
+						"GiB",
+						fmt.Sprintf("%v", v.gib),
+						fmt.Sprintf("%v", gib),
 						"0",
 					}
 				}
