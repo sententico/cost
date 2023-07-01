@@ -3051,56 +3051,135 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 	return
 }
 
-func variance(rows int, env map[string]*varexEnv, res chan []string) {
-	for eref, e := range env {
+func variance(rows int, scan map[string]*varexEnv, res chan []string) {
+	for eref, e := range scan {
 		for rref, is := range e.ec2 {
-			for _, i := range is {
-				itype := "unknown"
-				if rs := settings.Variance.EC2[rref]; rs != nil {
-					itype = rs.IType
-				}
-				fmt.Printf("Resource ID,Name,Resource Type,Env,Template,Variance,Value,Spec" +
-					",CostV\n")
-
-				res <- []string{
-					i.id,
-					i.name,
-					fmt.Sprintf("EC2:%v", rref),
-					eref,
-					e.tref,
-					"itype",
-					i.itype,
-					itype,
-					"0",
-				}
-				for mount, v := range i.vols {
-					stype, gib := "unknown", 0
-					if rs := settings.Variance.EC2[rref]; rs != nil {
-						if vs := rs.Vols[mount]; vs != nil {
-							stype = vs.SType
-							gib = int(vs.GiB)
-						}
-					}
-					res <- []string{
-						v.id,
+			rs, mm := settings.Variance.EC2[rref], settings.Variance.Templates[e.tref].EC2[rref]
+			if rs == nil || mm[1] == 0 {
+				for _, i := range is {
+					res <- []string{ // emit unknown "perfect" excess resource variant
+						i.id,
 						i.name,
-						fmt.Sprintf("EBS:%v:%v", rref, mount),
+						"(unknown)",
+						fmt.Sprintf("%v instance with %v volumes", i.itype, len(i.vols)),
 						eref,
 						e.tref,
-						"stype",
-						v.stype,
-						stype,
+						"(excess)",
+						"",
+						"",
 						"0",
 					}
-					res <- []string{
-						v.id,
+				}
+				continue
+			}
+			for _, i := range is {
+				if true || i.itype != rs.IType {
+					res <- []string{ // emit instance resource variant
+						i.id,
 						i.name,
-						fmt.Sprintf("EBS:%v:%v", rref, mount),
+						fmt.Sprintf("EC2:%v", rref),
+						rs.Descr,
 						eref,
 						e.tref,
-						"GiB",
-						fmt.Sprintf("%v", v.gib),
-						fmt.Sprintf("%v", gib),
+						"itype",
+						i.itype,
+						rs.IType,
+						"0",
+					}
+				}
+				for mount, v := range i.vols {
+					vs := rs.Vols[mount]
+					if vs == nil {
+						res <- []string{ // emit unknown excess volume resource variant
+							v.id,
+							i.name,
+							fmt.Sprintf("EBS:%v:%v", rref, mount),
+							fmt.Sprintf("%v %vGiB %v volume", rs.Descr, v.gib, v.stype),
+							eref,
+							e.tref,
+							"(excess)",
+							"",
+							"",
+							"0",
+						}
+						continue
+					}
+					if true || v.stype != vs.SType {
+						res <- []string{ // emit storage type volume resource variant
+							v.id,
+							i.name,
+							fmt.Sprintf("EBS:%v:%v", rref, mount),
+							rs.Descr,
+							eref,
+							e.tref,
+							"stype",
+							v.stype,
+							vs.SType,
+							"0",
+						}
+					}
+					if true || v.gib != vs.GiB {
+						res <- []string{ // emit GiB size volume resource variant
+							v.id,
+							i.name,
+							fmt.Sprintf("EBS:%v:%v", rref, mount),
+							rs.Descr,
+							eref,
+							e.tref,
+							"GiB",
+							fmt.Sprintf("%v", v.gib),
+							fmt.Sprintf("%v", vs.GiB),
+							"0",
+						}
+					}
+				}
+				for mount, vs := range rs.Vols {
+					if v := i.vols[mount]; v == nil {
+						res <- []string{ // emit missing volume resource variant
+							"",
+							i.name,
+							fmt.Sprintf("EBS:%v:%v", rref, mount),
+							fmt.Sprintf("%v %vGiB %v volume", rs.Descr, vs.GiB, vs.SType),
+							eref,
+							e.tref,
+							"(missing)",
+							"",
+							"",
+							"0",
+						}
+					}
+				}
+			}
+		}
+		for rref, mm := range settings.Variance.Templates[e.tref].EC2 {
+			if rs, is := settings.Variance.EC2[rref], e.ec2[rref]; rs != nil {
+				if mm[1] > 0 {
+					for o := len(is); o > mm[1]; o-- {
+						res <- []string{ // emit "imperfect" excess instance resource variant
+							"",
+							"",
+							fmt.Sprintf("EC2:%v", rref),
+							rs.Descr,
+							eref,
+							e.tref,
+							"(excess)",
+							"",
+							"",
+							"0",
+						}
+					}
+				}
+				for o := len(is); o < mm[0]; o++ {
+					res <- []string{ // emit missing instance resource variant
+						"",
+						"",
+						fmt.Sprintf("EC2:%v", rref),
+						fmt.Sprintf("%v %v instance with %v volumes", rs.Descr, rs.IType, len(rs.Vols)),
+						eref,
+						e.tref,
+						"(missing)",
+						"",
+						"",
 						"0",
 					}
 				}
@@ -3131,24 +3210,24 @@ func varianceExtract(rows int) (res chan []string, err error) {
 				close(res)
 			}
 		}()
-		env, tags := make(map[string]*varexEnv, 1024), globalTags(0, 0)
-		for tref, t := range settings.Variance.Templates { // build variance map from JSON templates
+		scan, tags := make(map[string]*varexEnv, 1024), globalTags(0, 0)
+		for tref, t := range settings.Variance.Templates { // build scan map from environments in JSON templates
 			for _, eref := range t.Envs {
 				if eref != "" {
 					e := varexEnv{tref: tref, ec2: make(map[string][]varexInst, 32)}
-					env[eref] = &e
+					scan[eref] = &e
 				}
 			}
 		}
 
-		step = "scanning EC2 instances" // update variance map with scanned instances
+		step = "scanning EC2 instances" // update scan map with current instances
 		ec2.reqR()
 		for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
 			if inst.State == "terminated" {
 				continue
 			}
 			tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
-			if e, name, match := env[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
+			if e, name, match := scan[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
 				if name != "" {
 					for rref := range settings.Variance.Templates[e.tref].EC2 {
 						if r := settings.Variance.EC2[rref]; r != nil {
@@ -3171,9 +3250,9 @@ func varianceExtract(rows int) (res chan []string, err error) {
 		}
 		ec2.rel()
 
-		step = "scanning EBS volumes"              // update instances in variance map with scanned volumes
+		step = "scanning EBS volumes"              // update instances in scan map with mounted volumes
 		rloc := make(map[string]*varexInst, 16384) // build temp resource locator
-		for _, e := range env {
+		for _, e := range scan {
 			for _, rs := range e.ec2 {
 				for o, r := range rs {
 					rloc[r.id] = &rs[o]
@@ -3196,8 +3275,8 @@ func varianceExtract(rows int) (res chan []string, err error) {
 		}
 		ebs.rel()
 
-		step = "enumerating variants" // output variants in variance map as CSV to res channel
-		variance(rows, env, res)
+		step = "emitting variants" // emit variants to settings in scan map as CSV to res channel
+		variance(rows, scan, res)
 		close(res)
 	}()
 	return

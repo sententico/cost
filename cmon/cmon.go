@@ -38,6 +38,7 @@ type (
 		GiB   float32
 	}
 	varInstance struct {
+		Descr string
 		Match string
 		Plat  string
 		IType string
@@ -254,6 +255,8 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 			i.Plat = ""
 		case "Windows":
 			i.Plat = "windows"
+		case "sqlserver", "SQLserver":
+			i.Plat = "sqlserver-se"
 		}
 	}
 	for _, t := range new.Variance.Templates { // finish/clean variance template map
