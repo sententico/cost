@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,7 +32,7 @@ type (
 	// varianceFeature settings
 	varTemplate struct {
 		Envs []string
-		EC2  map[string][2]int
+		EC2  map[string][]int
 	}
 	varVolume struct {
 		SType string
@@ -260,13 +261,18 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		}
 	}
 	for _, t := range new.Variance.Templates { // finish/clean variance template map
-		for _, mm := range t.EC2 {
-			if mm[0] < 0 {
-				mm[0] = 0
+		for rref, mm := range t.EC2 {
+			if len(mm) > 0 {
+				sort.Ints(mm)
+				if mm = []int{mm[0], mm[len(mm)-1]}; mm[0] < 0 {
+					if mm[0] = 0; mm[1] < 0 {
+						mm[1] = 0
+					}
+				}
+			} else {
+				mm = []int{0, 0}
 			}
-			if mm[1] < mm[0] {
-				mm[1] = mm[0]
-			}
+			t.EC2[rref] = mm
 		}
 	}
 
