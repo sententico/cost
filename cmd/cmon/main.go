@@ -336,7 +336,7 @@ func varianceCmd() {
 	}
 	if client.Close(); len(r) > 0 {
 		fmt.Printf("Resource ID,Name,Resource Type,Description,Environment,Template/SKU,Variance,Value,Spec" +
-			",Cost Var\n")
+			",Cost Base,Cost Var\n")
 		for _, row := range r {
 			fmt.Println(escapeQ(row))
 		}

@@ -3057,35 +3057,43 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 			rs, mm := settings.Variance.EC2[rref], settings.Variance.Templates[e.tref].EC2[rref]
 			if rs == nil || mm[1] == 0 {
 				for _, i := range is {
-					res <- []string{ // emit unknown "perfect" excess resource variant
+					c := i.rate
+					for _, v := range i.vols {
+						c += v.rate
+					}
+					res <- []string{ // emit unknown "perfect" excess variant
 						i.id,
 						i.name,
 						"(unknown)",
 						fmt.Sprintf("%v instance with %v volumes", i.itype, len(i.vols)),
 						eref,
 						e.tref,
-						"(excess inst)",
+						"(excess)",
 						"",
 						"",
-						"0",
+						strconv.FormatFloat(float64(c), 'g', -1, 32),
+						strconv.FormatFloat(float64(-c), 'g', -1, 32),
 					}
 				}
 				continue
 			}
 			for _, i := range is {
-				if true || i.itype != rs.IType {
-					res <- []string{ // emit instance resource variant
-						i.id,
-						i.name,
-						fmt.Sprintf("EC2:%v", rref),
-						rs.Descr,
-						eref,
-						e.tref,
-						"itype",
-						i.itype,
-						rs.IType,
-						"0",
-					}
+				vt, cv := "inst type eq", "0"
+				if i.itype != rs.IType {
+					vt, cv = "inst type", "0.00014"
+				}
+				res <- []string{ // emit instance resource variant
+					i.id,
+					i.name,
+					fmt.Sprintf("EC2:%v", rref),
+					rs.Descr,
+					eref,
+					e.tref,
+					vt,
+					i.itype,
+					rs.IType,
+					strconv.FormatFloat(float64(i.rate), 'g', -1, 32),
+					cv,
 				}
 				for mount, v := range i.vols {
 					vs := rs.Vols[mount]
@@ -3100,37 +3108,44 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							"(excess vol)",
 							"",
 							"",
-							"0",
+							strconv.FormatFloat(float64(v.rate), 'g', -1, 32),
+							strconv.FormatFloat(float64(-v.rate), 'g', -1, 32),
 						}
 						continue
 					}
-					if true || v.stype != vs.SType {
-						res <- []string{ // emit storage type volume resource variant
-							v.id,
-							i.name,
-							fmt.Sprintf("EBS:%v:%v", rref, mount),
-							rs.Descr,
-							eref,
-							e.tref,
-							"stype",
-							v.stype,
-							vs.SType,
-							"0",
-						}
+					vt, cv := "vol type eq", "0"
+					if v.stype != vs.SType {
+						vt, cv = "vol type", "0.00014"
 					}
-					if true || v.gib != vs.GiB {
-						res <- []string{ // emit GiB size volume resource variant
-							v.id,
-							i.name,
-							fmt.Sprintf("EBS:%v:%v", rref, mount),
-							rs.Descr,
-							eref,
-							e.tref,
-							"GiB",
-							fmt.Sprintf("%v", v.gib),
-							fmt.Sprintf("%v", vs.GiB),
-							"0",
-						}
+					res <- []string{ // emit storage type volume resource variant
+						v.id,
+						i.name,
+						fmt.Sprintf("EBS:%v:%v", rref, mount),
+						rs.Descr,
+						eref,
+						e.tref,
+						vt,
+						v.stype,
+						vs.SType,
+						strconv.FormatFloat(float64(v.rate), 'g', -1, 32),
+						cv,
+					}
+					vt, cv = "vol GiB eq", "0"
+					if v.gib != vs.GiB {
+						vt, cv = "vol GiB", "0.00014"
+					}
+					res <- []string{ // emit GiB size volume resource variant
+						v.id,
+						i.name,
+						fmt.Sprintf("EBS:%v:%v", rref, mount),
+						rs.Descr,
+						eref,
+						e.tref,
+						vt,
+						fmt.Sprintf("%v", v.gib),
+						fmt.Sprintf("%v", vs.GiB),
+						"0",
+						cv,
 					}
 				}
 				for mount, vs := range rs.Vols {
@@ -3146,6 +3161,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							"",
 							"",
 							"0",
+							strconv.FormatFloat(0.00014, 'g', -1, 32), // vs rate lookup
 						}
 					}
 				}
@@ -3155,32 +3171,34 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 			if rs, is := settings.Variance.EC2[rref], e.ec2[rref]; rs != nil {
 				if mm[1] > 0 {
 					for o := len(is); o > mm[1]; o-- {
-						res <- []string{ // emit "imperfect" excess instance resource variant
+						res <- []string{ // emit "imperfect" excess resource variant
 							"",
 							"",
 							fmt.Sprintf("EC2:%v", rref),
 							rs.Descr,
 							eref,
 							e.tref,
-							"(excess inst)",
+							"(excess)",
 							"",
 							"",
-							"0",
+							"0",       // already counted
+							"0.00028", // -(rs inst + vols rate lookups)
 						}
 					}
 				}
 				for o := len(is); o < mm[0]; o++ {
-					res <- []string{ // emit missing instance resource variant
+					res <- []string{ // emit missing resource variant
 						"",
 						"",
 						fmt.Sprintf("EC2:%v", rref),
 						fmt.Sprintf("%v %v instance with %v volumes", rs.Descr, rs.IType, len(rs.Vols)),
 						eref,
 						e.tref,
-						"(missing inst)",
+						"(missing)",
 						"",
 						"",
 						"0",
+						"0.00028", // rs inst + vols rate lookups
 					}
 				}
 			}
