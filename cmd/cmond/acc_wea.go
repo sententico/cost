@@ -3085,6 +3085,12 @@ func ebsRater() func(*varexEnv, string, float32, float32) float32 {
 		return 0
 	}
 }
+func platFmt(plat, suffix string) string {
+	if plat == "" {
+		return "linux " + suffix
+	}
+	return plat + " " + suffix
+}
 func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 	ec2Rates, ebsRates := ec2Rater(), ebsRater()
 	for eref, e := range scan {
@@ -3103,7 +3109,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						i.id,
 						i.name,
 						fmt.Sprintf("EC2:%v", rref),
-						fmt.Sprintf("%v instance with %v volumes", i.itype, len(i.vols)),
+						fmt.Sprintf("%v %v with %v volumes", i.itype, platFmt(i.plat, "instance"), (i.vols)),
 						eref,
 						e.reg,
 						e.tref,
@@ -3126,7 +3132,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 					i.id,
 					i.name,
 					fmt.Sprintf("EC2:%v", rref),
-					rs.Descr,
+					fmt.Sprintf("%v %v", rs.Descr, platFmt(rs.Plat, "instance")),
 					eref,
 					e.reg,
 					e.tref,
@@ -3248,7 +3254,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							"",
 							"",
 							fmt.Sprintf("EC2:%v", rref),
-							rs.Descr,
+							fmt.Sprintf("%v %v", rs.Descr, platFmt(rs.Plat, "instance")),
 							eref,
 							e.reg,
 							e.tref,
@@ -3268,7 +3274,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						"",
 						"",
 						fmt.Sprintf("EC2:%v", rref),
-						fmt.Sprintf("%v %v instance with %v volumes", rs.Descr, rs.IType, len(rs.Vols)),
+						fmt.Sprintf("%v %v %v with %v volumes", rs.Descr, rs.IType, platFmt(rs.Plat, "instance"), len(rs.Vols)),
 						eref,
 						e.reg,
 						e.tref,
