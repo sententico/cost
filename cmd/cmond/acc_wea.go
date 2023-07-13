@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sententico/cost/aws"
 	"github.com/sententico/cost/cmon"
 	"github.com/sententico/cost/tel"
 )
@@ -19,6 +20,7 @@ type (
 		id    string
 		stype string
 		gib   float32
+		iops  float32
 		rate  float32
 	}
 	varexInst struct {
@@ -27,11 +29,12 @@ type (
 		itype string
 		plat  string
 		rate  float32
-		vols  map[string]*varexVol
+		vols  map[string]*varexVol // map of mounts/devices to volumes
 	}
 	varexEnv struct {
 		tref string
-		ec2  map[string][]varexInst
+		reg  string                 // region locating environment resources (assumes 1)
+		ec2  map[string][]varexInst // map of resource types to instances
 	}
 )
 
@@ -3051,11 +3054,46 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 	return
 }
 
+func ec2Rater() func(*varexEnv, string, string) float32 {
+	var rates aws.Rater
+	rates.Load(nil, "EC2")
+	return func(e *varexEnv, typ, plat string) float32 {
+		if r := rates.Lookup(&aws.RateKey{
+			Region: e.reg,
+			Typ:    typ,
+			Plat:   plat,
+			Terms:  settings.AWS.SavPlan,
+		}); r != nil {
+			return r.Rate * settings.AWS.UsageAdj
+		}
+		return 0
+	}
+}
+func ebsRater() func(*varexEnv, string, float32, float32) float32 {
+	var rates aws.EBSRater
+	rates.Load(nil)
+	return func(e *varexEnv, typ string, gib, iops float32) float32 {
+		if r := rates.Lookup(&aws.EBSRateKey{
+			Region: e.reg,
+			Typ:    typ,
+		}); r != nil {
+			if typ == "gp3" {
+				iops -= 3000
+			}
+			return (r.SZrate*gib + r.IOrate*iops) * settings.AWS.UsageAdj
+		}
+		return 0
+	}
+}
 func variance(rows int, scan map[string]*varexEnv, res chan []string) {
+	ec2Rates, ebsRates := ec2Rater(), ebsRater()
 	for eref, e := range scan {
 		for rref, is := range e.ec2 {
 			rs, mm := settings.Variance.EC2[rref], settings.Variance.Templates[e.tref].EC2[rref]
 			if rs == nil || mm[1] == 0 {
+				if rref == "~" {
+					rref = "(unknown)"
+				}
 				for _, i := range is {
 					c := i.rate
 					for _, v := range i.vols {
@@ -3064,9 +3102,10 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 					res <- []string{ // emit unknown "perfect" excess variant
 						i.id,
 						i.name,
-						"(unknown)",
+						fmt.Sprintf("EC2:%v", rref),
 						fmt.Sprintf("%v instance with %v volumes", i.itype, len(i.vols)),
 						eref,
+						e.reg,
 						e.tref,
 						"(excess)",
 						"",
@@ -3080,7 +3119,8 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 			for _, i := range is {
 				vt, cv := "inst type eq", "0"
 				if i.itype != rs.IType {
-					vt, cv = "inst type", "0.00014"
+					vt, cv = "inst type", strconv.FormatFloat(float64(ec2Rates(e, rs.IType, rs.Plat)-ec2Rates(e, i.itype, i.plat)), 'g', -1, 32)
+					// TODO: consider refining calculation to account for SP/billing/utilization complexity
 				}
 				res <- []string{ // emit instance resource variant
 					i.id,
@@ -3088,13 +3128,15 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 					fmt.Sprintf("EC2:%v", rref),
 					rs.Descr,
 					eref,
+					e.reg,
 					e.tref,
 					vt,
 					i.itype,
 					rs.IType,
-					strconv.FormatFloat(float64(i.rate), 'g', -1, 32),
+					strconv.FormatFloat(float64(i.rate), 'g', -1, 32), // stopped instances have rate=0
 					cv,
 				}
+
 				for mount, v := range i.vols {
 					vs := rs.Vols[mount]
 					if vs == nil {
@@ -3104,6 +3146,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							fmt.Sprintf("EBS:%v:%v", rref, mount),
 							fmt.Sprintf("%v %vGiB %v volume", rs.Descr, v.gib, v.stype),
 							eref,
+							e.reg,
 							e.tref,
 							"(excess vol)",
 							"",
@@ -3115,90 +3158,125 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 					}
 					vt, cv := "vol type eq", "0"
 					if v.stype != vs.SType {
-						vt, cv = "vol type", "0.00014"
+						vt, cv = "vol type", strconv.FormatFloat(float64(ebsRates(e, vs.SType, v.gib, v.iops)-v.rate), 'g', -1, 32)
 					}
 					res <- []string{ // emit storage type volume resource variant
 						v.id,
 						i.name,
 						fmt.Sprintf("EBS:%v:%v", rref, mount),
-						fmt.Sprintf("%v %vGiB volume", rs.Descr, vs.GiB),
+						fmt.Sprintf("%v %vGiB volume", rs.Descr, v.gib),
 						eref,
+						e.reg,
 						e.tref,
 						vt,
 						v.stype,
 						vs.SType,
 						strconv.FormatFloat(float64(v.rate), 'g', -1, 32),
-						cv,
+						cv, // type->GiB->IOPS correction order assumed
 					}
-					vt, cv = "vol GiB eq", "0"
-					if v.gib != vs.GiB {
-						vt, cv = "vol GiB", "0.00014"
+					if vt, cv = "vol GiB eq", "0"; v.gib != vs.GiB {
+						vt, cv = "vol GiB", strconv.FormatFloat(float64(ebsRates(e, vs.SType, vs.GiB, v.iops)-ebsRates(e, vs.SType, v.gib, v.iops)), 'g', -1, 32)
 					}
 					res <- []string{ // emit GiB size volume resource variant
 						v.id,
 						i.name,
 						fmt.Sprintf("EBS:%v:%v", rref, mount),
-						fmt.Sprintf("%v %v volume", rs.Descr, vs.SType),
+						fmt.Sprintf("%v %v volume", rs.Descr, v.stype),
 						eref,
+						e.reg,
 						e.tref,
 						vt,
 						fmt.Sprintf("%v", v.gib),
 						fmt.Sprintf("%v", vs.GiB),
-						"0",
-						cv,
+						"0", // base cost in "vol type" record
+						cv,  // type->GiB->IOPS correction order assumed
+					}
+					if vt, cv = "vol IOPS eq", "0"; v.iops != vs.IOPS {
+						vt, cv = "vol IOPS", strconv.FormatFloat(float64(ebsRates(e, vs.SType, vs.GiB, vs.IOPS)-ebsRates(e, vs.SType, vs.GiB, v.iops)), 'g', -1, 32)
+					}
+					res <- []string{ // emit IOPS volume resource variant
+						v.id,
+						i.name,
+						fmt.Sprintf("EBS:%v:%v", rref, mount),
+						fmt.Sprintf("%v %vGiB %v volume", rs.Descr, v.gib, v.stype),
+						eref,
+						e.reg,
+						e.tref,
+						vt,
+						fmt.Sprintf("%v", v.iops),
+						fmt.Sprintf("%v", vs.IOPS),
+						"0", // base cost in "vol type" record
+						cv,  // type->GiB->IOPS correction order assumed
 					}
 				}
 				for mount, vs := range rs.Vols {
-					if v := i.vols[mount]; v == nil {
+					if i.vols[mount] == nil {
 						res <- []string{ // emit missing volume resource variant
 							"",
 							i.name,
 							fmt.Sprintf("EBS:%v:%v", rref, mount),
 							fmt.Sprintf("%v %vGiB %v volume", rs.Descr, vs.GiB, vs.SType),
 							eref,
+							e.reg,
 							e.tref,
 							"(missing vol)",
 							"",
 							"",
 							"0",
-							strconv.FormatFloat(0.00014, 'g', -1, 32), // vs rate lookup
+							strconv.FormatFloat(float64(ebsRates(e, vs.SType, vs.GiB, vs.IOPS)), 'g', -1, 32),
 						}
 					}
 				}
 			}
 		}
+
 		for rref, mm := range settings.Variance.Templates[e.tref].EC2 {
-			if rs, is := settings.Variance.EC2[rref], e.ec2[rref]; rs != nil {
+			if rs, is, cv := settings.Variance.EC2[rref], e.ec2[rref], ""; rs != nil {
+				cf := func() float32 {
+					c := ec2Rates(e, rs.IType, rs.Plat)
+					for _, vs := range rs.Vols {
+						c += ebsRates(e, vs.SType, vs.GiB, vs.IOPS)
+					}
+					return c
+				}
 				if mm[1] > 0 {
 					for o := len(is); o > mm[1]; o-- {
+						if cv == "" {
+							cv = strconv.FormatFloat(float64(-cf()), 'g', -1, 32)
+						}
 						res <- []string{ // emit "imperfect" excess resource variant
 							"",
 							"",
 							fmt.Sprintf("EC2:%v", rref),
 							rs.Descr,
 							eref,
+							e.reg,
 							e.tref,
 							"(excess)",
 							"",
 							"",
-							"0",       // already counted
-							"0.00028", // -(rs inst + vols rate lookups)
+							"0", // already counted
+							cv,
 						}
 					}
 				}
 				for o := len(is); o < mm[0]; o++ {
+					if cv == "" {
+						cv = strconv.FormatFloat(float64(cf()), 'g', -1, 32)
+					}
 					res <- []string{ // emit missing resource variant
 						"",
 						"",
 						fmt.Sprintf("EC2:%v", rref),
 						fmt.Sprintf("%v %v instance with %v volumes", rs.Descr, rs.IType, len(rs.Vols)),
 						eref,
+						e.reg,
 						e.tref,
 						"(missing)",
 						"",
 						"",
 						"0",
-						"0.00028", // rs inst + vols rate lookups
+						cv,
 					}
 				}
 			}
@@ -3246,6 +3324,9 @@ func varianceExtract(rows int) (res chan []string, err error) {
 			}
 			tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
 			if e, name, match := scan[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
+				if e.reg == "" { // assume all environment resouces in 1 region
+					e.reg = aws.Region(inst.AZ)
+				}
 				if name != "" {
 					for rref := range settings.Variance.Templates[e.tref].EC2 {
 						if r := settings.Variance.EC2[rref]; r != nil {
@@ -3286,6 +3367,7 @@ func varianceExtract(rows int) (res chan []string, err error) {
 						id:    id,
 						stype: vol.Typ,
 						gib:   float32(vol.GiB),
+						iops:  float32(vol.IOPS),
 						rate:  vol.Rate,
 					}
 				}

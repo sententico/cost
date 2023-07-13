@@ -37,6 +37,7 @@ type (
 	varVolume struct {
 		SType string
 		GiB   float32
+		IOPS  float32
 	}
 	varInstance struct {
 		Descr string
@@ -249,17 +250,6 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		return false, fmt.Errorf("unknown settings source")
 	}
 
-	for _, i := range new.Variance.EC2 { // finish/clean variance EC2 resourcce map
-		i.Mre, _ = regexp.Compile(i.Match)
-		switch i.Plat {
-		case "linux", "Linux":
-			i.Plat = ""
-		case "Windows":
-			i.Plat = "windows"
-		case "sqlserver", "SQLserver":
-			i.Plat = "sqlserver-se"
-		}
-	}
 	for _, t := range new.Variance.Templates { // finish/clean variance template map
 		for rref, mm := range t.EC2 {
 			if len(mm) > 0 {
@@ -273,6 +263,34 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 				mm = []int{0, 0}
 			}
 			t.EC2[rref] = mm
+		}
+	}
+	for _, i := range new.Variance.EC2 { // finish/clean variance EC2 resourcce map
+		i.Mre, _ = regexp.Compile(i.Match)
+		switch i.Plat {
+		case "linux", "Linux":
+			i.Plat = ""
+		case "Windows":
+			i.Plat = "windows"
+		case "sqlserver", "SQLserver":
+			i.Plat = "sqlserver-se"
+		}
+		for _, v := range i.Vols {
+			switch v.SType {
+			case "sc1", "st1", "standard":
+				v.IOPS = 0
+			case "gp2":
+				v.IOPS = v.GiB * 3
+				fallthrough
+			case "io1", "io2":
+				if v.IOPS < 100 {
+					v.IOPS = 100
+				}
+			default:
+				if v.SType = "gp3"; v.IOPS < 3000 {
+					v.IOPS = 3000
+				}
+			}
 		}
 	}
 
