@@ -198,19 +198,18 @@ func ec2awsInsert(acc *modAcc, item map[string]string, now int) {
 		}
 		if r := work.rates.Lookup(&k); r == nil {
 			logE.Printf("no EC2 %v rate found for %v/%v in %v", k.Terms, k.Typ, k.Plat, reg)
-			inst.Rate = inst.ORate * settings.AWS.UsageAdj
 		} else if inst.ORate != 0 {
-			inst.Rate = inst.ORate * settings.AWS.UsageAdj
 		} else if inst.Spot == "" {
 			k.Terms = settings.AWS.SavPlan
 			if s := work.rates.Lookup(&k); s == nil {
-				inst.Rate = r.Rate * settings.AWS.UsageAdj
+				inst.ORate = r.Rate
 			} else {
-				inst.Rate = (r.Rate*(1-settings.AWS.SavCov) + s.Rate*settings.AWS.SavCov) * settings.AWS.UsageAdj
+				inst.ORate = r.Rate*(1-settings.AWS.SavCov) + s.Rate*settings.AWS.SavCov
 			}
 		} else {
-			inst.Rate = r.Rate * (1 - settings.AWS.SpotDisc) * settings.AWS.UsageAdj
+			inst.ORate = r.Rate * (1 - settings.AWS.SpotDisc)
 		}
+		inst.Rate = inst.ORate * settings.AWS.UsageAdj
 		if inst.Active == nil || inst.Last > inst.Active[len(inst.Active)-1] {
 			inst.Active = append(inst.Active, now, now)
 		} else {
