@@ -31,8 +31,9 @@ type (
 
 	// varianceFeature settings
 	varTemplate struct {
-		Envs []string
-		EC2  map[string][]int
+		Descr string
+		Envs  map[string]map[string]map[string][]int
+		EC2   map[string][]int
 	}
 	varVolume struct {
 		SType string
@@ -250,19 +251,28 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		return false, fmt.Errorf("unknown settings source")
 	}
 
-	for _, t := range new.Variance.Templates { // finish/clean variance template map
-		for rref, mm := range t.EC2 {
-			if len(mm) > 0 {
-				sort.Ints(mm)
-				if mm = []int{mm[0], mm[len(mm)-1]}; mm[0] < 0 {
-					if mm[0] = 0; mm[1] < 0 {
-						mm[1] = 0
-					}
-				}
-			} else {
-				mm = []int{0, 0}
+	getMM := func(mms []int) []int { // get min/max resource counts
+		mm := []int{0, 0}
+		if len(mms) > 0 {
+			sort.Ints(mms)
+			if max := mms[len(mms)-1]; mms[0] > 0 {
+				mm[0], mm[1] = mms[0], max
+			} else if max > 0 {
+				mm[1] = max
 			}
-			t.EC2[rref] = mm
+		}
+		return mm
+	}
+	for _, t := range new.Variance.Templates { // finish/clean variance template map
+		for _, e := range t.Envs {
+			if s := e["EC2"]; s != nil {
+				for rref, mms := range s {
+					s[rref] = getMM(mms)
+				}
+			}
+		}
+		for rref, mms := range t.EC2 {
+			t.EC2[rref] = getMM(mms)
 		}
 	}
 	for _, i := range new.Variance.EC2 { // finish/clean variance EC2 resourcce map

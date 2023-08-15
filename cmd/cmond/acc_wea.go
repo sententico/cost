@@ -3100,8 +3100,15 @@ func platFmt(plat, suffix string) string {
 func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 	ec2Rates, ebsRates := ec2Rater(), ebsRater()
 	for eref, e := range scan {
+		mmm, t := make(map[string][]int, 64), settings.Variance.Templates[e.tref]
+		for rref, mm := range t.EC2 {
+			mmm[rref] = mm
+		}
+		for rref, mm := range t.Envs[eref]["EC2"] {
+			mmm[rref] = mm // make min/max map by environment with Envs overriding EC2 template settings
+		}
 		for rref, is := range e.ec2 {
-			rs, mm := settings.Variance.EC2[rref], settings.Variance.Templates[e.tref].EC2[rref]
+			rs, mm := settings.Variance.EC2[rref], mmm[rref]
 			if rs == nil || mm[1] == 0 {
 				if rref == "~" {
 					rref = "(unknown)"
@@ -3243,7 +3250,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 			}
 		}
 
-		for rref, mm := range settings.Variance.Templates[e.tref].EC2 {
+		for rref, mm := range mmm {
 			if rs, is, cv := settings.Variance.EC2[rref], e.ec2[rref], ""; rs != nil {
 				cf := func() float32 {
 					c := ec2Rates(e, rs.IType, rs.Plat)
@@ -3336,8 +3343,8 @@ func varianceExtract(rows int) (res chan []string, err error) {
 			}
 		}()
 		scan, tags := make(map[string]*varexEnv, 1024), globalTags(0, 0)
-		for tref, t := range settings.Variance.Templates { // build scan map from environments in JSON templates
-			for _, eref := range t.Envs {
+		for tref, t := range settings.Variance.Templates { // build scan map from environments in settings templates
+			for eref := range t.Envs {
 				if eref != "" {
 					e := varexEnv{tref: tref, ec2: make(map[string][]varexInst, 32)}
 					scan[eref] = &e
@@ -3348,32 +3355,39 @@ func varianceExtract(rows int) (res chan []string, err error) {
 		step = "scanning EC2 instances" // update scan map with current instances
 		ec2.reqR()
 		for id, inst := range ec2.m.data[1].(*ec2Detail).Inst {
-			if inst.State == "terminated" {
-				continue
-			}
-			tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
-			if e, name, match := scan[tag["cmon:Env"]], tag["cmon:Name"], "~"; e != nil {
-				if e.reg == "" { // assume all environment resouces in 1 region
-					e.reg = aws.Region(inst.AZ)
-				}
-				if name != "" {
-					for rref := range settings.Variance.Templates[e.tref].EC2 {
-						if r := settings.Variance.EC2[rref]; r != nil {
-							if r.Plat == inst.Plat && (r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name) {
-								match = rref
-								break
-							}
-						}
+			switch inst.State {
+			case "terminated":
+			default:
+				tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
+				eref := tag["cmon:Env"]
+				if e, name, match := scan[eref], tag["cmon:Name"], "~"; e != nil {
+					if e.reg == "" { // assume all environment resouces in 1 region
+						e.reg = aws.Region(inst.AZ)
 					}
+					if name != "" {
+						t := settings.Variance.Templates[e.tref]
+						match = func(rms []map[string][]int) string {
+							for _, rm := range rms {
+								for rref := range rm {
+									if r := settings.Variance.EC2[rref]; r != nil {
+										if r.Plat == inst.Plat && (r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name) {
+											return rref
+										}
+									}
+								}
+							}
+							return "~"
+						}([]map[string][]int{t.EC2, t.Envs[eref]["EC2"]})
+					}
+					e.ec2[match] = append(e.ec2[match], varexInst{
+						id:    id,
+						name:  name,
+						itype: inst.Typ,
+						plat:  inst.Plat,
+						arate: inst.ORate * recent(inst.Since, inst.Last-3600*720, inst.Last, inst.Active) * settings.AWS.UsageAdj,
+						vols:  make(map[string]*varexVol),
+					})
 				}
-				e.ec2[match] = append(e.ec2[match], varexInst{
-					id:    id,
-					name:  name,
-					itype: inst.Typ,
-					plat:  inst.Plat,
-					arate: inst.ORate * recent(inst.Since, inst.Last-3600*720, inst.Last, inst.Active) * settings.AWS.UsageAdj,
-					vols:  make(map[string]*varexVol),
-				})
 			}
 		}
 		ec2.rel()
