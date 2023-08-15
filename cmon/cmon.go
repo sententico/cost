@@ -194,6 +194,11 @@ func resolveLoc(n string) string {
 func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 	var new *MonSettings
 	var b []byte
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("problem digesting settings: %v", r)
+		}
+	}()
 
 	switch s := source.(type) {
 	case string: // (re)load settings from location (file, ...) source
@@ -275,7 +280,7 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 			t.EC2[rref] = getMM(mms)
 		}
 	}
-	for _, i := range new.Variance.EC2 { // finish/clean variance EC2 resourcce map
+	for _, i := range new.Variance.EC2 { // finish/clean variance EC2 resource map
 		i.Mre, _ = regexp.Compile(i.Match)
 		switch i.Plat {
 		case "linux", "Linux":
