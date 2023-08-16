@@ -3366,17 +3366,18 @@ func varianceExtract(rows int) (res chan []string, err error) {
 					}
 					if name != "" {
 						t := settings.Variance.Templates[e.tref]
-						match = func(rms []map[string][]int) string {
+						func(rms []map[string][]int) {
 							for _, rm := range rms {
 								for rref := range rm {
 									if r := settings.Variance.EC2[rref]; r != nil {
 										if r.Plat == inst.Plat && (r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name) {
-											return rref
+											if match = rref; r.IType == inst.Typ {
+												return // TODO: consider match selection using "best fit" instance type
+											}
 										}
 									}
 								}
 							}
-							return "~"
 						}([]map[string][]int{t.EC2, t.Envs[eref]["EC2"]})
 					}
 					e.ec2[match] = append(e.ec2[match], varexInst{
