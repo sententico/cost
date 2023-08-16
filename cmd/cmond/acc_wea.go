@@ -3365,16 +3365,33 @@ func varianceExtract(rows int) (res chan []string, err error) {
 						e.reg = aws.Region(inst.AZ)
 					}
 					if name != "" {
-						t := settings.Variance.Templates[e.tref]
-						func(rms []map[string][]int) {
+						t, rrs, getpt := settings.Variance.Templates[e.tref], make([]string, 0, 16), func(t string) string {
+							if s := strings.SplitN(t, ".", 2); len(s) == 2 && len(s[0]) > 0 && len(s[1]) > 1 {
+								return s[0][:1] + s[1][:2]
+							}
+							return t
+						}
+						func(rms []map[string][]int) { // match instance to template resource type
 							for _, rm := range rms {
 								for rref := range rm {
 									if r := settings.Variance.EC2[rref]; r != nil {
 										if r.Plat == inst.Plat && (r.Mre != nil && r.Mre.FindString(name) != "" || r.Match == name) {
 											if match = rref; r.IType == inst.Typ {
-												return // TODO: consider match selection using "best fit" instance type
+												return
 											}
+											rrs = append(rrs, rref)
 										}
+									}
+								}
+							}
+							switch len(rrs) {
+							case 0, 1:
+							default: // use proximate instance type to select from among multiple candidate matches
+								pt := getpt(inst.Typ)
+								for _, rref := range rrs {
+									if getpt(settings.Variance.EC2[rref].IType) == pt {
+										match = rref
+										return
 									}
 								}
 							}
