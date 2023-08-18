@@ -3320,6 +3320,60 @@ func recent(since, recent, last int, ap []int) float32 {
 	}
 	return float32(a) / float32(last-recent+1)
 }
+func getPT(t string) string {
+	if s := strings.SplitN(t, ".", 2); len(s) == 2 && len(s[0]) > 0 && len(s[1]) > 1 {
+		return s[0][:1] + s[1][:2]
+	}
+	return t
+}
+func setPT(pt string) func(string) float64 {
+	scale := func(pt string) (gen float64, mem float64) {
+		if len(pt) > 2 {
+			switch pt[1:] {
+			case "na", "mi", "sm":
+			case "me":
+				gen = 0.5
+			case "la":
+				gen = 1
+			case "xl":
+				gen = 2
+			case "2x":
+				gen = 3
+			case "4x":
+				gen = 4
+			case "6x":
+				gen = 4.5
+			case "8x":
+				gen = 5
+			case "12":
+				gen = 5.5
+			case "16":
+				gen = 6
+			case "24":
+				gen = 6.5
+			case "32":
+				gen = 7
+			default:
+				return
+			}
+			switch pt[0] {
+			case 'c':
+			case 't', 'm':
+				mem = 1
+			case 'x':
+				mem = 4
+			default:
+				mem = 2
+			}
+		}
+		return
+	}
+	ptg, ptm := scale(pt)
+	return func(cand string) float64 {
+		g, m := scale(cand)
+		return (g - ptg) + (m-ptm)*0.6
+	}
+}
 func varianceExtract(rows int) (res chan []string, err error) {
 	var ec2, ebs *modAcc
 	var step string
@@ -3365,12 +3419,7 @@ func varianceExtract(rows int) (res chan []string, err error) {
 						e.reg = aws.Region(inst.AZ)
 					}
 					if name != "" {
-						t, rrs, getpt := settings.Variance.Templates[e.tref], make([]string, 0, 16), func(t string) string {
-							if s := strings.SplitN(t, ".", 2); len(s) == 2 && len(s[0]) > 0 && len(s[1]) > 1 {
-								return s[0][:1] + s[1][:2]
-							}
-							return t
-						}
+						t, rrs := settings.Variance.Templates[e.tref], make([]string, 0, 16)
 						func(rms []map[string][]int) { // match instance to template resource type
 							for _, rm := range rms {
 								for rref := range rm {
@@ -3386,12 +3435,16 @@ func varianceExtract(rows int) (res chan []string, err error) {
 							}
 							switch len(rrs) {
 							case 0, 1:
-							default: // use proximate instance type to select from among multiple candidate matches
-								pt := getpt(inst.Typ)
+							default: // use proximate instance type & scale to select from among multiple candidate matches
+								pt := getPT(inst.Typ)
+								diff, cand, min := setPT(pt), "", 1e2
 								for _, rref := range rrs {
-									if getpt(settings.Variance.EC2[rref].IType) == pt {
+									if cand = getPT(settings.Variance.EC2[rref].IType); cand == pt {
 										match = rref
 										return
+									}
+									if d := math.Abs(diff(cand)); d < min {
+										match, min = rref, d
 									}
 								}
 							}
