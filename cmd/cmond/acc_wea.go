@@ -3345,6 +3345,8 @@ func setPT(pt string) func(string) float64 {
 				gen = 4.5
 			case "8x":
 				gen = 5
+			case "9x":
+				gen = 5.125
 			case "12":
 				gen = 5.5
 			case "16":
@@ -3428,7 +3430,7 @@ func varianceExtract(rows int) (res chan []string, err error) {
 											if match = rref; r.IType == inst.Typ {
 												return
 											}
-											rrs = append(rrs, rref)
+											rrs = append(rrs, rref) // collect candidate matches
 										}
 									}
 								}
