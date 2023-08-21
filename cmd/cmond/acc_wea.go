@@ -3176,7 +3176,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						}
 						continue
 					}
-					vt, cv := "vol type eq", "0"
+					vt, cv, gib := "vol type eq", "0", v.gib
 					if v.stype != vs.SType {
 						vt, cv = "vol type", strconv.FormatFloat(float64((ebsRates(e, vs.SType, v.gib, v.iops)-v.rate)*730*12), 'g', -1, 32)
 					}
@@ -3194,8 +3194,12 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						strconv.FormatFloat(float64(v.rate*730*12), 'g', -1, 32),
 						cv, // type->GiB->IOPS correction order assumed
 					}
-					if vt, cv = "vol GiB eq", "0"; v.gib != vs.GiB {
-						vt, cv = "vol GiB", strconv.FormatFloat(float64((ebsRates(e, vs.SType, vs.GiB, v.iops)-ebsRates(e, vs.SType, v.gib, v.iops))*730*12), 'g', -1, 32)
+					if vt, cv = "vol GiB eq", "0"; v.gib < vs.GiB[0] {
+						gib = vs.GiB[0]
+						vt, cv = "vol GiB", strconv.FormatFloat(float64((ebsRates(e, vs.SType, gib, v.iops)-ebsRates(e, vs.SType, v.gib, v.iops))*730*12), 'g', -1, 32)
+					} else if v.gib > vs.GiB[1] {
+						gib = vs.GiB[1]
+						vt, cv = "vol GiB", strconv.FormatFloat(float64((ebsRates(e, vs.SType, gib, v.iops)-ebsRates(e, vs.SType, v.gib, v.iops))*730*12), 'g', -1, 32)
 					}
 					res <- []string{ // emit GiB size volume resource variant
 						v.id,
@@ -3207,12 +3211,12 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						e.tref,
 						vt,
 						fmt.Sprintf("%v", v.gib),
-						fmt.Sprintf("%v", vs.GiB),
+						fmt.Sprintf("%v", gib),
 						"0", // base cost in "vol type" record
 						cv,  // type->GiB->IOPS correction order assumed
 					}
 					if vt, cv = "vol IOPS eq", "0"; v.iops != vs.IOPS {
-						vt, cv = "vol IOPS", strconv.FormatFloat(float64((ebsRates(e, vs.SType, vs.GiB, vs.IOPS)-ebsRates(e, vs.SType, vs.GiB, v.iops))*730*12), 'g', -1, 32)
+						vt, cv = "vol IOPS", strconv.FormatFloat(float64((ebsRates(e, vs.SType, gib, vs.IOPS)-ebsRates(e, vs.SType, gib, v.iops))*730*12), 'g', -1, 32)
 					}
 					res <- []string{ // emit IOPS volume resource variant
 						v.id,
@@ -3230,12 +3234,12 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 					}
 				}
 				for mount, vs := range rs.Vols {
-					if i.vols[mount] == nil {
+					if i.vols[mount] == nil && vs.GiB[0] > 0 {
 						res <- []string{ // emit missing volume resource variant
 							"",
 							i.name,
 							fmt.Sprintf("EBS:%v:%v", rref, mount),
-							fmt.Sprintf("%v %vGiB %v volume", rs.Descr, vs.GiB, vs.SType),
+							fmt.Sprintf("%v %vGiB %v volume", rs.Descr, vs.GiB[0], vs.SType),
 							eref,
 							e.reg,
 							e.tref,
@@ -3243,7 +3247,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							"",
 							"",
 							"0",
-							strconv.FormatFloat(float64(ebsRates(e, vs.SType, vs.GiB, vs.IOPS)*730*12), 'g', -1, 32),
+							strconv.FormatFloat(float64(ebsRates(e, vs.SType, vs.GiB[0], vs.IOPS)*730*12), 'g', -1, 32),
 						}
 					}
 				}
@@ -3255,7 +3259,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 				cf := func() float32 {
 					c := ec2Rates(e, rs.IType, rs.Plat)
 					for _, vs := range rs.Vols {
-						c += ebsRates(e, vs.SType, vs.GiB, vs.IOPS)
+						c += ebsRates(e, vs.SType, vs.GiB[0], vs.IOPS)
 					}
 					return c
 				}
@@ -3276,7 +3280,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							"",
 							"",
 							"0", // already counted
-							cv,
+							cv,  // min GiB stands in for volume size of indeterminate excess resources
 						}
 					}
 				}

@@ -37,7 +37,7 @@ type (
 	}
 	varVolume struct {
 		SType string
-		GiB   float32
+		GiB   []float32
 		IOPS  float32
 	}
 	varInstance struct {
@@ -190,6 +190,20 @@ func resolveLoc(n string) string {
 	return n
 }
 
+// getMM is a helper function that gets min/max values in a slice, reducing to a min/max pair
+func getMM[M int | float32](mms []M) []M {
+	mm := []M{0, 0}
+	if len(mms) > 0 {
+		sort.Slice(mms, func(i, j int) bool { return mms[i] < mms[j] })
+		if max := mms[len(mms)-1]; mms[0] > 0 {
+			mm[0], mm[1] = mms[0], max
+		} else if max > 0 {
+			mm[1] = max
+		}
+	}
+	return mm
+}
+
 // Reload Cloud Monitor settings from location or non-blocking function source
 func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 	var new *MonSettings
@@ -256,18 +270,6 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		return false, fmt.Errorf("unknown settings source")
 	}
 
-	getMM := func(mms []int) []int { // get min/max resource counts
-		mm := []int{0, 0}
-		if len(mms) > 0 {
-			sort.Ints(mms)
-			if max := mms[len(mms)-1]; mms[0] > 0 {
-				mm[0], mm[1] = mms[0], max
-			} else if max > 0 {
-				mm[1] = max
-			}
-		}
-		return mm
-	}
 	for _, t := range new.Variance.Templates { // finish/clean variance template map
 		for _, e := range t.Envs {
 			if s := e["EC2"]; s != nil {
@@ -281,8 +283,7 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		}
 	}
 	for _, i := range new.Variance.EC2 { // finish/clean variance EC2 resource map
-		i.Mre, _ = regexp.Compile(i.Match)
-		switch i.Plat {
+		switch i.Mre, _ = regexp.Compile(i.Match); i.Plat {
 		case "linux", "Linux":
 			i.Plat = ""
 		case "Windows":
@@ -291,11 +292,11 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 			i.Plat = "sqlserver-se"
 		}
 		for _, v := range i.Vols {
-			switch v.SType {
+			switch v.GiB = getMM(v.GiB); v.SType {
 			case "sc1", "st1", "standard":
 				v.IOPS = 0
 			case "gp2":
-				v.IOPS = v.GiB * 3
+				v.IOPS = v.GiB[0] * 3 // TODO: incorrect for sizes > minimum; replace with function?
 				fallthrough
 			case "io1", "io2":
 				if v.IOPS < 100 {
