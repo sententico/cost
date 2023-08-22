@@ -30,28 +30,28 @@ type (
 	}
 
 	// varianceFeature settings
-	varTemplate struct {
+	VarTemplate struct {
 		Descr string
 		Envs  map[string]map[string]map[string][]int
 		EC2   map[string][]int
 	}
-	varVolume struct {
+	VarVolume struct {
 		SType string
 		GiB   []float32
 		IOPS  float32
 	}
-	varInstance struct {
+	VarInstance struct {
 		Descr string
 		Match string
 		Plat  string
 		IType string
-		Vols  map[string]*varVolume
+		Vols  map[string]*VarVolume
 		Mre   *regexp.Regexp
 	}
 	varianceFeature struct {
 		Options   string
-		Templates map[string]*varTemplate
-		EC2       map[string]*varInstance
+		Templates map[string]*VarTemplate
+		EC2       map[string]*VarInstance
 	}
 
 	// awsService settings
@@ -293,19 +293,9 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 		}
 		for _, v := range i.Vols {
 			switch v.GiB = getMM(v.GiB); v.SType {
-			case "sc1", "st1", "standard":
-				v.IOPS = 0
-			case "gp2":
-				v.IOPS = v.GiB[0] * 3 // TODO: incorrect for sizes > minimum; replace with function?
-				fallthrough
-			case "io1", "io2":
-				if v.IOPS < 100 {
-					v.IOPS = 100
-				}
+			case "sc1", "st1", "standard", "gp2", "io1", "io2":
 			default:
-				if v.SType = "gp3"; v.IOPS < 3000 {
-					v.IOPS = 3000
-				}
+				v.SType = "gp3"
 			}
 		}
 	}

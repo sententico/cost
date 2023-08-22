@@ -3085,6 +3085,24 @@ func ebsRater() func(*varexEnv, string, float32, float32) float32 {
 		return 0
 	}
 }
+func adjIOPS(v *cmon.VarVolume, gib float32) (iops float32) {
+	switch iops = v.IOPS; v.SType {
+	case "sc1", "st1", "standard":
+		iops = 0
+	case "gp2":
+		iops = gib * 3
+		fallthrough
+	case "io1", "io2":
+		if iops < 100 {
+			iops = 100
+		}
+	default:
+		if iops < 3000 {
+			iops = 3000
+		}
+	}
+	return
+}
 func platFmt(plat, suffix string) string {
 	switch plat {
 	case "windows":
@@ -3176,7 +3194,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						}
 						continue
 					}
-					vt, cv, gib := "vol type eq", "0", v.gib
+					vt, cv, gib, iops := "vol type eq", "0", v.gib, float32(0)
 					if v.stype != vs.SType {
 						vt, cv = "vol type", strconv.FormatFloat(float64((ebsRates(e, vs.SType, v.gib, v.iops)-v.rate)*730*12), 'g', -1, 32)
 					}
@@ -3215,8 +3233,8 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						"0", // base cost in "vol type" record
 						cv,  // type->GiB->IOPS correction order assumed
 					}
-					if vt, cv = "vol IOPS eq", "0"; v.iops != vs.IOPS {
-						vt, cv = "vol IOPS", strconv.FormatFloat(float64((ebsRates(e, vs.SType, gib, vs.IOPS)-ebsRates(e, vs.SType, gib, v.iops))*730*12), 'g', -1, 32)
+					if vt, cv, iops = "vol IOPS eq", "0", adjIOPS(vs, gib); v.iops != iops {
+						vt, cv = "vol IOPS", strconv.FormatFloat(float64((ebsRates(e, vs.SType, gib, iops)-ebsRates(e, vs.SType, gib, v.iops))*730*12), 'g', -1, 32)
 					}
 					res <- []string{ // emit IOPS volume resource variant
 						v.id,
@@ -3228,7 +3246,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						e.tref,
 						vt,
 						fmt.Sprintf("%v", v.iops),
-						fmt.Sprintf("%v", vs.IOPS),
+						fmt.Sprintf("%v", iops),
 						"0", // base cost in "vol type" record
 						cv,  // type->GiB->IOPS correction order assumed
 					}
@@ -3247,7 +3265,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							"",
 							"",
 							"0",
-							strconv.FormatFloat(float64(ebsRates(e, vs.SType, vs.GiB[0], vs.IOPS)*730*12), 'g', -1, 32),
+							strconv.FormatFloat(float64(ebsRates(e, vs.SType, vs.GiB[0], adjIOPS(vs, vs.GiB[0]))*730*12), 'g', -1, 32),
 						}
 					}
 				}
@@ -3259,7 +3277,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 				cf := func() float32 {
 					c := ec2Rates(e, rs.IType, rs.Plat)
 					for _, vs := range rs.Vols {
-						c += ebsRates(e, vs.SType, vs.GiB[0], vs.IOPS)
+						c += ebsRates(e, vs.SType, vs.GiB[0], adjIOPS(vs, vs.GiB[0]))
 					}
 					return c
 				}
