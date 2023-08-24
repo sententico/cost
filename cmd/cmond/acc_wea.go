@@ -3105,6 +3105,10 @@ func adjIOPS(v *cmon.VarVolume, gib float32) (iops float32) {
 }
 func platFmt(plat, suffix string) string {
 	switch plat {
+	case "sqlserver-se":
+		return "SQL/SE" + suffix
+	case "sqlserver-ee":
+		return "SQL/EE" + suffix
 	case "windows":
 		return "Windows" + suffix
 	case "rhel":
