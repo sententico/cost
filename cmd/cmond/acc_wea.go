@@ -3141,7 +3141,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						if rs == nil {
 							return fmt.Sprintf("%v %v with %v volumes", i.itype, platFmt(i.plat, " instance"), len(i.vols))
 						}
-						return fmt.Sprintf("%v %v with %v volumes", rs.Descr, platFmt(rs.Plat, " instance"), len(i.vols))
+						return fmt.Sprintf("%v %v %v with %v volumes", rs.Descr, i.itype, platFmt(i.plat, " instance"), len(i.vols))
 					}
 					for _, v := range i.vols {
 						c += v.rate
@@ -3175,7 +3175,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 					i.id,
 					i.name,
 					fmt.Sprintf("EC2:%v", rref),
-					fmt.Sprintf("%v %v", rs.Descr, platFmt(rs.Plat, " instance")),
+					fmt.Sprintf("%v %v %v", rs.Descr, i.itype, platFmt(i.plat, " instance")),
 					eref,
 					e.reg,
 					e.tref,
