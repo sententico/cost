@@ -3131,12 +3131,18 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 		}
 		for rref, is := range e.ec2 {
 			rs, mm := settings.Variance.EC2[rref], mmm[rref]
-			if rs == nil || mm[1] == 0 {
-				if rref == "~" {
-					rref = "(unknown)"
-				}
+			switch {
+			case rref == "~":
+				rref = "(unknown)"
+				fallthrough
+			case mm[1] == 0:
 				for _, i := range is {
-					c := i.arate
+					c, d := i.arate, func() string {
+						if rs == nil {
+							return fmt.Sprintf("%v %v with %v volumes", i.itype, platFmt(i.plat, " instance"), len(i.vols))
+						}
+						return fmt.Sprintf("%v %v with %v volumes", rs.Descr, platFmt(rs.Plat, " instance"), len(i.vols))
+					}
 					for _, v := range i.vols {
 						c += v.rate
 					}
@@ -3144,7 +3150,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						i.id,
 						i.name,
 						fmt.Sprintf("EC2:%v", rref),
-						fmt.Sprintf("%v %v with %v volumes", i.itype, platFmt(i.plat, " instance"), len(i.vols)),
+						d(),
 						eref,
 						e.reg,
 						e.tref,
@@ -3161,7 +3167,8 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 				vt, cv, c := "inst type eq", "0", float32(0)
 				if i.itype != rs.IType {
 					if vt, c = "inst type", ec2Rates(e, i.itype, i.plat); c > 0 {
-						cv = strconv.FormatFloat(float64((ec2Rates(e, rs.IType, i.plat)-c)*i.arate/c*730*12), 'g', -1, 32)
+						// calculate annual cost variance with IType, factoring in active %, Savings Plans & EDP discount
+						cv = strconv.FormatFloat(float64((ec2Rates(e, rs.IType, i.plat)-c)/c*i.arate*730*12), 'g', -1, 32)
 					}
 				}
 				res <- []string{ // emit instance resource variant
