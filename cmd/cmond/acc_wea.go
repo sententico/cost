@@ -3318,7 +3318,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						cv = strconv.FormatFloat(float64(cf()*730*12), 'g', -1, 32)
 					}
 					res <- []string{ // emit missing resource variant
-						fmt.Sprintf("[%v]", o),
+						fmt.Sprintf("[%v]", o+1),
 						"",
 						fmt.Sprintf("EC2:%v", rref),
 						fmt.Sprintf("%v %v %v with %v volumes", rs.Descr, rs.IType, platFmt(rs.Plat, " instance"), len(rs.Vols)),
