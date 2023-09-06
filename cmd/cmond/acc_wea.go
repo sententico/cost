@@ -3164,7 +3164,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 				continue
 			}
 			for _, i := range is {
-				vt, cv, c := "inst type eq", "0", float32(0)
+				vt, cv, c := "inst type ok", "0", float32(0)
 				if i.itype != rs.IType {
 					if vt, c = "inst type", ec2Rates(e, i.itype, i.plat); c > 0 {
 						// calculate annual cost variance with IType, factoring in active %, Savings Plans & EDP discount
@@ -3205,7 +3205,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						}
 						continue
 					}
-					vt, cv, gib, iops := "vol type eq", "0", v.gib, float32(0)
+					vt, cv, gib, iops := "vol type ok", "0", v.gib, float32(0)
 					if v.stype != vs.SType {
 						vt, cv = "vol type", strconv.FormatFloat(float64((ebsRates(e, vs.SType, v.gib, v.iops)-v.rate)*730*12), 'g', -1, 32)
 					}
@@ -3223,7 +3223,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						strconv.FormatFloat(float64(v.rate*730*12), 'g', -1, 32),
 						cv, // type->GiB->IOPS correction order assumed
 					}
-					if vt, cv = "vol GiB eq", "0"; v.gib < vs.GiB[0] {
+					if vt, cv = "vol GiB ok", "0"; v.gib < vs.GiB[0] {
 						gib = vs.GiB[0]
 						vt, cv = "vol GiB", strconv.FormatFloat(float64((ebsRates(e, vs.SType, gib, v.iops)-ebsRates(e, vs.SType, v.gib, v.iops))*730*12), 'g', -1, 32)
 					} else if v.gib > vs.GiB[1] {
@@ -3244,7 +3244,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						"0", // base cost in "vol type" record
 						cv,  // type->GiB->IOPS correction order assumed
 					}
-					if vt, cv, iops = "vol IOPS eq", "0", adjIOPS(vs, gib); v.iops != iops {
+					if vt, cv, iops = "vol IOPS ok", "0", adjIOPS(vs, gib); v.iops != iops {
 						vt, cv = "vol IOPS", strconv.FormatFloat(float64((ebsRates(e, vs.SType, gib, iops)-ebsRates(e, vs.SType, gib, v.iops))*730*12), 'g', -1, 32)
 					}
 					res <- []string{ // emit IOPS volume resource variant
@@ -3298,7 +3298,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 							cv = strconv.FormatFloat(float64(-cf()*730*12), 'g', -1, 32)
 						}
 						res <- []string{ // emit "imperfect" excess resource variant
-							"",
+							fmt.Sprintf("[%v]", o),
 							"",
 							fmt.Sprintf("EC2:%v", rref),
 							fmt.Sprintf("%v %v", rs.Descr, platFmt(rs.Plat, " instance")),
@@ -3318,7 +3318,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 						cv = strconv.FormatFloat(float64(cf()*730*12), 'g', -1, 32)
 					}
 					res <- []string{ // emit missing resource variant
-						"",
+						fmt.Sprintf("[%v]", o),
 						"",
 						fmt.Sprintf("EC2:%v", rref),
 						fmt.Sprintf("%v %v %v with %v volumes", rs.Descr, rs.IType, platFmt(rs.Plat, " instance"), len(rs.Vols)),
