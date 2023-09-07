@@ -173,7 +173,7 @@ func (s *API) Variance(args *cmon.VarianceArgs, r *[][]string) (err error) {
 	switch authVer(args.Token, 0, s.Ver) {
 	case 0:
 		var c chan []string
-		if c, err = varianceExtract(args.Rows); err != nil {
+		if c, err = varianceExtract(args.Rows, args.Nofilter); err != nil {
 			return
 		}
 		*r = make([][]string, 0, args.Rows)

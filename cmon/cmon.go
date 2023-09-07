@@ -30,9 +30,14 @@ type (
 	}
 
 	// varianceFeature settings
+	VarEnvironment struct {
+		EC2     map[string][]int
+		Filters map[string][]string
+		Nre     *regexp.Regexp
+	}
 	VarTemplate struct {
 		Descr string
-		Envs  map[string]map[string]map[string][]int
+		Envs  map[string]*VarEnvironment
 		EC2   map[string][]int
 	}
 	VarVolume struct {
@@ -146,8 +151,9 @@ type (
 
 	// VarianceArgs ...
 	VarianceArgs struct {
-		Token string // Admin.Auth access token (renew hourly to avoid expiration)
-		Rows  int    // maximum rows
+		Token    string // Admin.Auth access token (renew hourly to avoid expiration)
+		Rows     int    // maximum rows
+		Nofilter bool   // filter bypass
 	}
 )
 
@@ -272,11 +278,10 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 
 	for _, t := range new.Variance.Templates { // finish/clean variance template map
 		for _, e := range t.Envs {
-			if s := e["EC2"]; s != nil {
-				for rref, mms := range s {
-					s[rref] = getMM(mms)
-				}
+			for rref, mms := range e.EC2 {
+				e.EC2[rref] = getMM(mms)
 			}
+			e.Nre, _ = regexp.Compile(strings.Join(e.Filters["name"], ""))
 		}
 		for rref, mms := range t.EC2 {
 			t.EC2[rref] = getMM(mms)

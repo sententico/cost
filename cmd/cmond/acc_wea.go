@@ -3126,7 +3126,7 @@ func variance(rows int, scan map[string]*varexEnv, res chan []string) {
 		for rref, mm := range t.EC2 {
 			mmm[rref] = mm
 		}
-		for rref, mm := range t.Envs[eref]["EC2"] {
+		for rref, mm := range t.Envs[eref].EC2 {
 			mmm[rref] = mm // make min/max map by environment with Envs overriding EC2 template settings
 		}
 		for rref, is := range e.ec2 {
@@ -3409,7 +3409,7 @@ func setPT(pt string) func(string) float64 {
 		return (g - ptg) + (m-ptm)*0.6
 	}
 }
-func varianceExtract(rows int) (res chan []string, err error) {
+func varianceExtract(rows int, nofilter bool) (res chan []string, err error) {
 	var ec2, ebs *modAcc
 	var step string
 	if rows++; rows < 0 || rows == 1 || rows > maxTableRows+1 {
@@ -3448,13 +3448,18 @@ func varianceExtract(rows int) (res chan []string, err error) {
 			case "terminated":
 			default:
 				tag := cmon.TagMap{}.UpdateR(tags[id]).UpdateP(settings.AWS.Accounts[inst.Acct], "cmon:").UpdateV(settings, inst.Acct)
-				eref := tag["cmon:Env"]
-				if e, name, match := scan[eref], tag["cmon:Name"], "~"; e != nil {
+				eref, name := tag["cmon:Env"], tag["cmon:Name"]
+				if e, match := scan[eref], "~"; e != nil {
 					if e.reg == "" { // assume all environment resouces in 1 region
 						e.reg = aws.Region(inst.AZ)
 					}
-					if name != "" {
-						t, rrs := settings.Variance.Templates[e.tref], make([]string, 0, 16)
+					t := settings.Variance.Templates[e.tref]
+					if es := t.Envs[eref]; !nofilter && func() bool {
+						return es.Nre != nil && es.Nre.FindString(name) != ""
+					}() {
+						continue // skip instances per configured filters
+					} else if name != "" {
+						rrs := make([]string, 0, 16)
 						func(rms []map[string][]int) { // match instance to template resource type
 							for _, rm := range rms {
 								for rref := range rm {
@@ -3483,7 +3488,7 @@ func varianceExtract(rows int) (res chan []string, err error) {
 									}
 								}
 							}
-						}([]map[string][]int{t.EC2, t.Envs[eref]["EC2"]})
+						}([]map[string][]int{t.EC2, es.EC2})
 					}
 					e.ec2[match] = append(e.ec2[match], varexInst{
 						id:    id,
