@@ -48,7 +48,8 @@ var (
 		plan        string   // savings plan type ("3nc", "1ns", ...)
 
 		varianceSet *flag.FlagSet
-		vaRows      int // maximum variance rows
+		vaRows      int  // maximum variance rows
+		vaNofilter  bool // filter suppression flag
 	}
 	address  string            // cmon server address (args override settings file)
 	settings *cmon.MonSettings // settings
@@ -123,6 +124,7 @@ func init() {
 
 	args.varianceSet = flag.NewFlagSet("variance", flag.ExitOnError)
 	args.varianceSet.IntVar(&args.vaRows, "rows", 1e5, "`maximum` variances to return")
+	args.varianceSet.BoolVar(&args.vaNofilter, "nofilter", false, "filter supression `flag`")
 	args.varianceSet.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			"\nThe \"variance\" subcommand returns resource variants against template specifications in table/CSV form."+
@@ -329,8 +331,9 @@ func varianceCmd() {
 	}
 	var r [][]string
 	if err = client.Call("API.Variance", &cmon.VarianceArgs{
-		Token: "placeholder_access_token",
-		Rows:  args.vaRows,
+		Token:    "placeholder_access_token",
+		Rows:     args.vaRows,
+		Nofilter: args.vaNofilter,
 	}, &r); err != nil {
 		fatal(1, "error calling GoRPC: %v", err)
 	}
