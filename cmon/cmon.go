@@ -31,9 +31,9 @@ type (
 
 	// varianceFeature settings
 	VarEnvironment struct {
-		EC2     map[string][]int
-		Filters map[string][]string
-		Nre     *regexp.Regexp
+		EC2    map[string][]int
+		Filter map[string][]string
+		Nre    *regexp.Regexp
 	}
 	VarTemplate struct {
 		Descr string
@@ -281,7 +281,7 @@ func Reload(cur **MonSettings, source interface{}) (loaded bool, err error) {
 			for rref, mms := range e.EC2 {
 				e.EC2[rref] = getMM(mms)
 			}
-			e.Nre, _ = regexp.Compile(strings.Join(e.Filters["name"], ""))
+			e.Nre, _ = regexp.Compile(strings.Join(e.Filter["name"], ""))
 		}
 		for rref, mms := range t.EC2 {
 			t.EC2[rref] = getMM(mms)
