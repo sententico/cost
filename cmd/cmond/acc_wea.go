@@ -3454,9 +3454,8 @@ func varianceExtract(rows int, nofilter bool) (res chan []string, err error) {
 						e.reg = aws.Region(inst.AZ)
 					}
 					t := settings.Variance.Templates[e.tref]
-					if es := t.Envs[eref]; !nofilter && func() bool {
-						return es.Nre != nil && es.Nre.FindString(name) != ""
-					}() {
+					if es := t.Envs[eref]; !nofilter && (es.Nre != nil && es.Nre.FindString(name) != "" ||
+						es.Vre != nil && es.Vre.FindString(inst.VPC) != "") {
 						continue // skip instances per configured filters
 					} else if name != "" {
 						rrs := make([]string, 0, 16)
