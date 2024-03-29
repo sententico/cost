@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	// DefaultRDSEBSRates ... requires maintenance updates (last Sep22)
+	// DefaultRDSEBSRates ... requires maintenance updates (last Mar24)
 	DefaultRDSEBSRates = `[
 		{"Rg":"us-east-1",	"T":"gp2",		"SZ":0.115,	"IO":0},
+		{"Rg":"us-east-1",	"T":"gp3",		"SZ":0.115,	"IO":0.02},
 		{"Rg":"us-east-1",	"T":"io1",		"SZ":0.125,	"IO":0.1},
 		{"Rg":"us-east-1",	"T":"io2",		"SZ":0.125,	"IO":0.1},
 		{"Rg":"us-east-1",	"T":"st1",		"SZ":0.1,	"IO":0},
@@ -21,6 +22,7 @@ const (
 		{"Rg":"us-east-1",	"T":"aurora",	"SZ":0.1,	"IO":0},
 
 		{"Rg":"us-west-1",	"T":"gp2",		"SZ":0.138,	"IO":0},
+		{"Rg":"us-west-1",	"T":"gp3",		"SZ":0.138,	"IO":0.024},
 		{"Rg":"us-west-1",	"T":"io1",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"us-west-1",	"T":"io2",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"us-west-1",	"T":"st1",		"SZ":0.11,	"IO":0},
@@ -28,6 +30,7 @@ const (
 		{"Rg":"us-west-1",	"T":"aurora",	"SZ":0.11,	"IO":0},
 
 		{"Rg":"eu-west-1",	"T":"gp2",		"SZ":0.127,	"IO":0},
+		{"Rg":"eu-west-1",	"T":"gp3",		"SZ":0.127,	"IO":0.022},
 		{"Rg":"eu-west-1",	"T":"io1",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"eu-west-1",	"T":"io2",		"SZ":0.138,	"IO":0.11},
 		{"Rg":"eu-west-1",	"T":"st1",		"SZ":0.11,	"IO":0},
@@ -35,6 +38,7 @@ const (
 		{"Rg":"eu-west-1",	"T":"aurora",	"SZ":0.11,	"IO":0},
 
 		{"Rg":"eu-west-2",	"T":"gp2",		"SZ":0.133,	"IO":0},
+		{"Rg":"eu-west-2",	"T":"gp3",		"SZ":0.133,	"IO":0.023},
 		{"Rg":"eu-west-2",	"T":"io1",		"SZ":0.145,	"IO":0.116},
 		{"Rg":"eu-west-2",	"T":"io2",		"SZ":0.145,	"IO":0.116},
 		{"Rg":"eu-west-2",	"T":"st1",		"SZ":0.116,	"IO":0},
@@ -42,6 +46,7 @@ const (
 		{"Rg":"eu-west-2",	"T":"aurora",	"SZ":0.1,	"IO":0},
 
 		{"Rg":"eu-central-1","T":"gp2",		"SZ":0.137,	"IO":0},
+		{"Rg":"eu-central-1","T":"gp3",		"SZ":0.137,	"IO":0.024},
 		{"Rg":"eu-central-1","T":"io1",		"SZ":0.149,	"IO":0.119},
 		{"Rg":"eu-central-1","T":"io2",		"SZ":0.149,	"IO":0.119},
 		{"Rg":"eu-central-1","T":"st1",		"SZ":0.119,	"IO":0},

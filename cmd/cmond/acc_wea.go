@@ -39,7 +39,7 @@ type (
 )
 
 const (
-	maxTableRows = 1e7 // maximum table extract rows allowed
+	maxTableRows = 3e7 // maximum table extract rows allowed
 	maxPctMargin = 10  // maximum magnitude of %margin for non-billed amounts
 )
 
