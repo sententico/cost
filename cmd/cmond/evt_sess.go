@@ -31,7 +31,7 @@ type (
 )
 
 var (
-	ec2P = regexp.MustCompile(`\b(Linux( Spot)?|RHEL|Windows( with SQL (SE|EE|Web|EX)| Spot)?|SQL (SE|EE|Web|EX))\b`)
+	ec2P = regexp.MustCompile(`\b((Linux|RHEL|SUSE|Ubuntu Pro)( Spot)?|Windows( with SQL (SE|EE|Web|EX)| Spot)?|SQL (SE|EE|Web|EX))\b`)
 
 	ec2Metrics = []alertMetric{
 		{"ec2.aws/acct", "AWS account", 4, 0.05, 5, 2, ec2Usage, func(k string) []string { return []string{`acct~^` + k} }},
@@ -582,6 +582,7 @@ func ec2awsFeedback(m *model, event *modEvt) {
 		func() {
 			cur, now, pg, pmap := mMod[event.name].newAcc(), "", lgPage, map[string]string{
 				"RHEL":                 "rhel",
+				"RHEL Spot":            "rhel",
 				"Windows":              "windows",
 				"Windows Spot":         "windows",
 				"Windows with SQL SE":  "sqlserver-se",
@@ -614,7 +615,7 @@ func ec2awsFeedback(m *model, event *modEvt) {
 					} else {
 						f.charge += item.Chg
 					}
-					if p := ec2P.FindString(item.Desc); p != "" {
+					if p := ec2P.FindString(item.Desc); p != "" { // select only "proper" instance usage
 						if off := item.Recs & toffMask; off >= f.off {
 							if f.off, f.plat = off, pmap[p]; strings.HasSuffix(p, " Spot") {
 								f.spot = true
