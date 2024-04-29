@@ -2985,7 +2985,7 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 				close(res)
 			}
 		}()
-		pg, trunc, tags := smPage, float32(truncate), globalTags(2, 1)
+		pg, trunc, tags := lgPage, float32(truncate), globalTags(2, 1)
 		acc.reqR()
 	outerLoop:
 		for mo, hrs := range cur.Month {
@@ -3013,6 +3013,11 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 							continue
 						}
 					}
+					if pg--; pg < 0 {
+						acc.rel()
+						pg = lgPage
+						acc.reqR()
+					}
 					if pu, tag := sum.Hist.ppuse(li.RID, from, to), (cmon.TagMap{}).UpdateR(tags[li.RID]).Update(cmon.TagMap{
 						"cmon:Name": li.Name,
 						"cmon:Env":  li.Env,
@@ -3032,17 +3037,14 @@ func curtabExtract(from, to int32, units int16, rows int, truncate float64, crit
 							if rows--; rows == 0 {
 								break outerLoop
 							}
-							if pg--; pg >= 0 {
-								select {
-								case res <- row:
-									continue
-								default:
-								}
+							select {
+							case res <- row:
+							default:
+								acc.rel()
+								res <- row
+								pg = lgPage
+								acc.reqR()
 							}
-							acc.rel()
-							res <- row
-							pg = smPage
-							acc.reqR()
 						}
 					}
 				}

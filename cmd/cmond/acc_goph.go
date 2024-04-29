@@ -613,7 +613,7 @@ func curawsFinalize(acc *modAcc) {
 			psum.ByRegion.update(work.isum.ByRegion, bh, eh)
 			psum.ByTyp.update(work.isum.ByTyp, bh, eh)
 			psum.BySvc.update(work.isum.BySvc, bh, eh)
-			psum.Hist.update(wm, bh, eh)
+			psum.Hist.update(acc, wm, bh, eh)
 			logI.Printf("%s AWS CUR update: %d line items (%d truncated @$%.4f) updated %d",
 				bt.Format("Jan06"), len(wm), tl, tc, len(pm))
 		}

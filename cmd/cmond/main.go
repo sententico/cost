@@ -64,13 +64,13 @@ const (
 )
 
 const (
-	tokXRmax = 120  // model read access token expiration max (seconds)
-	tokXWmax = 60   // model write access token expiration max (seconds)
-	tokXmin  = 2    // model access token expiration min (seconds)
-	tokXR    = 12   // model read access token expiration default (seconds)
-	tokXW    = 6    // model write access token expiration default (seconds)
-	smPage   = 512  // model access small page size (gopher/weasel access with I/O)
-	lgPage   = 4096 // model access large page size (access without I/O)
+	tokXRmax = 120   // model read access token expiration max (seconds)
+	tokXWmax = 60    // model write access token expiration max (seconds)
+	tokXmin  = 2     // model access token expiration min (seconds)
+	tokXR    = 12    // model read access token expiration default (seconds)
+	tokXW    = 6     // model write access token expiration default (seconds)
+	smPage   = 512   // model access small page size (gopher/weasel access with I/O)
+	lgPage   = 16384 // model access large page size (access with less I/O)
 )
 
 var (
