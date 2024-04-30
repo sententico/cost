@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -528,27 +529,29 @@ func (m hsA) clean(exp int32) {
 	}
 }
 func (m riO) update(acc *modAcc, mo map[string]*curItem, from, to int32) {
-	pg := lgPage
-	for _, li := range mo {
-		if li.RID == "" {
-		} else if func() int {
-			if pg--; pg < 0 { // pagination provides cooperative access and avoids write token expiration
-				acc.rel()
-				pg = lgPage
-				acc.reqW()
-			}
-			return pg
-		}() < 0 {
-		} else if o, f, t := m[li.RID], int32(li.Recs>>foffShift&foffMask)+from, int32(li.Recs&toffMask)+from; o[1] == 0 {
-			m[li.RID] = [2]int32{f, t}
-		} else if t > o[1] {
-			if o[1] = t; f < o[0] {
+	if match, pg := settings.AWS.CUR["HistMatch"], lgPage; match != "" {
+		re, _ := regexp.Compile(match)
+		for _, li := range mo {
+			if li.RID == "" || re == nil && !strings.HasPrefix(li.RID, match) {
+			} else if func() int {
+				if pg--; pg < 0 { // pagination provides cooperative access and avoids write token expiration
+					acc.rel()
+					pg = lgPage
+					acc.reqW()
+				}
+				return pg
+			}() < 0 || re != nil && !re.MatchString(li.RID) {
+			} else if o, f, t := m[li.RID], int32(li.Recs>>foffShift&foffMask)+from, int32(li.Recs&toffMask)+from; o[1] == 0 {
+				m[li.RID] = [2]int32{f, t}
+			} else if t > o[1] {
+				if o[1] = t; f < o[0] {
+					o[0] = f
+				}
+				m[li.RID] = o
+			} else if f < o[0] {
 				o[0] = f
+				m[li.RID] = o
 			}
-			m[li.RID] = o
-		} else if f < o[0] {
-			o[0] = f
-			m[li.RID] = o
 		}
 	}
 }
