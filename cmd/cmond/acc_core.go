@@ -333,7 +333,7 @@ func (m *model) store(final bool) {
 		logE.Printf("disruption storing %q state in %q: %v", m.name, fn, err)
 		pr.CloseWithError(err)
 		f.Close()
-		// TODO: consider deleting/truncating fn due to corrupt/incomplete contents
+		os.Remove(fn) // delete fn due to corrupt/incomplete contents
 	} else {
 		f.Close()
 	}
@@ -530,7 +530,7 @@ func (m hsA) clean(exp int32) {
 }
 func (m riO) update(acc *modAcc, mo map[string]*curItem, from, to int32) {
 	if match, pg := settings.AWS.CUR["HistMatch"], lgPage; match != "" {
-		re, _ := regexp.Compile(match)
+		re, _ := regexp.Compile(match) // filter history by RID match to regex/prefix criteria
 		for _, li := range mo {
 			if li.RID == "" || re == nil && !strings.HasPrefix(li.RID, match) {
 			} else if func() int {
