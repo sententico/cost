@@ -333,7 +333,7 @@ func (m *model) store(final bool) {
 		logE.Printf("disruption storing %q state in %q: %v", m.name, fn, err)
 		pr.CloseWithError(err)
 		f.Close()
-		os.Remove(fn) // delete fn due to corrupt/incomplete contents
+		os.Remove(fn) // delete corrupt/incomplete state to forestall startup failure
 	} else {
 		f.Close()
 	}
