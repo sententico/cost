@@ -337,22 +337,22 @@ func rdsawsInsert(acc *modAcc, item map[string]string, now int) {
 	db, dur, az := detail.DB[id], 0, 1
 	if db == nil {
 		db = &rdsItem{
-			Typ:    item["type"],
-			STyp:   item["stype"],
-			Engine: item["engine"],
-			Since:  now,
+			Since: now,
 		}
 		detail.DB[id] = db
 	} else {
 		dur = now - db.Last
 	}
 	db.Acct = item["acct"]
+	db.Typ = item["type"]
+	db.STyp = item["stype"]
 	db.GiB = atoi(item["gib"], 0)
 	db.IOPS = atoi(item["iops"], 0)
+	db.Engine = item["engine"]
 	db.Ver = item["ver"]
+	db.Lic = item["lic"]
 	db.AZ = item["az"]
 	db.VPC = item["vpc"]
-	db.Lic = item["lic"]
 	if db.MultiAZ = item["multiaz"] == "True"; db.MultiAZ {
 		az = 2
 	}
