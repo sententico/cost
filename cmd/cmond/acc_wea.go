@@ -617,6 +617,15 @@ func active(since, last int, ap []int) float32 {
 	return float32(a) / float32(last-since+1)
 }
 
+func lactive(since, last int, ap []int) float32 {
+	if len(ap) < 2 {
+		return -1.0
+	} else if la := ap[len(ap)-1]; la < last {
+		return float32(la-last-1) / float32(last-since+1)
+	}
+	return float32(last-ap[len(ap)-2]+1) / float32(last-since+1)
+}
+
 func atos(ts string) (s int64) {
 	if s, _ = strconv.ParseInt(ts, 0, 0); s > 1e4 {
 		if s < 3e6 { // hours/seconds in Unix epoch cutoff
@@ -1302,11 +1311,11 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool {
-						return active(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) < float32(f)
+						return lactive(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) < float32(f)
 					})
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool {
-						return active(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) > float32(f)
+						return lactive(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) > float32(f)
 					})
 				}
 			}
@@ -1426,7 +1435,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			tstos(vol.Metric["ioq"]),
 			vol.State,
 			time.Unix(int64(vol.Since), 0).UTC().Format("2006-01-02 15:04:05"),
-			strconv.FormatFloat(float64(active(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
+			strconv.FormatFloat(float64(lactive(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
 			strconv.FormatFloat(float64(vol.Rate), 'g', -1, 32),
 		}
 		if pg--; pg >= 0 {
