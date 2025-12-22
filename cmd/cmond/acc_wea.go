@@ -619,11 +619,11 @@ func active(since, last int, ap []int) float32 {
 
 func hactive(since, last int, ap []int) float32 {
 	if len(ap) < 2 {
-		return (float32(since-last) - 0.5) / 86400.0
+		return (float32(since-last) - 0.5) / 3600.0
 	} else if la := ap[len(ap)-1]; la < last {
-		return (float32(la-last) - 0.5) / 86400.0
+		return (float32(la-last) - 0.5) / 3600.0
 	}
-	return (float32(last-ap[len(ap)-2]) + 0.5) / 86400.0
+	return (float32(last-ap[len(ap)-2]) + 0.5) / 3600.0
 }
 
 func atos(ts string) (s int64) {
