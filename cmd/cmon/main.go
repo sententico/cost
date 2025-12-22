@@ -270,7 +270,7 @@ func tableCmd() {
 		case "ec2.aws":
 			fmt.Println("Inst,Acct,Type,Plat,Vol,AZ,VPC,AMI,Spot" + tags + ",CPU%,State,Since,Active%,ORate,Rate")
 		case "ebs.aws":
-			fmt.Println("Vol,Acct,Type,GiB,IOPS,MiBps,AZ,Mount" + tags + ",IO%,IOQ,State,Since,Active%,Rate")
+			fmt.Println("Vol,Acct,Type,GiB,IOPS,MiBps,AZ,Mount" + tags + ",IO%,IOQ,State,Since,Hours,Rate")
 		case "rds.aws":
 			fmt.Println("DB,Acct,Type,SType,GiB,IOPS,Engine,EngVer,Lic,AZ,VPC" + tags + ",CPU%,IOQ,Conn,Mem,Sto,State,Since,Active%,Rate")
 		case "snap.aws":

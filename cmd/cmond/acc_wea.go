@@ -614,16 +614,16 @@ func active(since, last int, ap []int) float32 {
 	for i := 0; i+1 < len(ap); i += 2 {
 		a += ap[i+1] - ap[i] + 1
 	}
-	return float32(a) / float32(last-since+1)
+	return float32(a) / (float32(last-since) + 0.5)
 }
 
-func lactive(since, last int, ap []int) float32 {
+func hactive(since, last int, ap []int) float32 {
 	if len(ap) < 2 {
-		return -1.0
+		return (float32(since-last) - 0.5) / 86400.0
 	} else if la := ap[len(ap)-1]; la < last {
-		return float32(la-last-1) / float32(last-since+1)
+		return (float32(la-last) - 0.5) / 86400.0
 	}
-	return float32(last-ap[len(ap)-2]+1) / float32(last-since+1)
+	return (float32(last-ap[len(ap)-2]) + 0.5) / 86400.0
 }
 
 func atos(ts string) (s int64) {
@@ -1302,7 +1302,7 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 					flt = append(flt, func(v ...interface{}) bool { return v[0].(*ebsItem).Since > int(s) })
 				}
 			}
-		case "Active%", "active%", "act%":
+		case "Hours", "hours", "hrs", "hactive", "hact":
 			if attr != "" {
 				return 0, nil, fmt.Errorf("%q attribute not supported for %q column", attr, col)
 			} else if f, err := strconv.ParseFloat(opd, 32); err != nil {
@@ -1311,11 +1311,11 @@ func (d *ebsDetail) filters(criteria []string) (int, []func(...interface{}) bool
 				switch op {
 				case "<":
 					flt = append(flt, func(v ...interface{}) bool {
-						return lactive(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) < float32(f)
+						return hactive(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) < float32(f)
 					})
 				case ">":
 					flt = append(flt, func(v ...interface{}) bool {
-						return lactive(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) > float32(f)
+						return hactive(v[0].(*ebsItem).Since, v[0].(*ebsItem).Last, v[0].(*ebsItem).Active) > float32(f)
 					})
 				}
 			}
@@ -1435,7 +1435,7 @@ func (d *ebsDetail) table(acc *modAcc, res chan []string, rows, cur int, flt []f
 			tstos(vol.Metric["ioq"]),
 			vol.State,
 			time.Unix(int64(vol.Since), 0).UTC().Format("2006-01-02 15:04:05"),
-			strconv.FormatFloat(float64(lactive(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
+			strconv.FormatFloat(float64(hactive(vol.Since, vol.Last, vol.Active)), 'g', -1, 32),
 			strconv.FormatFloat(float64(vol.Rate), 'g', -1, 32),
 		}
 		if pg--; pg >= 0 {
