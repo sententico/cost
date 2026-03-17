@@ -45,7 +45,16 @@ func compawsOpt(base *cmon.SeriesRet, ho, ivl int) func(int, float64) float64 {
 		if od, rk.Terms = rates.Lookup(&rk), args.plan; od == nil {
 			fatal(1, "no rates for %v", rk)
 		} else if sp, cell.od = rates.Lookup(&rk), float64(od.Rate); sp == nil {
-			cell.sp = cell.od // TODO: consider fallback to "s" plan
+			switch rk.Plat { // TODO: parameterize default SP rates
+			case "Lin":
+				cell.sp = cell.od * (1 - 0.5)
+			case "RHEL":
+				cell.sp = cell.od * (1 - 0.4)
+			case "Win":
+				cell.sp = cell.od * (1 - 0.27)
+			default:
+				cell.sp = cell.od * (1 - 0.14)
+			}
 		} else {
 			cell.sp = float64(sp.Rate)
 		}
