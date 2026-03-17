@@ -593,6 +593,7 @@ func ec2awsFeedback(m *model, event *modEvt) {
 				"SQL EE":               "sqlserver-ee",
 				"SQL Web":              "sqlserver-web",
 				"SQL EX":               "sqlserver-ex",
+				// TODO: expand this map (and ec2P regexp) to include more platforms
 			}
 			cur.reqR()
 			defer cur.rel()
@@ -615,13 +616,13 @@ func ec2awsFeedback(m *model, event *modEvt) {
 					} else {
 						f.charge += item.Chg
 					}
-					if p := ec2P.FindString(item.Desc); p != "" { // select only "proper" instance usage
-						if off := item.Recs & toffMask; off >= f.off {
-							if f.off, f.plat = off, pmap[p]; strings.HasSuffix(p, " Spot") {
-								f.spot = true
+					if item.Svc == "EC2" { // select only "proper" instance usage
+						if p := ec2P.FindString(item.Desc); p != "" {
+							if off := item.Recs & toffMask; off >= f.off {
+								f.off, f.plat, f.spot = off, pmap[p], strings.HasSuffix(p, " Spot")
 							}
+							f.usage += item.Usg
 						}
-						f.usage += item.Usg
 					}
 				}
 			}
