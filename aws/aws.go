@@ -129,6 +129,7 @@ var (
 		"oracle-se1":        "ORLs1", // deprecated
 		"oracle-se2":        "ORLs2",
 		"oracle-se2-cdb":    "ORLs2",
+		"sqlserver-dev-ee":  "SQLw", // approximately SQLw pricing
 		"sqlserver-ee":      "SQLe",
 		"sqlserver-se":      "SQLs",
 		"sqlserver-web":     "SQLw",
