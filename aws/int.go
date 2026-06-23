@@ -94,7 +94,7 @@ const (
 		{"Rg":"eu-central-1",	"T":"archive",	"SZ":0.0135}
 	]`
 
-	// requires maintenance updates (last 17Mar26 including Mac, serverless & other DB patches)
+	// requires maintenance updates (last 23Jun26 including Mac, serverless & other DB patches)
 	// terms ("Tm") should exclude "RI" prefixes
 	defaultRates = `[
 		{"Rg":"us-east-1","T":"mac1.metal","P":"Lin","Tm":"OD","R":1.083},
@@ -104,6 +104,7 @@ const (
 		{"Rg":"ca-central-1","T":"g6.xlarge","P":"Lin","Tm":"OD","R":0.8936},
 		{"Rg":"ap-southeast-2","T":"g6.4xlarge","P":"Lin","Tm":"OD","R":1.72042},
 		{"Rg":"ap-southeast-2","T":"g6.xlarge","P":"Lin","Tm":"OD","R":1.0464},
+		{"Rg":"us-east-1","T":"m8in.xlarge","P":"Lin","Tm":"OD","R":0.33416},
 
 		{"Rg":"us-east-1","T":"db.t3.micro","P":"SQLx","Tm":"OD","R":0.022},
 		{"Rg":"us-east-1","T":"db.t3.medium","P":"DOC","Tm":"OD","R":0.078},
