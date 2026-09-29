@@ -94,7 +94,7 @@ const (
 		{"Rg":"eu-central-1",	"T":"archive",	"SZ":0.0135}
 	]`
 
-	// requires maintenance updates (last 23Jun26 including Mac, serverless & other DB patches)
+	// requires maintenance updates (last 29Sep26 including Mac, serverless & other DB patches)
 	// terms ("Tm") should exclude "RI" prefixes
 	defaultRates = `[
 		{"Rg":"us-east-1","T":"mac1.metal","P":"Lin","Tm":"OD","R":1.083},
@@ -124,6 +124,10 @@ const (
 		{"Rg":"us-east-1","T":"db.m6gd.large","P":"PSQL","Tm":"OD","R":0.187},
 		{"Rg":"us-east-1","T":"db.m6gd.xlarge","P":"PSQL","Tm":"OD","R":0.373},
 		{"Rg":"us-east-1","T":"db.c6gd.xlarge","P":"PSQL","Tm":"OD","R":0.373},
+		{"Rg":"us-east-1","T":"db.m8gd.large","P":"PSQL","Tm":"OD","R":0.1976},
+		{"Rg":"us-east-1","T":"db.m8gd.large","P":"PSQL","Tm":"OD","R":0.3952},
+		{"Rg":"eu-west-2","T":"db.m8gd.large","P":"PSQL","Tm":"OD","R":0.24},
+		{"Rg":"ap-southeast-2","T":"db.m8gd.large","P":"PSQL","Tm":"OD","R":0.293},
 
 		{"Rg":"us-east-1","T":"db.r5.large","P":"DOC","Tm":"OD","R":0.277},
 		{"Rg":"us-east-1","T":"db.r5.xlarge","P":"DOC","Tm":"OD","R":0.554},
